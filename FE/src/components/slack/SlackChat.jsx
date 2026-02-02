@@ -20,11 +20,17 @@ import {
   Plus
 } from 'lucide-react';
 import { QAChannelView } from './QAChannelView';
+import { AIMentorChat } from './AIMentorChat';
 
 export function SlackChat({ channel }) {
   // If it's the Q&A channel, show the forum view instead
   if (channel === 'q&a-support') {
     return <QAChannelView />;
+  }
+
+  // If it's the AI Mentor channel, show the AI chat interface
+  if (channel === 'ai-mentor-bot') {
+    return <AIMentorChat />;
   }
 
   const [message, setMessage] = useState('');

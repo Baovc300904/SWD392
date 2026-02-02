@@ -1,12 +1,24 @@
 import { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
-export function ForgotPasswordPage({ onNavigate }) {
+export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+    
+    // Validate Gmail email
+    if (!email.endsWith('@gmail.com')) {
+      setError('Only Gmail accounts (@gmail.com) are allowed');
+      toast.error('Only Gmail accounts (@gmail.com) are allowed');
+      return;
+    }
+    
     // Simulate sending reset link
     setIsSubmitted(true);
   };
@@ -34,10 +46,10 @@ export function ForgotPasswordPage({ onNavigate }) {
           <div className="max-w-md">
             <h2 className="text-3xl font-bold mb-6">Having trouble signing in?</h2>
             <p className="text-lg text-gray-300 leading-relaxed">
-              Don't worry! We'll send you a password reset link to your registered email address. 
+              Don't worry! We'll send you a password reset link to your registered email address.
               Just enter your email and check your inbox.
             </p>
-            
+
             <div className="mt-8 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
               <p className="text-sm text-gray-300">
                 <strong>Need help?</strong> Contact our support team at{' '}
@@ -54,13 +66,13 @@ export function ForgotPasswordPage({ onNavigate }) {
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
           {/* Back Button */}
-          <button
-            onClick={() => onNavigate('login')}
+          <Link
+            to="/login"
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Sign In
-          </button>
+          </Link>
 
           {!isSubmitted ? (
             <>
@@ -68,7 +80,7 @@ export function ForgotPasswordPage({ onNavigate }) {
               <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
                 <p className="text-gray-600">
-                  Enter your university email address and we'll send you a link to reset your password.
+                  Enter your Gmail address and we'll send you a link to reset your password.
                 </p>
               </div>
 
@@ -77,21 +89,29 @@ export function ForgotPasswordPage({ onNavigate }) {
                 {/* Email Input */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    University Email
+                    Gmail Address
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="student@fpt.edu.vn"
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setError('');
+                      }}
+                      placeholder="yourname@gmail.com"
+                      className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${
+                        error ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       required
                     />
                   </div>
+                  {error && (
+                    <p className="mt-2 text-sm text-red-500">{error}</p>
+                  )}
                   <p className="mt-2 text-xs text-gray-500">
-                    Make sure to use your registered FPT University email address
+                    Make sure to use your registered Gmail account
                   </p>
                 </div>
 
@@ -134,9 +154,9 @@ export function ForgotPasswordPage({ onNavigate }) {
             <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h3 className="font-semibold text-gray-900 mb-2 text-sm">Still having issues?</h3>
               <ul className="text-xs text-gray-600 space-y-1">
-                <li>• Make sure you're using your FPT University email</li>
-                <li>• Check if your account is active</li>
-                <li>• Contact IT support if problem persists</li>
+                <li>• Make sure you're using your registered Gmail account</li>
+                <li>• Only Gmail addresses (@gmail.com) are accepted</li>
+                <li>• Contact support if problem persists</li>
               </ul>
             </div>
           )}

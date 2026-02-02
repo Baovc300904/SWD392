@@ -1,21 +1,87 @@
-import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowLeft, Chrome } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
-export function LoginPage({ onNavigate, onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+const loginSchema = z.object({
+  email: z.string()
+    .email('Invalid email address')
+    .refine((email) => email.endsWith('@gmail.com'), {
+      message: 'Only Gmail accounts (@gmail.com) are allowed'
+    }),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  rememberMe: z.boolean().optional()
+});
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Simple demo logic - check if admin email
-    if (email.includes('admin') || email.includes('manager')) {
-      onLogin('admin');
-    } else if (email.includes('lecturer')) {
-      onLogin('lecturer');
-    } else {
-      onLogin('student');
+export function LoginPage() {
+  const navigate = useNavigate();
+  const { login, isLoading } = useAuth();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      rememberMe: false
     }
+  });
+
+  const onSubmit = async (data) => {
+    const result = await login(data.email, data.password);
+
+    if (result.success) {
+      toast.success('Login successful!');
+      const role = result.user.role;
+
+      // Check for pending invite from localStorage
+      const pendingInvite = localStorage.getItem('pendingInvite');
+      if (pendingInvite) {
+        localStorage.removeItem('pendingInvite');
+        navigate(`/join/${pendingInvite}`);
+        return;
+      }
+
+      // Redirect based on role
+      switch (role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'lecturer':
+          navigate('/lecturer');
+          break;
+        default:
+          // TODO: Check if user has a group
+          // For demo: Assume user needs to join a group if they don't have one
+          // In real app: Check result.user.groupId or similar
+          const hasGroup = result.user.groupId; // This should come from API
+          if (hasGroup) {
+            navigate('/workspace');
+          } else {
+            toast.info('Please join a group to continue');
+            navigate('/join-group');
+          }
+      }
+    } else {
+      toast.error(result.error || 'Login failed');
+    }
+  };
+
+  const handleQuickLogin = async (role) => {
+    let email = '';
+    switch (role) {
+      case 'admin': email = 'admin@fpt.edu.vn'; break;
+      case 'lecturer': email = 'lecturer@fpt.edu.vn'; break;
+      case 'student': email = 'student@fpt.edu.vn'; break;
+    }
+    // For demo purposes, we reuse the login logic
+    await onSubmit({ email, password: 'password123' });
   };
 
   return (
@@ -69,13 +135,13 @@ export function LoginPage({ onNavigate, onLogin }) {
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
           {/* Back Button */}
-          <button
-            onClick={() => onNavigate('landing')}
+          <Link
+            to="/"
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
-          </button>
+          </Link>
 
           {/* Header */}
           <div className="mb-8">
@@ -84,7 +150,7 @@ export function LoginPage({ onNavigate, onLogin }) {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -94,13 +160,15 @@ export function LoginPage({ onNavigate, onLogin }) {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@fpt.edu.vn"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  {...register('email')}
+                  placeholder="yourname@gmail.com"
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
+              )}
             </div>
 
             {/* Password Input */}
@@ -112,13 +180,15 @@ export function LoginPage({ onNavigate, onLogin }) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register('password')}
                   placeholder="Enter your password"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.password ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
             {/* Remember Me & Forgot Password */}
@@ -126,27 +196,30 @@ export function LoginPage({ onNavigate, onLogin }) {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  {...register('rememberMe')}
                   className="w-4 h-4 text-[#F27125] border-gray-300 rounded focus:ring-[#F27125]"
                 />
                 <span className="text-sm text-gray-700">Remember me</span>
               </label>
-              <button
-                type="button"
-                onClick={() => onNavigate('forgot-password')}
+              <Link
+                to="/forgot-password"
                 className="text-sm text-[#F27125] hover:text-[#d96420] font-medium transition"
               >
                 Forgot Password?
-              </button>
+              </Link>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl"
+              disabled={isLoading}
+              className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              Sign In
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                'Sign In'
+              )}
             </button>
 
             {/* Divider */}
@@ -172,12 +245,12 @@ export function LoginPage({ onNavigate, onLogin }) {
           {/* Sign Up Link */}
           <p className="mt-8 text-center text-sm text-gray-600">
             Don't have an account?{' '}
-            <button
-              onClick={() => onNavigate('register')}
+            <Link
+              to="/register"
               className="text-[#F27125] hover:text-[#d96420] font-semibold transition"
             >
               Sign up now
-            </button>
+            </Link>
           </p>
 
           {/* Quick Demo Access - Dev Only */}
@@ -195,7 +268,8 @@ export function LoginPage({ onNavigate, onLogin }) {
               </p>
               <div className="grid grid-cols-3 gap-2">
                 <button
-                  onClick={() => onLogin('student')}
+                  type="button"
+                  onClick={() => handleQuickLogin('student')}
                   className="flex flex-col items-center justify-center gap-1.5 bg-white border-2 border-[#F27125] text-[#F27125] py-2.5 rounded-lg font-semibold hover:bg-orange-50 transition"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +278,8 @@ export function LoginPage({ onNavigate, onLogin }) {
                   <span className="text-xs">Student</span>
                 </button>
                 <button
-                  onClick={() => onLogin('lecturer')}
+                  type="button"
+                  onClick={() => handleQuickLogin('lecturer')}
                   className="flex flex-col items-center justify-center gap-1.5 bg-white border-2 border-[#1a1d21] text-[#1a1d21] py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -213,7 +288,8 @@ export function LoginPage({ onNavigate, onLogin }) {
                   <span className="text-xs">Lecturer</span>
                 </button>
                 <button
-                  onClick={() => onLogin('admin')}
+                  type="button"
+                  onClick={() => handleQuickLogin('admin')}
                   className="flex flex-col items-center justify-center gap-1.5 bg-[#F27125] text-white py-2.5 rounded-lg font-semibold hover:bg-[#d96420] transition shadow-md"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

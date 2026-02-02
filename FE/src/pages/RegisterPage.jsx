@@ -1,28 +1,51 @@
-import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { User, Mail, Lock, IdCard, ArrowLeft } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
-export function RegisterPage({ onNavigate }) {
-  const [formData, setFormData] = useState({
-    studentCode: '',
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+const registerSchema = z.object({
+  studentCode: z.string().min(3, 'Student Code is required'),
+  fullName: z.string().min(2, 'Full Name is required'),
+  email: z.string()
+    .email('Invalid email address')
+    .refine((email) => email.endsWith('@gmail.com'), {
+      message: 'Only Gmail accounts (@gmail.com) are allowed'
+    }),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+  terms: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the terms and conditions" }),
+  }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export function RegisterPage() {
+  const navigate = useNavigate();
+  const { register: registerUser, isLoading } = useAuth();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm({
+    resolver: zodResolver(registerSchema),
   });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
-      return;
-    }
-    // Handle registration
-    console.log('Registration data:', formData);
-    onNavigate('login');
-  };
+  const onSubmit = async (data) => {
+    const result = await registerUser(data);
 
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (result.success) {
+      toast.success('Account created successfully!');
+      navigate('/workspace');
+    } else {
+      toast.error(result.error || 'Registration failed');
+    }
   };
 
   return (
@@ -90,13 +113,13 @@ export function RegisterPage({ onNavigate }) {
       <div className="flex-1 flex items-center justify-center p-8 bg-white overflow-y-auto">
         <div className="w-full max-w-md">
           {/* Back Button */}
-          <button
-            onClick={() => onNavigate('landing')}
+          <Link
+            to="/"
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
-          </button>
+          </Link>
 
           {/* Header */}
           <div className="mb-8">
@@ -105,7 +128,7 @@ export function RegisterPage({ onNavigate }) {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Student Code */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -115,13 +138,15 @@ export function RegisterPage({ onNavigate }) {
                 <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  value={formData.studentCode}
-                  onChange={(e) => handleChange('studentCode', e.target.value)}
+                  {...register('studentCode')}
                   placeholder="SE150001"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.studentCode ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.studentCode && (
+                <p className="mt-1 text-sm text-red-500">{errors.studentCode.message}</p>
+              )}
             </div>
 
             {/* Full Name */}
@@ -133,13 +158,15 @@ export function RegisterPage({ onNavigate }) {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  value={formData.fullName}
-                  onChange={(e) => handleChange('fullName', e.target.value)}
+                  {...register('fullName')}
                   placeholder="Nguyen Van A"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.fullName ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.fullName && (
+                <p className="mt-1 text-sm text-red-500">{errors.fullName.message}</p>
+              )}
             </div>
 
             {/* Email */}
@@ -151,13 +178,15 @@ export function RegisterPage({ onNavigate }) {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  placeholder="student@fpt.edu.vn"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  {...register('email')}
+                  placeholder="yourname@gmail.com"
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
+              )}
             </div>
 
             {/* Password */}
@@ -169,13 +198,15 @@ export function RegisterPage({ onNavigate }) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="password"
-                  value={formData.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
+                  {...register('password')}
                   placeholder="Create a strong password"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.password ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
             {/* Confirm Password */}
@@ -187,13 +218,15 @@ export function RegisterPage({ onNavigate }) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                  {...register('confirmPassword')}
                   placeholder="Re-enter your password"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
-                  required
+                  className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
               </div>
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-500">{errors.confirmPassword.message}</p>
+              )}
             </div>
 
             {/* Terms */}
@@ -201,8 +234,8 @@ export function RegisterPage({ onNavigate }) {
               <input
                 type="checkbox"
                 id="terms"
+                {...register('terms')}
                 className="w-4 h-4 text-[#F27125] border-gray-300 rounded focus:ring-[#F27125] mt-1"
-                required
               />
               <label htmlFor="terms" className="text-sm text-gray-600">
                 I agree to the{' '}
@@ -215,25 +248,33 @@ export function RegisterPage({ onNavigate }) {
                 </a>
               </label>
             </div>
+            {errors.terms && (
+              <p className="mt-0 text-sm text-red-500">{errors.terms.message}</p>
+            )}
 
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl mt-6"
+              disabled={isLoading}
+              className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl mt-6 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              Create Account
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                'Create Account'
+              )}
             </button>
           </form>
 
           {/* Sign In Link */}
           <p className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <button
-              onClick={() => onNavigate('login')}
+            <Link
+              to="/login"
               className="text-[#F27125] hover:text-[#d96420] font-semibold transition"
             >
               Sign in here
-            </button>
+            </Link>
           </p>
         </div>
       </div>

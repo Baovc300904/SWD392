@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileCheck, 
+import {
+  LayoutDashboard,
+  Users,
+  FileCheck,
   Settings,
   LogOut,
   Activity,
@@ -23,7 +23,10 @@ import { UserManagementView } from '../components/admin/UserManagementView';
 import { TopicApprovalsView } from '../components/admin/TopicApprovalsView';
 import { SettingsView } from '../components/admin/SettingsView';
 
-export function AdminDashboard({ onLogout }) {
+import { useAuth } from '../context/AuthContext';
+
+export function AdminDashboard() {
+  const { logout } = useAuth();
   const [activeView, setActiveView] = useState('dashboard');
 
   return (
@@ -48,44 +51,40 @@ export function AdminDashboard({ onLogout }) {
           <div className="space-y-1">
             <button
               onClick={() => setActiveView('dashboard')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'dashboard'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'dashboard'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <LayoutDashboard className="w-5 h-5" />
               Dashboard
             </button>
             <button
               onClick={() => setActiveView('users')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'users'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'users'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <Users className="w-5 h-5" />
               User Management
             </button>
             <button
               onClick={() => setActiveView('topics')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'topics'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'topics'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <FileCheck className="w-5 h-5" />
               Topic Approvals
             </button>
             <button
               onClick={() => setActiveView('settings')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'settings'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'settings'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <Settings className="w-5 h-5" />
               Settings
@@ -96,7 +95,7 @@ export function AdminDashboard({ onLogout }) {
         {/* Logout Button - Bottom */}
         <div className="p-4 border-t border-white/10">
           <button
-            onClick={onLogout}
+            onClick={logout}
             className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-red-600 rounded-lg font-medium transition group"
           >
             <LogOut className="w-5 h-5 group-hover:text-white" />

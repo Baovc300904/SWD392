@@ -5,7 +5,10 @@ import { LecturerDashboard } from './LecturerDashboard';
 import { SlackSidebar } from '../slack/SlackSidebar';
 import { SlackChat } from '../slack/SlackChat';
 
-export function LecturerView({ onLogout }) {
+import { useAuth } from '../../context/AuthContext';
+
+export function LecturerView() {
+  const { logout } = useAuth();
   const [activeGroup, setActiveGroup] = useState('dashboard');
   const [activeChannel, setActiveChannel] = useState('general-chat');
   const [dashboardView, setDashboardView] = useState('dashboard');
@@ -15,7 +18,7 @@ export function LecturerView({ onLogout }) {
   return (
     <div className="flex h-screen bg-white overflow-hidden">
       {/* Column 1: Group Switcher (Discord-style Server Rail) */}
-      <GroupSwitcher 
+      <GroupSwitcher
         activeGroup={activeGroup}
         onGroupChange={(groupId) => {
           setActiveGroup(groupId);
@@ -27,16 +30,16 @@ export function LecturerView({ onLogout }) {
 
       {/* Column 2: Conditional Sidebar */}
       {isInDashboard ? (
-        <LecturerSidebar 
+        <LecturerSidebar
           activeView={dashboardView}
           onViewChange={setDashboardView}
-          onLogout={onLogout}
+          onLogout={logout}
         />
       ) : (
-        <SlackSidebar 
+        <SlackSidebar
           activeChannel={activeChannel}
           onChannelChange={setActiveChannel}
-          onLogout={onLogout}
+          onLogout={logout}
         />
       )}
 
