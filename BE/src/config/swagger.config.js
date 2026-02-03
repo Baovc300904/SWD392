@@ -24,8 +24,12 @@ const options = {
                 description: '🔓 Public endpoints - No authentication required'
             },
             {
-                name: 'Users',
-                description: '🔐 Protected endpoints - Authentication required'
+                name: 'User Management',
+                description: '👤 User profile and account management'
+            },
+            {
+                name: 'Admin Management',
+                description: '👨‍💼 Admin-only user CRUD operations'
             }
         ],
         components: {

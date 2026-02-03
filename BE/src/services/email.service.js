@@ -38,7 +38,7 @@ class EmailService {
                         <h1 style="color: #4CAF50; letter-spacing: 5px; margin: 0;">${otp}</h1>
                     </div>
                     
-                    <p>This OTP will expire in ${process.env.OTP_EXPIRE_MINUTES || 10} minutes.</p>
+                    <p>This OTP will expire in ${process.env.OTP_EXPIRE_MINUTES || 1} minutes.</p>
                     
                     <p style="color: #666; font-size: 12px;">
                         If you didn't create an account, please ignore this email.

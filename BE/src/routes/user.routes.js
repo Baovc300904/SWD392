@@ -6,8 +6,10 @@ const { authenticate, authorize } = require('../middleware/auth.middleware');
 /**
  * @swagger
  * tags:
- *   name: Users
- *   description: User management endpoints (CRUD operations)
+ *   - name: User Management
+ *     description: User profile and account management
+ *   - name: Admin Management
+ *     description: Admin-only user CRUD operations
  */
 
 /**
@@ -15,7 +17,7 @@ const { authenticate, authorize } = require('../middleware/auth.middleware');
  * /api/users:
  *   get:
  *     summary: Get all users (Admin only)
- *     tags: [Users]
+ *     tags: [Admin Management]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -46,7 +48,7 @@ router.get('/', authenticate, authorize('admin'), userController.getAllUsers);
  * /api/users/me:
  *   get:
  *     summary: Get current user profile
- *     tags: [Users]
+ *     tags: [User Management]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -71,7 +73,7 @@ router.get('/me', authenticate, userController.getCurrentUser);
  * /api/users/{id}:
  *   get:
  *     summary: Get user by ID
- *     tags: [Users]
+ *     tags: [User Management]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -107,7 +109,7 @@ router.get('/:id', authenticate, userController.getUserById);
  * /api/users:
  *   post:
  *     summary: Create new user (Admin only)
- *     tags: [Users]
+ *     tags: [Admin Management]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -161,7 +163,7 @@ router.post('/', authenticate, authorize('admin'), userController.createUser);
  * /api/users/{id}:
  *   put:
  *     summary: Update user
- *     tags: [Users]
+ *     tags: [User Management]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -217,7 +219,7 @@ router.put('/:id', authenticate, userController.updateUser);
  * /api/users/{id}:
  *   delete:
  *     summary: Delete user (Admin only)
- *     tags: [Users]
+ *     tags: [Admin Management]
  *     security:
  *       - bearerAuth: []
  *     parameters:
