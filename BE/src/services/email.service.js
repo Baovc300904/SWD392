@@ -24,6 +24,19 @@ class EmailService {
      * @param {string} name - User name
      */
     async sendOTP(email, otp, name) {
+        // FOR DEVELOPMENT: Print OTP to console if email not configured
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || process.env.EMAIL_USER === 'your-email@gmail.com') {
+            console.log('\n' + '='.repeat(60));
+            console.log('📧 OTP EMAIL - REGISTRATION (Development Mode)');
+            console.log('='.repeat(60));
+            console.log(`📨 To: ${email}`);
+            console.log(`👤 Name: ${name}`);
+            console.log(`🔑 OTP Code: ${otp}`);
+            console.log(`⏰ Expires in: ${process.env.OTP_EXPIRE_MINUTES || 10} minutes`);
+            console.log('='.repeat(60) + '\n');
+            return { success: true, messageId: 'dev-mode' };
+        }
+
         const mailOptions = {
             from: `"SWD392 System" <${process.env.EMAIL_FROM}>`,
             to: email,
@@ -69,6 +82,19 @@ class EmailService {
      * @param {string} name - User name
      */
     async sendPasswordResetOTP(email, otp, name) {
+        // FOR DEVELOPMENT: Print OTP to console if email not configured
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || process.env.EMAIL_USER === 'your-email@gmail.com') {
+            console.log('\n' + '='.repeat(60));
+            console.log('🔐 PASSWORD RESET OTP (Development Mode)');
+            console.log('='.repeat(60));
+            console.log(`📨 To: ${email}`);
+            console.log(`👤 Name: ${name}`);
+            console.log(`🔑 OTP Code: ${otp}`);
+            console.log(`⏰ Expires in: ${process.env.OTP_EXPIRE_MINUTES || 10} minutes`);
+            console.log('='.repeat(60) + '\n');
+            return { success: true, messageId: 'dev-mode' };
+        }
+
         const mailOptions = {
             from: `"SWD392 System" <${process.env.EMAIL_FROM}>`,
             to: email,

@@ -1,16 +1,34 @@
 import { useState } from 'react';
-import { Mail, ArrowLeft, CheckCircle, Lock } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle, Lock, AlertCircle } from 'lucide-react';
 import authService from '../services/auth.service';
 
 export function ForgotPasswordPage({ onNavigate }) {
+  const [step, setStep] = useState(1); // 1: Email, 2: OTP + New Password, 3: Success
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleRequestReset = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await authService.forgotPassword(email);
+      console.log('Password reset OTP sent');
+      setStep(2); // Move to OTP + password entry
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      setError(err.message || 'Failed to send reset code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -29,12 +47,35 @@ export function ForgotPasswordPage({ onNavigate }) {
     setLoading(true);
 
     try {
-      // Call forgot password API
-      await authService.forgotPassword(email, newPassword);
-      setIsSubmitted(true);
+      await authService.resetPassword({
+        email,
+        otp,
+        newPassword
+      });
+      console.log('Password reset successful');
+      setStep(3); // Move to success
+      
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        onNavigate('login');
+      }, 3000);
     } catch (err) {
-      console.error('Forgot password error:', err);
+      console.error('Reset password error:', err);
       setError(err.message || 'Failed to reset password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await authService.forgotPassword(email);
+      alert('OTP has been resent to your email!');
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP');
     } finally {
       setLoading(false);
     }
@@ -63,7 +104,7 @@ export function ForgotPasswordPage({ onNavigate }) {
           <div className="max-w-md">
             <h2 className="text-3xl font-bold mb-6">Having trouble signing in?</h2>
             <p className="text-lg text-gray-300 leading-relaxed">
-              Don't worry! We'll send you a password reset link to your registered email address. 
+              Don't worry! We'll send you a verification code to reset your password. 
               Just enter your email and check your inbox.
             </p>
             
@@ -91,29 +132,24 @@ export function ForgotPasswordPage({ onNavigate }) {
             Back to Sign In
           </button>
 
-          {!isSubmitted ? (
+          {/* Step 1: Email Entry */}
+          {step === 1 && (
             <>
-              {/* Header */}
               <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
                 <p className="text-gray-600">
-                  Enter your email address and new password to reset your account.
+                  Enter your email address and we'll send you a verification code.
                 </p>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Error Message */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <span>{error}</span>
-                  </div>
-                )}
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>{error}</span>
+                </div>
+              )}
 
-                {/* Email Input */}
+              <form onSubmit={handleRequestReset} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email Address
@@ -125,16 +161,79 @@ export function ForgotPasswordPage({ onNavigate }) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="your.email@gmail.com"
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125]"
                       required
                     />
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Enter the email address associated with your account
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl disabled:bg-gray-400"
+                >
+                  {loading ? 'Sending Code...' : 'Send Reset Code'}
+                </button>
+              </form>
+
+              <p className="text-center text-sm text-gray-600 mt-6">
+                Remember your password?{' '}
+                <button
+                  onClick={() => onNavigate('login')}
+                  className="text-[#F27125] hover:text-[#d96420] font-semibold transition"
+                >
+                  Sign In
+                </button>
+              </p>
+            </>
+          )}
+
+          {/* Step 2: OTP + New Password Entry */}
+          {step === 2 && (
+            <>
+              <div className="mb-8">
+                <div className="inline-block px-4 py-1 bg-orange-50 border border-orange-200 rounded-full mb-4">
+                  <span className="text-[#F27125] text-sm font-medium">Step 2 of 3</span>
+                </div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Enter Verification Code</h1>
+                <p className="text-gray-600">
+                  We've sent a code to <strong className="text-[#F27125]">{email}</strong>
+                </p>
+                <div className="mt-4 p-3 bg-orange-50 border-l-4 border-[#F27125] rounded-r-lg">
+                  <p className="text-sm text-gray-700">
+                    <strong>💡 Dev Mode:</strong> Check the backend console for the OTP code
+                  </p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleResetPassword} className="space-y-5">
+                {/* OTP Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="w-full px-4 py-4 border-2 border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent text-center text-3xl tracking-[0.5em] font-bold text-[#F27125] bg-orange-50/30"
+                    required
+                  />
+                  <p className="mt-2 text-xs text-gray-500 text-center">
+                    Code expires in 10 minutes
                   </p>
                 </div>
 
-                {/* New Password Input */}
+                {/* New Password */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     New Password
@@ -145,17 +244,17 @@ export function ForgotPasswordPage({ onNavigate }) {
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password (min 6 characters)"
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
+                      placeholder="Create new password"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125]"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Confirm Password Input */}
+                {/* Confirm Password */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm New Password
+                    Confirm Password
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -164,57 +263,54 @@ export function ForgotPasswordPage({ onNavigate }) {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Re-enter new password"
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent transition"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125]"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Resetting Password...' : 'Reset Password'}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Resetting Password...
+                    </span>
+                  ) : (
+                    'Reset Password'
+                  )}
                 </button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={handleResendOTP}
+                    disabled={loading}
+                    className="text-[#F27125] hover:text-[#d96420] font-medium text-sm hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Didn't receive code? <span className="font-semibold">Resend OTP</span>
+                  </button>
+                </div>
               </form>
             </>
-          ) : (
-            /* Success Message */
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-10 h-10 text-green-600" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Password Reset Successful!</h1>
-              <p className="text-gray-600 mb-6">
-                Your password for{' '}
-                <span className="font-semibold text-gray-900">{email}</span>
-                {' '}has been successfully reset.
-              </p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-green-700">
-                  You can now login with your new password.
-                </p>
-              </div>
-              <button
-                onClick={() => onNavigate('login')}
-                className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl"
-              >
-                Go to Login
-              </button>
-            </div>
           )}
 
-          {/* Additional Help */}
-          {!isSubmitted && (
-            <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <h3 className="font-semibold text-gray-900 mb-2 text-sm">Need Help?</h3>
-              <ul className="text-xs text-gray-600 space-y-1">
-                <li>• Use the email address you registered with</li>
-                <li>• Password must be at least 6 characters</li>
-                <li>• Contact support if you need further assistance</li>
-              </ul>
+          {/* Step 3: Success */}
+          {step === 3 && (
+            <div className="text-center">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Password Reset Successful!</h1>
+              <p className="text-gray-600 mb-6">
+                Your password has been reset successfully. Redirecting to login...
+              </p>
             </div>
           )}
         </div>
@@ -222,5 +318,3 @@ export function ForgotPasswordPage({ onNavigate }) {
     </div>
   );
 }
-
-

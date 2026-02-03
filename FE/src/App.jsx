@@ -55,7 +55,7 @@ export default function App() {
   }
 
   if (currentPage === 'register') {
-    return <RegisterPage onNavigate={setCurrentPage} />;
+    return <RegisterPage onNavigate={setCurrentPage} onLogin={handleLogin} />;
   }
 
   if (currentPage === 'forgot-password') {
