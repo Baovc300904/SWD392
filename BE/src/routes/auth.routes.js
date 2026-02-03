@@ -21,7 +21,37 @@ const authController = require('../controllers/auth.controller');
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/RegisterRequest'
+ *             type: object
+ *             required:
+ *               - studentCode
+ *               - name
+ *               - email
+ *               - password
+ *               - confirmPassword
+ *             properties:
+ *               studentCode:
+ *                 type: string
+ *                 pattern: '^SE\\d{6}$'
+ *                 example: SE150001
+ *                 description: Student code in format SE followed by 6 digits
+ *               name:
+ *                 type: string
+ *                 example: Nguyen Van A
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: student@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: password123
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: password123
+ *                 description: Must match password field
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -39,12 +69,14 @@ const authController = require('../controllers/auth.controller');
  *                   properties:
  *                     user:
  *                       $ref: '#/components/schemas/User'
- *                     token:
+ *                     accessToken:
+ *                       type: string
+ *                     refreshToken:
  *                       type: string
  *       400:
- *         description: Bad request - validation error
+ *         description: Bad request - validation error or passwords don't match
  *       409:
- *         description: Email already exists
+ *         description: Email or student code already exists
  */
 router.post('/register', authController.register);
 

@@ -35,7 +35,13 @@ class UserService {
      * @returns {Object} - Created user
      */
     async createUser(userData) {
-        const { name, email, password, role } = userData;
+        const { studentCode, name, email, password, role } = userData;
+
+        // Check if student code already exists
+        const existingStudentCode = await User.findOne({ studentCode });
+        if (existingStudentCode) {
+            throw { statusCode: 409, message: 'Student code already exists' };
+        }
 
         // Check if email already exists
         const existingUser = await User.findOne({ email });
@@ -44,7 +50,7 @@ class UserService {
         }
 
         // Create user
-        const user = await User.create({ name, email, password, role });
+        const user = await User.create({ studentCode, name, email, password, role });
         return user;
     }
 
@@ -55,12 +61,20 @@ class UserService {
      * @returns {Object} - Updated user
      */
     async updateUser(userId, updateData) {
-        const { name, email, password, role } = updateData;
+        const { studentCode, name, email, password, role } = updateData;
 
         // Find user
         const user = await User.findById(userId);
         if (!user) {
             throw { statusCode: 404, message: MSG.USER.NOT_FOUND };
+        }
+
+        // Check if student code is being changed and already exists
+        if (studentCode && studentCode !== user.studentCode) {
+            const existingStudentCode = await User.findOne({ studentCode });
+            if (existingStudentCode) {
+                throw { statusCode: 409, message: 'Student code already exists' };
+            }
         }
 
         // Check if email is being changed and already exists
@@ -72,6 +86,7 @@ class UserService {
         }
 
         // Update fields
+        if (studentCode) user.studentCode = studentCode;
         if (name) user.name = name;
         if (email) user.email = email;
         if (role) user.role = role;

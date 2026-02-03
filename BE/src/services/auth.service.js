@@ -15,7 +15,13 @@ class AuthService {
      * @returns {Object} - Created user and tokens
      */
     async registerUser(userData) {
-        const { name, email, password } = userData;
+        const { studentCode, name, email, password } = userData;
+
+        // Check if student code already exists
+        const existingStudentCode = await User.findOne({ studentCode });
+        if (existingStudentCode) {
+            throw { statusCode: 409, message: 'Student code already exists' };
+        }
 
         // Check if email already exists
         const existingUser = await User.findOne({ email });
@@ -23,12 +29,13 @@ class AuthService {
             throw { statusCode: 409, message: MSG.AUTH.EMAIL_EXISTS };
         }
 
-        // Create new user
+        // Create new user with user role (students register as 'user' role)
         const user = await User.create({
+            studentCode,
             name,
             email,
             password,
-            role: 'user'
+            role: 'user' // All registered users are students with 'user' role
         });
 
         // Generate tokens

@@ -2,6 +2,14 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+    studentCode: {
+        type: String,
+        required: [true, 'Student code is required'],
+        unique: true,
+        uppercase: true,
+        trim: true,
+        match: [/^SE\d{6}$/, 'Student code must be in format SE followed by 6 digits (e.g., SE150001)']
+    },
     email: {
         type: String,
         required: [true, 'Email is required'],
@@ -36,10 +44,10 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function () {
-    if (!this.isModified('password')) {
-        return;
+    // Only hash password if it's new or modified
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 10);
     }
-    this.password = await bcrypt.hash(this.password, 10);
 });
 
 // Method to compare password

@@ -11,13 +11,21 @@ class AuthController {
     // Register new user
     async register(req, res) {
         try {
-            const { name, email, password } = req.body;
+            const { studentCode, name, email, password, confirmPassword } = req.body;
 
             // Input validation
-            if (!name || !email || !password) {
+            if (!studentCode || !name || !email || !password || !confirmPassword) {
                 return res.status(400).json({
                     success: false,
-                    message: MSG.AUTH.ALL_FIELDS_REQUIRED
+                    message: 'All fields are required (studentCode, name, email, password, confirmPassword)'
+                });
+            }
+
+            // Validate student code format
+            if (!/^SE\d{6}$/.test(studentCode)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Student code must be in format SE followed by 6 digits (e.g., SE150001)'
                 });
             }
 
@@ -28,8 +36,16 @@ class AuthController {
                 });
             }
 
+            // Validate password confirmation
+            if (password !== confirmPassword) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Password and confirm password do not match'
+                });
+            }
+
             // Call service layer
-            const result = await authService.registerUser({ name, email, password });
+            const result = await authService.registerUser({ studentCode, name, email, password });
 
             res.status(201).json({
                 success: true,

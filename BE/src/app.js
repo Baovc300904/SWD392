@@ -18,8 +18,20 @@ connectDB().then(() => {
     User.createDefaultAdmin();
 });
 
+
 // Middleware
-app.use(cors());
+// CORS configuration - Allow Frontend origins
+const corsOptions = {
+    origin: [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5175',
+        'http://localhost:3000'
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

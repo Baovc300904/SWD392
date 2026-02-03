@@ -117,18 +117,27 @@ router.get('/:id', authenticate, userController.getUserById);
  *           schema:
  *             type: object
  *             required:
+ *               - studentCode
  *               - name
  *               - email
  *               - password
  *             properties:
+ *               studentCode:
+ *                 type: string
+ *                 pattern: '^SE\\d{6}$'
+ *                 example: SE150002
+ *                 description: Student code in format SE followed by 6 digits
  *               name:
  *                 type: string
+ *                 example: Nguyen Van B
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: user@example.com
  *               password:
  *                 type: string
  *                 minLength: 6
+ *                 example: password123
  *               role:
  *                 type: string
  *                 enum: [user, admin]
@@ -143,7 +152,7 @@ router.get('/:id', authenticate, userController.getUserById);
  *       403:
  *         description: Forbidden - admin access required
  *       409:
- *         description: Email already exists
+ *         description: Email or student code already exists
  */
 router.post('/', authenticate, authorize('admin'), userController.createUser);
 
@@ -169,14 +178,22 @@ router.post('/', authenticate, authorize('admin'), userController.createUser);
  *           schema:
  *             type: object
  *             properties:
+ *               studentCode:
+ *                 type: string
+ *                 pattern: '^SE\\d{6}$'
+ *                 example: SE150003
+ *                 description: Student code in format SE followed by 6 digits
  *               name:
  *                 type: string
+ *                 example: Nguyen Van C
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: updated@example.com
  *               password:
  *                 type: string
  *                 minLength: 6
+ *                 example: newpassword123
  *               role:
  *                 type: string
  *                 enum: [user, admin]
@@ -191,7 +208,7 @@ router.post('/', authenticate, authorize('admin'), userController.createUser);
  *       404:
  *         description: User not found
  *       409:
- *         description: Email already exists
+ *         description: Email or student code already exists
  */
 router.put('/:id', authenticate, userController.updateUser);
 

@@ -93,18 +93,26 @@ class UserController {
     // Create new user (Admin only)
     async createUser(req, res) {
         try {
-            const { name, email, password, role } = req.body;
+            const { studentCode, name, email, password, role } = req.body;
 
             // Input validation
-            if (!name || !email || !password) {
+            if (!studentCode || !name || !email || !password) {
                 return res.status(400).json({
                     success: false,
-                    message: MSG.AUTH.ALL_FIELDS_REQUIRED
+                    message: 'All fields are required (studentCode, name, email, password)'
+                });
+            }
+
+            // Validate student code format
+            if (!/^SE\d{6}$/.test(studentCode)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Student code must be in format SE followed by 6 digits (e.g., SE150001)'
                 });
             }
 
             // Call service layer
-            const user = await userService.createUser({ name, email, password, role });
+            const user = await userService.createUser({ studentCode, name, email, password, role });
 
             res.status(201).json({
                 success: true,
@@ -132,7 +140,15 @@ class UserController {
     async updateUser(req, res) {
         try {
             const userId = req.params.id;
-            const { name, email, password, role } = req.body;
+            const { studentCode, name, email, password, role } = req.body;
+
+            // Validate student code format if provided
+            if (studentCode && !/^SE\d{6}$/.test(studentCode)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Student code must be in format SE followed by 6 digits (e.g., SE150001)'
+                });
+            }
 
             // Check permission to update
             if (!userService.canAccessUser(req.user, userId)) {
@@ -151,7 +167,7 @@ class UserController {
             }
 
             // Call service layer
-            const user = await userService.updateUser(userId, { name, email, password, role });
+            const user = await userService.updateUser(userId, { studentCode, name, email, password, role });
 
             res.json({
                 success: true,
