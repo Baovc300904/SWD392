@@ -59,7 +59,7 @@ class AuthService {
         }
 
         return {
-            message: `Registration successful! OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minutes.`,
+            message: `Registration successful! OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minute${otpExpireMinutes === 1 ? '' : 's'}.`,
             email,
             userId: user._id
         };
@@ -150,7 +150,7 @@ class AuthService {
         await emailService.sendOTP(email, otp, user.name);
 
         return {
-            message: `New OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minutes.`
+            message: `New OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minute${otpExpireMinutes === 1 ? '' : 's'}.`
         };
     }
 
@@ -260,7 +260,7 @@ class AuthService {
         await emailService.sendPasswordResetOTP(email, otp, user.name);
 
         return {
-            message: `OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minutes.`
+            message: `OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minute${otpExpireMinutes === 1 ? '' : 's'}.`
         };
     }
 
