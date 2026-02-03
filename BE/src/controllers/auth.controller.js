@@ -49,7 +49,6 @@ class AuthController {
 
             res.status(201).json({
                 success: true,
-                message: MSG.AUTH.REGISTER_SUCCESS,
                 data: result
             });
         } catch (error) {
@@ -145,16 +144,53 @@ class AuthController {
         }
     }
 
-    // Forgot password - reset directly with email
+    // Forgot password - send OTP to email
     async forgotPassword(req, res) {
         try {
-            const { email, newPassword } = req.body;
+            const { email } = req.body;
 
             // Input validation
-            if (!email || !newPassword) {
+            if (!email) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Email and new password are required'
+                    message: 'Email is required'
+                });
+            }
+
+            // Call service layer
+            const result = await authService.sendPasswordResetOTP(email);
+
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            // Handle service errors
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
+
+    // Reset password with OTP
+    async resetPassword(req, res) {
+        try {
+            const { email, otp, newPassword } = req.body;
+
+            // Input validation
+            if (!email || !otp || !newPassword) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email, OTP, and new password are required'
                 });
             }
 
@@ -166,13 +202,95 @@ class AuthController {
             }
 
             // Call service layer
-            await authService.resetPassword(email, newPassword);
+            const result = await authService.verifyOTPAndResetPassword(email, otp, newPassword);
 
             res.json({
                 success: true,
-                message: MSG.AUTH.PASSWORD_RESET_SUCCESS
+                data: result
             });
         } catch (error) {
+            // Handle service errors
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
+
+    // Verify OTP
+    async verifyOTP(req, res) {
+        try {
+            const { email, otp } = req.body;
+
+            // Input validation
+            if (!email || !otp) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email and OTP are required'
+                });
+            }
+
+            // Call service layer
+            const result = await authService.verifyOTP(email, otp);
+
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            // Handle service errors
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
+
+    // Resend OTP
+    async resendOTP(req, res) {
+        try {
+            const { email } = req.body;
+
+            // Input validation
+            if (!email) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email is required'
+                });
+            }
+
+            // Call service layer
+            const result = await authService.resendOTP(email);
+
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            // Handle service errors
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
             res.status(500).json({
                 success: false,
                 message: MSG.GENERAL.SERVER_ERROR,

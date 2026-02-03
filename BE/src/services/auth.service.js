@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const jwtConfig = require('../config/jwt.config');
 const User = require('../models/user.model');
+const emailService = require('./email.service');
 const MSG = require('../constants/messages');
 
 /**
@@ -10,9 +11,9 @@ const MSG = require('../constants/messages');
 
 class AuthService {
     /**
-     * Register a new user
+     * Register a new user with OTP verification
      * @param {Object} userData - User registration data
-     * @returns {Object} - Created user and tokens
+     * @returns {Object} - Message to check email
      */
     async registerUser(userData) {
         const { studentCode, name, email, password } = userData;
@@ -29,25 +30,127 @@ class AuthService {
             throw { statusCode: 409, message: MSG.AUTH.EMAIL_EXISTS };
         }
 
-        // Create new user with user role (students register as 'user' role)
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Calculate OTP expiration time
+        const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
+        const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
+
+        // Create new user with unverified email
         const user = await User.create({
             studentCode,
             name,
             email,
             password,
-            role: 'user' // All registered users are students with 'user' role
+            role: 'user',
+            isEmailVerified: false,
+            otp,
+            otpExpires
         });
+
+        // Send OTP email
+        try {
+            await emailService.sendOTP(email, otp, name);
+        } catch (error) {
+            // If email fails, delete the user
+            await User.findByIdAndDelete(user._id);
+            throw { statusCode: 500, message: 'Failed to send OTP email. Please try again.' };
+        }
+
+        return {
+            message: `Registration successful! OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minutes.`,
+            email,
+            userId: user._id
+        };
+    }
+
+    /**
+     * Verify OTP and complete registration
+     * @param {string} email - User email
+     * @param {string} otp - OTP code
+     * @returns {Object} - User and tokens
+     */
+    async verifyOTP(email, otp) {
+        // Find user with email and OTP
+        const user = await User.findOne({ email }).select('+otp +otpExpires');
+
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        if (user.isEmailVerified) {
+            throw { statusCode: 400, message: 'Email already verified. Please login.' };
+        }
+
+        if (!user.otp || !user.otpExpires) {
+            throw { statusCode: 400, message: 'No OTP found. Please request a new one.' };
+        }
+
+        // Check if OTP expired
+        if (new Date() > user.otpExpires) {
+            throw { statusCode: 400, message: 'OTP has expired. Please request a new one.' };
+        }
+
+        // Verify OTP
+        if (user.otp !== otp) {
+            throw { statusCode: 400, message: 'Invalid OTP code' };
+        }
+
+        // Mark email as verified and clear OTP
+        user.isEmailVerified = true;
+        user.otp = undefined;
+        user.otpExpires = undefined;
 
         // Generate tokens
         const tokens = this.generateTokens(user);
-
-        // Save refresh token to database
         user.refreshToken = tokens.refreshToken;
         await user.save();
 
+        // Send welcome email (don't wait for it)
+        emailService.sendWelcomeEmail(email, user.name).catch(err => {
+            console.error('Failed to send welcome email:', err);
+        });
+
         return {
+            message: 'Email verified successfully!',
             user: user.toJSON(),
             ...tokens
+        };
+    }
+
+    /**
+     * Resend OTP
+     * @param {string} email - User email
+     * @returns {Object} - Success message
+     */
+    async resendOTP(email) {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        if (user.isEmailVerified) {
+            throw { statusCode: 400, message: 'Email already verified. Please login.' };
+        }
+
+        // Generate new OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Calculate OTP expiration time
+        const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
+        const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
+
+        user.otp = otp;
+        user.otpExpires = otpExpires;
+        await user.save();
+
+        // Send OTP email
+        await emailService.sendOTP(email, otp, user.name);
+
+        return {
+            message: `New OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minutes.`
         };
     }
 
@@ -62,6 +165,11 @@ class AuthService {
         const user = await User.findOne({ email }).select('+password');
         if (!user) {
             throw { statusCode: 401, message: MSG.AUTH.INVALID_CREDENTIALS };
+        }
+
+        // Check if email is verified
+        if (!user.isEmailVerified) {
+            throw { statusCode: 403, message: 'Please verify your email before logging in' };
         }
 
         // Verify password
@@ -117,6 +225,83 @@ class AuthService {
         return {
             accessToken,
             expiresIn: jwtConfig.expiresIn
+        };
+    }
+
+    /**
+     * Send OTP for password reset
+     * @param {string} email - User email
+     * @returns {Object} - Success message
+     */
+    async sendPasswordResetOTP(email) {
+        // Find user by email
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        if (!user.isEmailVerified) {
+            throw { statusCode: 400, message: 'Email not verified. Please complete registration first.' };
+        }
+
+        // Generate OTP for password reset
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Calculate OTP expiration time
+        const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
+        const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
+
+        user.otp = otp;
+        user.otpExpires = otpExpires;
+        await user.save();
+
+        // Send OTP email for password reset
+        await emailService.sendPasswordResetOTP(email, otp, user.name);
+
+        return {
+            message: `OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minutes.`
+        };
+    }
+
+    /**
+     * Verify OTP and reset password
+     * @param {string} email - User email
+     * @param {string} otp - OTP code
+     * @param {string} newPassword - New password
+     * @returns {Object} - Success message
+     */
+    async verifyOTPAndResetPassword(email, otp, newPassword) {
+        // Find user with email and OTP
+        const user = await User.findOne({ email }).select('+otp +otpExpires');
+
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        if (!user.otp || !user.otpExpires) {
+            throw { statusCode: 400, message: 'No OTP found. Please request a new one.' };
+        }
+
+        // Check if OTP expired
+        if (new Date() > user.otpExpires) {
+            throw { statusCode: 400, message: 'OTP has expired. Please request a new one.' };
+        }
+
+        // Verify OTP
+        if (user.otp !== otp) {
+            throw { statusCode: 400, message: 'Invalid OTP code' };
+        }
+
+        // Update password and clear OTP
+        user.password = newPassword;
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        user.refreshToken = undefined; // Invalidate all refresh tokens
+        await user.save();
+
+        return {
+            message: 'Password has been reset successfully. Please login with your new password.'
         };
     }
 
