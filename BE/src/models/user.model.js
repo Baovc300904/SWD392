@@ -4,8 +4,12 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
     studentCode: {
         type: String,
-        required: [true, 'Student code is required'],
+        required: function() {
+            // Only required for 'user' role (students)
+            return this.role === 'user';
+        },
         unique: true,
+        sparse: true, // Allow null/undefined values to be non-unique
         uppercase: true,
         trim: true,
         match: [/^SE\d{6}$/, 'Student code must be in format SE followed by 6 digits (e.g., SE150001)']
@@ -26,7 +30,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin'],
+        enum: ['user', 'admin', 'lecture'],
         default: 'user'
     },
     name: {
