@@ -9,7 +9,7 @@ const authService = {
      * @param {string} data.email - Email address
      * @param {string} data.password - Password
      * @param {string} data.confirmPassword - Password confirmation
-     * @returns {Promise<Object>} User data with token
+     * @returns {Promise<Object>} Registration response (requires OTP verification)
      */
     register: async (data) => {
         try {
@@ -31,15 +31,9 @@ const authService = {
 
             console.log('✅ Register API response:', response);
 
-            if (response.success && response.data) {
-                const userData = {
-                    ...response.data.user,
-                    token: response.data.accessToken,
-                    refreshToken: response.data.refreshToken
-                };
-                localStorage.setItem('user', JSON.stringify(userData));
-                console.log('✅ User saved to localStorage:', userData);
-                return userData;
+            // Registration successful - OTP sent, need verification
+            if (response.success) {
+                return response.data; // Return message and email for OTP verification
             }
 
             throw new Error(response.message || 'Registration failed');
@@ -116,21 +110,81 @@ const authService = {
     },
 
     /**
-     * Reset password (forgot password)
+     * Send OTP for password reset (forgot password step 1)
      * @param {string} email - User email
-     * @param {string} newPassword - New password
      * @returns {Promise<Object>} Response message
      */
-    forgotPassword: async (email, newPassword) => {
+    forgotPassword: async (email) => {
         try {
-            const response = await api.post('/auth/forgot-password', {
-                email,
-                newPassword
-            });
-
+            const response = await api.post('/auth/forgot-password', { email });
+            console.log('✅ OTP sent to email:', response);
             return response;
         } catch (error) {
             console.error('Forgot password error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Reset password with OTP (forgot password step 2)
+     * @param {Object} data - Reset data
+     * @param {string} data.email - User email
+     * @param {string} data.otp - OTP code
+     * @param {string} data.newPassword - New password
+     * @returns {Promise<Object>} Response message
+     */
+    resetPassword: async (data) => {
+        try {
+            const response = await api.post('/auth/reset-password', data);
+            console.log('✅ Password reset successful:', response);
+            return response;
+        } catch (error) {
+            console.error('Reset password error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Verify OTP after registration
+     * @param {Object} data - Verification data
+     * @param {string} data.email - User email
+     * @param {string} data.otp - OTP code
+     * @returns {Promise<Object>} Response with user and token
+     */
+    verifyOTP: async (data) => {
+        try {
+            const response = await api.post('/auth/verify-otp', data);
+            console.log('✅ OTP verified:', response);
+            
+            if (response.success && response.data) {
+                const userData = {
+                    ...response.data.user,
+                    token: response.data.accessToken,
+                    refreshToken: response.data.refreshToken
+                };
+                localStorage.setItem('user', JSON.stringify(userData));
+                return userData;
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('Verify OTP error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Resend OTP code
+     * @param {string} email - User email
+     * @returns {Promise<Object>} Response message
+     */
+    resendOTP: async (email) => {
+        try {
+            const response = await api.post('/auth/resend-otp', { email });
+            console.log('✅ OTP resent:', response);
+            return response;
+        } catch (error) {
+            console.error('Resend OTP error:', error);
             throw error;
         }
     },

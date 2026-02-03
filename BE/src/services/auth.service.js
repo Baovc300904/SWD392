@@ -37,19 +37,43 @@ class AuthService {
         const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
         const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
 
-        // Create new user with unverified email
+        // Determine if user is admin based on email from env
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+        const isAdmin = email === adminEmail;
+        
+        // Create new user
         const user = await User.create({
             studentCode,
             name,
             email,
             password,
-            role: 'user',
-            isEmailVerified: false,
-            otp,
-            otpExpires
+            role: isAdmin ? 'admin' : 'user',
+            isEmailVerified: isAdmin, // Admin emails are auto-verified
+            otp: isAdmin ? undefined : otp, // No OTP for admins
+            otpExpires: isAdmin ? undefined : otpExpires
         });
 
-        // Send OTP email
+        // If admin, skip OTP and return tokens immediately
+        if (isAdmin) {
+            const tokens = this.generateTokens(user);
+
+            return {
+                message: 'Admin account created successfully!',
+                user: {
+                    id: user._id,
+                    studentCode: user.studentCode,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    isEmailVerified: user.isEmailVerified
+                },
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                expiresIn: tokens.expiresIn
+            };
+        }
+
+        // For regular users, send OTP email
         try {
             await emailService.sendOTP(email, otp, name);
         } catch (error) {
@@ -167,8 +191,9 @@ class AuthService {
             throw { statusCode: 401, message: MSG.AUTH.INVALID_CREDENTIALS };
         }
 
-        // Check if email is verified
-        if (!user.isEmailVerified) {
+        // Check if email is verified (skip for admin account)
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+        if (!user.isEmailVerified && email !== adminEmail) {
             throw { statusCode: 403, message: 'Please verify your email before logging in' };
         }
 
@@ -293,8 +318,9 @@ class AuthService {
             throw { statusCode: 400, message: 'Invalid OTP code' };
         }
 
-        // Update password and clear OTP
+        // Update password, verify email, and clear OTP
         user.password = newPassword;
+        user.isEmailVerified = true; // Auto-verify email after successful password reset
         user.otp = undefined;
         user.otpExpires = undefined;
         user.refreshToken = undefined; // Invalidate all refresh tokens
