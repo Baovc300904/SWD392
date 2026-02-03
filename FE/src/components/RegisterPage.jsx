@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { User, Mail, Lock, IdCard, ArrowLeft } from 'lucide-react';
+import authService from '../services/auth.service';
 
 export function RegisterPage({ onNavigate }) {
   const [formData, setFormData] = useState({
@@ -9,16 +10,51 @@ export function RegisterPage({ onNavigate }) {
     password: '',
     confirmPassword: '',
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setSuccess(false);
+    
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setError('Passwords do not match!');
       return;
     }
-    // Handle registration
-    console.log('Registration data:', formData);
-    onNavigate('login');
+
+    // Validate student code format
+    if (!/^SE\d{6}$/.test(formData.studentCode)) {
+      setError('Student code must be in format SE followed by 6 digits (e.g., SE150001)');
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // Call real API
+      const user = await authService.register(formData);
+      console.log('Registration successful:', user);
+      setSuccess(true);
+      
+      // Wait 2 seconds then redirect to login
+      setTimeout(() => {
+        onNavigate('login');
+      }, 2000);
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field, value) => {
@@ -106,6 +142,26 @@ export function RegisterPage({ onNavigate }) {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Success Message */}
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Registration successful! Redirecting to login...</span>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
+
             {/* Student Code */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -219,9 +275,10 @@ export function RegisterPage({ onNavigate }) {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl mt-6"
+              disabled={loading}
+              className="w-full bg-[#F27125] hover:bg-[#d96420] text-white py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl mt-6 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Create Account
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
