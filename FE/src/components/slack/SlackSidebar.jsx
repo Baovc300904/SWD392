@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Hash, 
   Lock, 
@@ -18,6 +18,23 @@ import {
 
 export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
   const [showChannels, setShowChannels] = useState(true);
+  const [currentUser, setCurrentUser] = useState({ name: 'Loading...', role: 'user' });
+
+  useEffect(() => {
+    // Get user from localStorage
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser({
+          name: user.name || 'User',
+          role: user.role === 'admin' ? 'Admin' : 'Student'
+        });
+      } catch (e) {
+        console.error('Error parsing user from localStorage:', e);
+      }
+    }
+  }, []);
   const [showDMs, setShowDMs] = useState(true);
 
   const channels = [
@@ -152,8 +169,8 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#1a1d21] rounded-full"></div>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-white font-semibold text-sm truncate">Nguyen Van A</div>
-              <div className="text-white/60 text-xs truncate">Student</div>
+              <div className="text-white font-semibold text-sm truncate">{currentUser.name}</div>
+              <div className="text-white/60 text-xs truncate">{currentUser.role}</div>
             </div>
           </div>
         </div>

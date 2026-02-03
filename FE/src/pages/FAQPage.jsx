@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, Search, ChevronDown, ChevronUp, HelpCircle, MessageCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Navbar } from '../components/common/Navbar';
-import { Footer } from '../components/common/Footer';
+import { ArrowLeft, Search, ChevronDown, ChevronUp } from 'lucide-react';
 
-export function FAQPage() {
+export function FAQPage({ onNavigate }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [openIndex, setOpenIndex] = useState(null);
 
@@ -62,106 +59,101 @@ export function FAQPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1d21] text-white font-sans overflow-hidden">
-      {/* Background Mesh Gradients */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[20%] right-[-10%] w-[40vw] h-[40vw] bg-purple-600/10 rounded-full blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] left-[20%] w-[45vw] h-[45vw] bg-blue-600/10 rounded-full blur-[100px] animate-pulse delay-700"></div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
-      <Navbar />
-
-      <div className="relative pt-32 pb-20 max-w-4xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-            <HelpCircle className="w-8 h-8 text-blue-400" />
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <button
+            onClick={() => onNavigate('landing')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#F27125] rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">S</span>
+            </div>
+            <span className="font-bold text-xl">SWP Hub</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Help Center
-          </h1>
-          <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-            Find answers to commonly asked questions about SWP Hub.
-            Can't find what you need? We're here to help.
+        </div>
+      </nav>
+
+      <div className="max-w-4xl mx-auto px-6 py-16">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Help Center</h1>
+          <p className="text-xl text-gray-600 mb-8">
+            Find answers to commonly asked questions about SWP Hub
           </p>
 
           {/* Search Bar */}
-          <div className="max-w-2xl mx-auto relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search for answers..."
-                className="w-full pl-12 pr-4 py-4 bg-[#1a1d21] border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white placeholder-gray-500 transition-all shadow-xl"
-              />
-            </div>
+          <div className="max-w-2xl mx-auto relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="How can we help you?"
+              className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0054a6] focus:border-transparent shadow-sm"
+            />
           </div>
         </div>
 
         {/* FAQ Accordion */}
-        <div className="space-y-4 mb-16">
+        <div className="space-y-4">
           {filteredFaqs.map((faq, index) => (
             <div
               key={index}
-              className="group bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden hover:bg-white/10 transition-all duration-300"
+              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition"
             >
               <button
                 onClick={() => toggleFaq(index)}
-                className="w-full flex items-center justify-between p-6 text-left"
+                className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition"
               >
-                <span className="font-semibold text-white/90 pr-8 text-lg group-hover:text-white transition-colors">{faq.question}</span>
+                <span className="font-semibold text-gray-900 pr-8">{faq.question}</span>
                 {openIndex === index ? (
-                  <ChevronUp className="w-5 h-5 text-[#F27125] flex-shrink-0" />
+                  <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-500 group-hover:text-white flex-shrink-0 transition-colors" />
+                  <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
                 )}
               </button>
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-              >
-                <div className="px-6 pb-6 text-gray-400 leading-relaxed border-t border-white/5 pt-4">
+              {openIndex === index && (
+                <div className="px-6 pb-6 text-gray-600 leading-relaxed border-t border-gray-100 pt-4">
                   {faq.answer}
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
 
         {filteredFaqs.length === 0 && (
-          <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/10 border-dashed">
+          <div className="text-center py-12">
             <p className="text-gray-500">No matching questions found. Try different keywords.</p>
           </div>
         )}
 
         {/* Still Need Help */}
-        <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-2xl p-10 text-center border border-white/10 backdrop-blur-md relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-              <MessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold mb-3 text-white">Still need help?</h2>
-            <p className="text-gray-300 mb-8 max-w-lg mx-auto">
-              Can't find the answer you're looking for? Our support team is here to help you get back on track.
-            </p>
-            <Link
-              to="/contact"
-              className="bg-white text-[#1a1d21] hover:bg-gray-100 px-8 py-3 rounded-xl font-bold transition shadow-lg inline-flex items-center gap-2"
-            >
-              Contact Support
-            </Link>
-          </div>
+        <div className="mt-16 bg-gradient-to-br from-[#0054a6] to-[#1164B4] rounded-xl p-8 text-center text-white">
+          <h2 className="text-2xl font-bold mb-3">Still need help?</h2>
+          <p className="text-blue-100 mb-6">
+            Can't find the answer you're looking for? Our support team is here to help.
+          </p>
+          <button
+            onClick={() => onNavigate('landing')}
+            className="bg-[#F27125] hover:bg-[#d96420] text-white px-8 py-3 rounded-lg font-semibold transition shadow-lg"
+          >
+            Contact Support
+          </button>
         </div>
       </div>
 
       {/* Footer */}
-      <Footer />
+      <footer className="bg-gray-900 text-gray-400 py-8 mt-12">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-sm">© 2026 FPT University. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
