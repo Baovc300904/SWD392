@@ -12,7 +12,13 @@ const userSchema = new mongoose.Schema({
         sparse: true, // Allow null/undefined values to be non-unique
         uppercase: true,
         trim: true,
-        match: [/^SE\d{6}$/, 'Student code must be in format SE followed by 6 digits (e.g., SE150001)']
+        validate: {
+            validator: function (v) {
+                // Allow ADMIN format for admin users, SE format for students
+                return /^(SE\d{6}|ADMIN\d{2})$/.test(v);
+            },
+            message: 'Student code must be in format SE followed by 6 digits (e.g., SE150001) or ADMIN followed by 2 digits for admin'
+        }
     },
     email: {
         type: String,
@@ -40,6 +46,18 @@ const userSchema = new mongoose.Schema({
     },
     refreshToken: {
         type: String,
+        select: false
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    otp: {
+        type: String,
+        select: false
+    },
+    otpExpires: {
+        type: Date,
         select: false
     }
 }, {
@@ -77,10 +95,12 @@ userSchema.statics.createDefaultAdmin = async function () {
 
     if (!existingAdmin) {
         await this.create({
+            studentCode: 'ADMIN01',
             name: 'Administrator',
             email: adminEmail,
             password: adminPassword,
-            role: 'admin'
+            role: 'admin',
+            isEmailVerified: true
         });
         console.log(`✓ Default admin created: ${adminEmail}`);
     }

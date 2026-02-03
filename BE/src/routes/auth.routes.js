@@ -13,7 +13,7 @@ const authController = require('../controllers/auth.controller');
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Register a new user
+ *     summary: Register a new user and send OTP
  *     tags: [Authentication]
  *     security: []
  *     requestBody:
@@ -154,7 +154,7 @@ router.post('/refresh', authController.refreshToken);
  * @swagger
  * /api/auth/forgot-password:
  *   post:
- *     summary: Reset password with email
+ *     summary: Send OTP to email for password reset
  *     tags: [Authentication]
  *     security: []
  *     requestBody:
@@ -165,12 +165,44 @@ router.post('/refresh', authController.refreshToken);
  *             type: object
  *             required:
  *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: OTP sent to email successfully
+ *       404:
+ *         description: User not found
+ */
+router.post('/forgot-password', authController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password with OTP
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
  *               - newPassword
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
  *                 example: user@example.com
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
  *               newPassword:
  *                 type: string
  *                 format: password
@@ -180,8 +212,68 @@ router.post('/refresh', authController.refreshToken);
  *       200:
  *         description: Password reset successfully
  *       400:
- *         description: Invalid input
+ *         description: Invalid or expired OTP
  */
-router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+
+/**
+ * @swagger
+ * /api/auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP and complete registration
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: student@example.com
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ */
+router.post('/verify-otp', authController.verifyOTP);
+
+/**
+ * @swagger
+ * /api/auth/resend-otp:
+ *   post:
+ *     summary: Resend OTP to email
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: student@example.com
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *       404:
+ *         description: User not found
+ */
+router.post('/resend-otp', authController.resendOTP);
 
 module.exports = router;
