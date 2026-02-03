@@ -38,7 +38,7 @@ class EmailService {
                         <h1 style="color: #4CAF50; letter-spacing: 5px; margin: 0;">${otp}</h1>
                     </div>
                     
-                    <p>This OTP will expire in ${process.env.OTP_EXPIRE_MINUTES || 1} minutes.</p>
+                    <p>This OTP will expire in ${process.env.OTP_EXPIRE_MINUTES || 1} minute${process.env.OTP_EXPIRE_MINUTES == 1 ? '' : 's'}.</p>
                     
                     <p style="color: #666; font-size: 12px;">
                         If you didn't create an account, please ignore this email.
@@ -83,7 +83,7 @@ class EmailService {
                         <h1 style="color: #FF5722; letter-spacing: 5px; margin: 0;">${otp}</h1>
                     </div>
                     
-                    <p>This OTP will expire in ${process.env.OTP_EXPIRE_MINUTES || 10} minutes.</p>
+                    <p>This OTP will expire in ${process.env.OTP_EXPIRE_MINUTES || 10} minute${process.env.OTP_EXPIRE_MINUTES == 1 ? '' : 's'}.</p>
                     
                     <p style="color: #666; font-size: 12px;">
                         If you didn't request a password reset, please ignore this email and your password will remain unchanged.
