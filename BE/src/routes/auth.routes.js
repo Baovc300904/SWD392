@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
+const { authenticate } = require('../middleware/auth.middleware');
 
 /**
  * @swagger
@@ -122,6 +123,62 @@ router.post('/register', authController.register);
  *         description: Invalid email or password
  */
 router.post('/login', authController.login);
+
+/**
+ * @swagger
+ * /api/auth/admin-lecturer-login:
+ *   post:
+ *     summary: Login for Admin or Lecturer with role validation
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - role
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: admin@gmail.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: admin123
+ *               role:
+ *                 type: string
+ *                 enum: [Admin, Lecturer]
+ *                 example: Admin
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       403:
+ *         description: Insufficient permissions
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/admin-lecturer-login', authController.adminLecturerLogin);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout and update status to Offline
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/logout', authenticate, authController.logout);
 
 /**
  * @swagger
