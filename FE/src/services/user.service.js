@@ -81,6 +81,22 @@ const userService = {
     },
 
     /**
+     * Update user role (Admin only)
+     * @param {string} id - User ID
+     * @param {string} role - New role (Student, Lecturer, Admin)
+     * @returns {Promise<Object>} Updated user data
+     */
+    updateUserRole: async (id, role) => {
+        try {
+            const response = await api.patch(`/users/${id}/role`, { role });
+            return response.data;
+        } catch (error) {
+            console.error('Update user role error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Delete user (Admin only)
      * @param {number} id - User ID
      * @returns {Promise<Object>} Delete confirmation

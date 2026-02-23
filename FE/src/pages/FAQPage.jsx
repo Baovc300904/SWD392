@@ -1,161 +1,158 @@
 import { useState } from 'react';
-import { ArrowLeft, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Search, ChevronDown, MessageSquare, X } from 'lucide-react';
+
+const FAQS = [
+  { cat: 'Groups', q: 'How do I register a group?', a: 'Navigate to the #group-requests channel in your dashboard. Click "Create New Group", fill in your team members\' information, select a topic, and submit. Admin will review within 24 hours.' },
+  { cat: 'Topics', q: 'Can I change my topic after approval?', a: 'Topic changes after approval require special permission. Submit a change request through the Topic Approvals section with a valid reason. Both the lecturer and admin must approve for the change to take effect.' },
+  { cat: 'AI', q: 'How does the AI suggestion work?', a: 'Our AI is trained on your course syllabus and common Q&A patterns. When you ask a question it analyzes context and provides relevant answers based on course materials. You can insert suggestions directly into replies.' },
+  { cat: 'Groups', q: 'What if I can\'t find teammates?', a: 'Use Smart Group Matching! Go to "Find Teammates", fill in your skills and preferences, and our algorithm will suggest compatible students. You can also post in class channels to find interested members.' },
+  { cat: 'General', q: 'How do I escalate a question to a lecturer?', a: 'In the Q&A channels, each message has an "Escalate to Manager" button. Click it to forward to lecturers or mentors. They\'ll receive a notification and can provide expert guidance.' },
+  { cat: 'General', q: 'Can I access SWP Hub on mobile?', a: 'Yes! SWP Hub is fully responsive and works on all mobile browsers. Dedicated iOS and Android apps are in development. You\'ll receive a notification when they launch.' },
+  { cat: 'General', q: 'How are notifications configured?', a: 'Go to Settings → Notifications. We support email alerts and push notifications. You\'ll be notified about topic approvals, group requests, new Q&A responses, and important deadlines.' },
+  { cat: 'Topics', q: 'What happens if my topic is rejected?', a: 'You\'ll receive detailed feedback from the lecturer explaining the reason. You can revise your proposal based on the feedback and resubmit. Most rejections are due to scope issues or missing technical details.' },
+  { cat: 'AI', q: 'Is the AI available 24/7?', a: 'Yes! The AI Mentor Bot is available around the clock. Response quality is highest for questions related to the course syllabus, project planning, and general software development best practices.' },
+];
+
+const CATS = ['All', 'General', 'Groups', 'Topics', 'AI'];
 
 export function FAQPage({ onNavigate }) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [openIndex, setOpenIndex] = useState(null);
+  const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('All');
+  const [open, setOpen] = useState(null);
 
-  const faqs = [
-    {
-      question: 'How do I register a group?',
-      answer:
-        'To register a group, navigate to the #group-requests channel in your dashboard. Click on "Create New Group", fill in your team members\' information, select a topic, and submit. Your request will be reviewed by the admin within 24 hours.',
-    },
-    {
-      question: 'Can I change my topic after approval?',
-      answer:
-        'Topic changes after approval require special permission. You need to submit a change request through the Topic Approvals section, providing a valid reason. The lecturer and admin must both approve before the change takes effect.',
-    },
-    {
-      question: 'How does the AI suggestion work?',
-      answer:
-        'Our AI assistant is trained on your course syllabus and common Q&A patterns. When you ask a question, it analyzes the context and provides relevant answers based on course materials. You can insert AI suggestions directly into your replies or use them starting point.',
-    },
-    {
-      question: 'What if I can\'t find teammates?',
-      answer:
-        'Use our Smart Group Matching feature! Go to the "Find Teammates" section, fill in your skills and preferences, and our algorithm will suggest compatible students. You can also post in the class channels to find interested members.',
-    },
-    {
-      question: 'How do I escalate a question to a lecturer?',
-      answer:
-        'In the Q&A channels, each message has an "Escalate to Manager" button. Click it to forward the question to lecturers or mentors. They\'ll receive a notification and can provide expert guidance.',
-    },
-    {
-      question: 'Can I access SWP Hub on mobile?',
-      answer:
-        'Yes! SWP Hub is fully responsive and works on mobile browsers. We\'re also developing dedicated iOS and Android apps that will be available soon. You\'ll receive notifications when they launch.',
-    },
-    {
-      question: 'How are notifications sent?',
-      answer:
-        'You can configure notifications in Settings. We support email alerts and push notifications. You\'ll be notified about topic approvals, group requests, new Q&A responses, and important deadlines.',
-    },
-    {
-      question: 'What happens if my project is rejected?',
-      answer:
-        'If a topic is rejected, you\'ll receive detailed feedback from the lecturer explaining why. You can revise your proposal based on the feedback and resubmit. Most rejections are due to scope issues or missing technical details.',
-    },
-  ];
-
-  const filteredFaqs = faqs.filter(
-    (faq) =>
-      faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const toggleFaq = (index) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
+  const filtered = FAQS.filter(f => {
+    const matchCat = cat === 'All' || f.cat === cat;
+    const matchSearch = !search || f.q.toLowerCase().includes(search.toLowerCase()) || f.a.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <button
-            onClick={() => onNavigate('landing')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#F27125] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
-            <span className="font-bold text-xl">SWP Hub</span>
-          </div>
+    <div className="min-h-screen text-white" style={{ background: '#0a0b0f', fontFamily: "'Inter',system-ui,sans-serif" }}>
+
+      {/* Nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 h-14 border-b"
+        style={{ background: 'rgba(10,11,15,0.85)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.06)' }}>
+        <button onClick={() => onNavigate('landing', { replace: true })} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
+          <ArrowLeft className="w-4 h-4" /> Back to Home
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#F27125,#d96420)' }}>S</div>
+          <span className="font-bold text-white">SWP Hub</span>
         </div>
+        <div className="w-24" />
       </nav>
 
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Help Center</h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Find answers to commonly asked questions about SWP Hub
-          </p>
+      {/* Hero */}
+      <div className="relative pt-28 pb-12 text-center overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] opacity-10 blur-3xl" style={{ background: 'radial-gradient(ellipse,#F27125,transparent 70%)' }} />
+        <div className="relative">
+          <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#F27125] bg-[#F27125]/10 border border-[#F27125]/20 px-3 py-1.5 rounded-full mb-6">Help Center</span>
+          <h1 className="text-5xl font-bold tracking-tight mb-4">Frequently Asked Questions</h1>
+          <p className="text-gray-400 text-lg max-w-lg mx-auto mb-10">Find answers to common questions about SWP Hub</p>
 
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          {/* Search */}
+          <div className="relative max-w-xl mx-auto px-6">
+            <Search className="absolute left-10 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-500" />
             <input
               type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="How can we help you?"
-              className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0054a6] focus:border-transparent shadow-sm"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search questions..."
+              className="w-full pl-11 pr-10 py-3.5 rounded-2xl text-sm text-white placeholder-gray-600 focus:outline-none transition-all"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              onFocus={e => { e.target.style.borderColor = 'rgba(242,113,37,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(242,113,37,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }}
             />
-          </div>
-        </div>
-
-        {/* FAQ Accordion */}
-        <div className="space-y-4">
-          {filteredFaqs.map((faq, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition"
-            >
-              <button
-                onClick={() => toggleFaq(index)}
-                className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition"
-              >
-                <span className="font-semibold text-gray-900 pr-8">{faq.question}</span>
-                {openIndex === index ? (
-                  <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                )}
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors">
+                <X className="w-4 h-4" />
               </button>
-              {openIndex === index && (
-                <div className="px-6 pb-6 text-gray-600 leading-relaxed border-t border-gray-100 pt-4">
-                  {faq.answer}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {filteredFaqs.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No matching questions found. Try different keywords.</p>
+            )}
           </div>
-        )}
-
-        {/* Still Need Help */}
-        <div className="mt-16 bg-gradient-to-br from-[#0054a6] to-[#1164B4] rounded-xl p-8 text-center text-white">
-          <h2 className="text-2xl font-bold mb-3">Still need help?</h2>
-          <p className="text-blue-100 mb-6">
-            Can't find the answer you're looking for? Our support team is here to help.
-          </p>
-          <button
-            onClick={() => onNavigate('landing')}
-            className="bg-[#F27125] hover:bg-[#d96420] text-white px-8 py-3 rounded-lg font-semibold transition shadow-lg"
-          >
-            Contact Support
-          </button>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-sm">© 2026 FPT University. All rights reserved.</p>
+      <div className="max-w-3xl mx-auto px-6 pb-20">
+        {/* Category tabs */}
+        <div className="flex items-center gap-2 mb-8 flex-wrap justify-center">
+          {CATS.map(c => (
+            <button key={c} onClick={() => setCat(c)}
+              className="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
+              style={{
+                background: cat === c ? 'rgba(242,113,37,0.15)' : 'rgba(255,255,255,0.04)',
+                color: cat === c ? '#F27125' : 'rgb(107,114,128)',
+                border: cat === c ? '1px solid rgba(242,113,37,0.3)' : '1px solid rgba(255,255,255,0.07)',
+              }}>
+              {c}
+            </button>
+          ))}
         </div>
+
+        {/* Accordion */}
+        <div className="space-y-2">
+          {filtered.map((faq, i) => {
+            const isOpen = open === i;
+            return (
+              <div key={i} className="rounded-2xl border overflow-hidden transition-all duration-200"
+                style={{
+                  background: isOpen ? 'rgba(242,113,37,0.06)' : 'rgba(255,255,255,0.02)',
+                  borderColor: isOpen ? 'rgba(242,113,37,0.25)' : 'rgba(255,255,255,0.07)',
+                }}>
+                <button
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  className="w-full flex items-center justify-between px-6 py-4 text-left transition-colors duration-150"
+                >
+                  <div className="flex items-center gap-3 pr-4">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: 'rgba(242,113,37,0.1)', color: '#F27125', border: '1px solid rgba(242,113,37,0.2)' }}>
+                      {faq.cat}
+                    </span>
+                    <span className={`font-medium text-sm transition-colors ${isOpen ? 'text-white' : 'text-gray-300'}`}>{faq.q}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#F27125]' : 'text-gray-600'}`} />
+                </button>
+                <div className={`transition-all duration-300 overflow-hidden ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
+                  <div className="px-6 pb-5">
+                    <div className="h-px mb-4" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <p className="text-sm text-gray-400 leading-relaxed">{faq.a}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {filtered.length === 0 && (
+            <div className="text-center py-16">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <Search className="w-6 h-6 text-gray-600" />
+              </div>
+              <p className="text-gray-500 text-sm">No results for "<span className="text-gray-300">{search}</span>"</p>
+              <button onClick={() => { setSearch(''); setCat('All'); }} className="mt-3 text-xs text-[#F27125] hover:underline">Clear filters</button>
+            </div>
+          )}
+        </div>
+
+        {/* Still need help CTA */}
+        <div className="mt-14 rounded-2xl p-8 text-center relative overflow-hidden border" style={{ background: 'rgba(242,113,37,0.06)', borderColor: 'rgba(242,113,37,0.2)' }}>
+          <div className="absolute inset-0 opacity-20 blur-3xl" style={{ background: 'radial-gradient(ellipse at 50% 0%,#F27125,transparent 70%)' }} />
+          <div className="relative">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(242,113,37,0.15)', border: '1px solid rgba(242,113,37,0.3)' }}>
+              <MessageSquare className="w-5 h-5 text-[#F27125]" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Still need help?</h3>
+            <p className="text-gray-400 text-sm mb-6">Can't find your answer? Our support team responds within hours.</p>
+            <button onClick={() => onNavigate('contact')}
+              className="text-white font-semibold px-7 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              style={{ background: 'linear-gradient(135deg,#F27125,#d96420)' }}>
+              Contact Support
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <footer className="py-6 border-t text-center text-sm text-gray-700" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        © 2026 FPT University · SWP Hub
       </footer>
     </div>
   );
 }
-
-

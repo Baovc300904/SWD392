@@ -1,11 +1,15 @@
 import api from '../config/api.config';
 
+/* ── Helper: chọn storage dựa theo Remember Me flag ── */
+const getStorage = () =>
+    localStorage.getItem('rememberMe') === 'true' ? localStorage : sessionStorage;
+
 const authService = {
     /**
      * Register new user
      * @param {Object} data - Registration data
-     * @param {string} data.studentCode - Student code (SE######)
-     * @param {string} data.fullName - Full name (will be transformed to 'name')
+     * @param {string} data.studentCode - Student code (SE######) - Optional
+     * @param {string} data.fullName - Full name
      * @param {string} data.email - Email address
      * @param {string} data.password - Password
      * @param {string} data.confirmPassword - Password confirmation
@@ -13,37 +17,19 @@ const authService = {
      */
     register: async (data) => {
         try {
-            console.log('🚀 Calling register API with data:', {
-                studentCode: data.studentCode,
-                name: data.fullName,
-                email: data.email,
-                hasPassword: !!data.password,
-                hasConfirmPassword: !!data.confirmPassword
-            });
-
             const response = await api.post('/auth/register', {
                 studentCode: data.studentCode,
-                name: data.fullName, // Transform fullName → name for backend
+                fullName: data.fullName,
                 email: data.email,
                 password: data.password,
                 confirmPassword: data.confirmPassword
             });
 
-            console.log('✅ Register API response:', response);
-
-            // Registration successful - OTP sent, need verification
             if (response.success) {
-                return response.data; // Return message and email for OTP verification
+                return response.data;
             }
-
             throw new Error(response.message || 'Registration failed');
         } catch (error) {
-            console.error('❌ Registration error:', error);
-            console.error('❌ Error details:', {
-                message: error.message,
-                status: error.status,
-                data: error.data
-            });
             throw error;
         }
     },
@@ -54,7 +40,7 @@ const authService = {
      * @param {string} password - User password
      * @returns {Promise<Object>} User data with token
      */
-    login: async (email, password) => {
+    login: async (email, password, rememberMe = false) => {
         try {
             const response = await api.post('/auth/login', { email, password });
 
@@ -64,13 +50,18 @@ const authService = {
                     token: response.data.accessToken,
                     refreshToken: response.data.refreshToken
                 };
-                localStorage.setItem('user', JSON.stringify(userData));
+                // Lưu flag trước để getStorage() dùng đúng
+                localStorage.setItem('rememberMe', String(rememberMe));
+                // Lưu user vào đúng storage
+                getStorage().setItem('user', JSON.stringify(userData));
+                // Đảm bảo storage kia không còn user cũ
+                if (rememberMe) sessionStorage.removeItem('user');
+                else localStorage.removeItem('user');
                 return userData;
             }
 
             throw new Error(response.message || 'Login failed');
         } catch (error) {
-            console.error('Login error:', error);
             throw error;
         }
     },
@@ -81,7 +72,8 @@ const authService = {
      */
     refreshToken: async () => {
         try {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const storage = getStorage();
+            const user = JSON.parse(storage.getItem('user') || '{}');
 
             if (!user.refreshToken) {
                 throw new Error('No refresh token available');
@@ -96,14 +88,13 @@ const authService = {
                     ...user,
                     token: response.data.accessToken
                 };
-                localStorage.setItem('user', JSON.stringify(userData));
+                storage.setItem('user', JSON.stringify(userData));
                 return userData;
             }
 
             throw new Error(response.message || 'Token refresh failed');
         } catch (error) {
             console.error('Refresh token error:', error);
-            // If refresh fails, logout user
             authService.logout();
             throw error;
         }
@@ -155,7 +146,7 @@ const authService = {
         try {
             const response = await api.post('/auth/verify-otp', data);
             console.log('✅ OTP verified:', response);
-            
+
             if (response.success && response.data) {
                 const userData = {
                     ...response.data.user,
@@ -165,7 +156,7 @@ const authService = {
                 localStorage.setItem('user', JSON.stringify(userData));
                 return userData;
             }
-            
+
             return response;
         } catch (error) {
             console.error('Verify OTP error:', error);
@@ -190,10 +181,67 @@ const authService = {
     },
 
     /**
+     * Admin/Lecturer Login with role validation
+     * @param {string} email - User email
+     * @param {string} password - User password
+     * @param {string} role - Required role ('Admin' or 'Lecturer')
+     * @returns {Promise<Object>} User data with token
+     */
+    adminLecturerLogin: async (email, password, role) => {
+        try {
+            const response = await api.post('/auth/admin-lecturer-login', {
+                email,
+                password,
+                role
+            });
+
+            if (response.success && response.data) {
+                const userData = {
+                    ...response.data.user,
+                    token: response.data.accessToken,
+                    refreshToken: response.data.refreshToken
+                };
+                localStorage.setItem('user', JSON.stringify(userData));
+                return userData;
+            }
+
+            throw new Error(response.message || 'Login failed');
+        } catch (error) {
+            console.error('Admin/Lecturer login error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Logout user (clear local storage)
      */
-    logout: () => {
-        localStorage.removeItem('user');
+    logout: async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch { /* ignore */ } finally {
+            localStorage.removeItem('user');
+            sessionStorage.removeItem('user');
+            localStorage.removeItem('rememberMe');
+        }
+    },
+
+    /**
+     * Change password (authenticated user)
+     * @param {string} currentPassword
+     * @param {string} newPassword
+     * @param {string} confirmPassword
+     */
+    changePassword: async (currentPassword, newPassword, confirmPassword) => {
+        try {
+            const response = await api.post('/auth/change-password', {
+                currentPassword,
+                newPassword,
+                confirmPassword
+            });
+            return response;
+        } catch (error) {
+            throw error;
+        }
     },
 
     /**
@@ -202,11 +250,19 @@ const authService = {
      */
     getCurrentUser: () => {
         try {
-            return JSON.parse(localStorage.getItem('user') || 'null');
+            // Ưu tiên sessionStorage (không remember), fallback localStorage (remember)
+            const raw = sessionStorage.getItem('user') || localStorage.getItem('user');
+            return JSON.parse(raw || 'null');
         } catch {
             return null;
         }
-    }
+    },
+
+    /**
+     * Check if user chose "Remember Me"
+     * @returns {boolean}
+     */
+    isRemembered: () => localStorage.getItem('rememberMe') === 'true'
 };
 
 export default authService;

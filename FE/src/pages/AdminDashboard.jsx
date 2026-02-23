@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileCheck, 
+import { useState, useEffect } from 'react';
+import {
+  LayoutDashboard,
+  Users,
+  FileCheck,
   Settings,
   LogOut,
+  UserCircle,
   Activity,
   CheckCircle,
   Clock,
@@ -23,8 +24,23 @@ import { UserManagementView } from '../components/admin/UserManagementView';
 import { TopicApprovalsView } from '../components/admin/TopicApprovalsView';
 import { SettingsView } from '../components/admin/SettingsView';
 
-export function AdminDashboard({ onLogout }) {
+export function AdminDashboard({ onLogout, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
+  const [adminUser, setAdminUser] = useState({ fullName: 'Admin', email: '' });
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      if (stored.fullName) setAdminUser(stored);
+    } catch { /* ignore */ }
+  }, []);
+
+  const initials = adminUser.fullName
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -48,44 +64,40 @@ export function AdminDashboard({ onLogout }) {
           <div className="space-y-1">
             <button
               onClick={() => setActiveView('dashboard')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'dashboard'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'dashboard'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <LayoutDashboard className="w-5 h-5" />
               Dashboard
             </button>
             <button
               onClick={() => setActiveView('users')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'users'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'users'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <Users className="w-5 h-5" />
               User Management
             </button>
             <button
               onClick={() => setActiveView('topics')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'topics'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'topics'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <FileCheck className="w-5 h-5" />
               Topic Approvals
             </button>
             <button
               onClick={() => setActiveView('settings')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
-                activeView === 'settings'
-                  ? 'bg-[#F27125] text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-white/10'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'settings'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
             >
               <Settings className="w-5 h-5" />
               Settings
@@ -93,13 +105,20 @@ export function AdminDashboard({ onLogout }) {
           </div>
         </nav>
 
-        {/* Logout Button - Bottom */}
-        <div className="p-4 border-t border-white/10">
+        {/* Profile + Logout - Bottom */}
+        <div className="p-4 border-t border-white/10 space-y-1">
+          <button
+            onClick={() => onNavigate && onNavigate('profile')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-white/10 rounded-lg font-medium transition"
+          >
+            <UserCircle className="w-5 h-5" />
+            <span>My Profile</span>
+          </button>
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-red-600 rounded-lg font-medium transition group"
+            className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg font-medium transition"
           >
-            <LogOut className="w-5 h-5 group-hover:text-white" />
+            <LogOut className="w-5 h-5" />
             <span>Log out</span>
           </button>
         </div>
@@ -124,9 +143,13 @@ export function AdminDashboard({ onLogout }) {
                 {activeView === 'settings' && 'Configure system settings'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end mr-1">
+                <span className="text-sm font-semibold text-gray-900">{adminUser.fullName}</span>
+                <span className="text-xs text-gray-500">{adminUser.email}</span>
+              </div>
               <div className="w-10 h-10 bg-[#F27125] rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold">A</span>
+                <span className="text-white font-semibold text-sm">{initials}</span>
               </div>
             </div>
           </div>

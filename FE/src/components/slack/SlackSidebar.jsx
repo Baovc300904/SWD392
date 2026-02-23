@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { 
-  Hash, 
-  Lock, 
-  ChevronDown, 
-  Plus, 
+import {
+  Hash,
+  Lock,
+  ChevronDown,
+  Plus,
   MessageSquare,
   MoreVertical,
   Search,
@@ -13,10 +13,11 @@ import {
   HelpCircle,
   Settings,
   LogOut,
-  GraduationCap
+  GraduationCap,
+  UserCircle
 } from 'lucide-react';
 
-export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
+export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavigate }) {
   const [showChannels, setShowChannels] = useState(true);
   const [currentUser, setCurrentUser] = useState({ name: 'Loading...', role: 'user' });
 
@@ -27,8 +28,8 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
       try {
         const user = JSON.parse(userStr);
         setCurrentUser({
-          name: user.name || 'User',
-          role: user.role === 'admin' ? 'Admin' : 'Student'
+          name: user.fullName || user.name || 'User',
+          role: user.role === 'admin' ? 'Admin' : user.role === 'lecturer' ? 'Lecturer' : 'Student'
         });
       } catch (e) {
         console.error('Error parsing user from localStorage:', e);
@@ -82,29 +83,28 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
             </div>
             <Plus className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
-          
+
           {showChannels && (
             <div className="mt-2 space-y-0.5">{channels.map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => onChannelChange(channel.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${
-                    activeChannel === channel.id
-                      ? 'bg-[#F27125] text-white font-medium shadow-md'
-                      : 'text-gray-300 hover:bg-white/10'
+              <button
+                key={channel.id}
+                onClick={() => onChannelChange(channel.id)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${activeChannel === channel.id
+                  ? 'bg-[#F27125] text-white font-medium shadow-md'
+                  : 'text-gray-300 hover:bg-white/10'
                   }`}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Hash className="w-4 h-4 flex-shrink-0 opacity-80" />
-                    <span className="truncate">{channel.name}</span>
-                  </div>
-                  {channel.unread > 0 && activeChannel !== channel.id && (
-                    <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-[#F27125] text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
-                      {channel.unread}
-                    </span>
-                  )}
-                </button>
-              ))}</div>
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Hash className="w-4 h-4 flex-shrink-0 opacity-80" />
+                  <span className="truncate">{channel.name}</span>
+                </div>
+                {channel.unread > 0 && activeChannel !== channel.id && (
+                  <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-[#F27125] text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
+                    {channel.unread}
+                  </span>
+                )}
+              </button>
+            ))}</div>
           )}
         </div>
 
@@ -122,18 +122,17 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
             </div>
             <Plus className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
-          
+
           {showDMs && (
             <div className="mt-1">
               {directMessages.map((dm) => (
                 <button
                   key={dm.id}
                   onClick={() => onChannelChange(`dm-${dm.id}`)}
-                  className={`w-full flex items-center gap-2 px-4 py-1 text-sm transition ${
-                    activeChannel === `dm-${dm.id}`
-                      ? 'bg-[#F27125] text-white font-semibold'
-                      : 'text-white/70 hover:bg-[#F27125]/20 hover:text-white'
-                  }`}
+                  className={`w-full flex items-center gap-2 px-4 py-1 text-sm transition ${activeChannel === `dm-${dm.id}`
+                    ? 'bg-[#F27125] text-white font-semibold'
+                    : 'text-white/70 hover:bg-[#F27125]/20 hover:text-white'
+                    }`}
                 >
                   <div className="relative flex-shrink-0">
                     <img
@@ -177,7 +176,19 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout }) {
 
         {/* Settings & Logout */}
         <div className="p-2 space-y-0.5">
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white rounded transition">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('profile')}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white rounded transition"
+            >
+              <UserCircle className="w-4 h-4" />
+              <span>My Profile</span>
+            </button>
+          )}
+          <button
+            onClick={() => onNavigate && onNavigate('profile')}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white rounded transition"
+          >
             <Settings className="w-4 h-4" />
             <span>Settings</span>
           </button>

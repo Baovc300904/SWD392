@@ -1,10 +1,11 @@
-import { 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle2, 
+import {
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
   Clock,
   ArrowRight,
-  BarChart3
+  BarChart3,
+  Users
 } from 'lucide-react';
 
 export function LecturerDashboard() {
@@ -213,9 +214,8 @@ export function LecturerDashboard() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
                           <div
-                            className={`h-2 rounded-full transition-all ${
-                              group.status === 'on-track' ? 'bg-green-500' : 'bg-red-500'
-                            }`}
+                            className={`h-2 rounded-full transition-all ${group.status === 'on-track' ? 'bg-green-500' : 'bg-red-500'
+                              }`}
                             style={{ width: `${group.progress}%` }}
                           />
                         </div>
@@ -252,27 +252,6 @@ export function LecturerDashboard() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Import Users for stats
-function Users(props) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
   );
 }
 
