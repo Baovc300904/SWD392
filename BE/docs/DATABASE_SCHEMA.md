@@ -4,9 +4,9 @@
 This database schema is designed for an **Academic Collaboration Platform** similar to Slack/Discord for educational purposes. The schema is divided into two main modules: **AcademicCore** and **ChatEngine**.
 
 ## Technology Stack
-- **Database**: MongoDB with Mongoose ODM
+- **Database**: MySQL with Sequelize ORM
 - **Node.js**: Express.js backend
-- **Reference SQL**: Provided for understanding relational structure
+- **Architecture**: Modular model structure (AcademicCore + ChatEngine)
 
 ---
 
