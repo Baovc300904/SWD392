@@ -1,13 +1,14 @@
-import { 
-  LayoutDashboard, 
-  Users, 
-  CheckSquare, 
+import {
+  LayoutDashboard,
+  Users,
+  CheckSquare,
   BookOpen,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  UserCircle
 } from 'lucide-react';
 
-export function LecturerSidebar({ activeView, onViewChange, onLogout }) {
+export function LecturerSidebar({ activeView, onViewChange, onLogout, onNavigate }) {
   const menuItems = [
     {
       id: 'dashboard',
@@ -56,16 +57,15 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout }) {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
-            
+
             return (
               <button
                 key={item.id}
                 onClick={() => onViewChange(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded transition group ${
-                  isActive
+                className={`w-full flex items-center justify-between px-3 py-2 rounded transition group ${isActive
                     ? 'bg-[#F27125] text-white'
                     : 'text-white/70 hover:bg-[#F27125]/20 hover:text-white'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Icon className="w-[18px] h-[18px]" />
@@ -95,8 +95,17 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout }) {
       </nav>
 
       {/* User Profile Section - Fixed at Bottom */}
-      <div className="border-t border-white/10 p-3">
-        <div className="flex items-center gap-3">
+      <div className="border-t border-white/10 p-3 space-y-1">
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('profile')}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-white/70 hover:bg-white/10 hover:text-white rounded-lg transition text-sm font-medium"
+          >
+            <UserCircle className="w-[18px] h-[18px]" />
+            My Profile
+          </button>
+        )}
+        <div className="flex items-center gap-3 px-1">
           <div className="relative">
             <img
               src="https://api.dicebear.com/7.x/avataaars/svg?seed=DrTranMinh"
