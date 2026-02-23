@@ -11,18 +11,18 @@ class AuthController {
     // Register new user
     async register(req, res) {
         try {
-            const { studentCode, name, email, password, confirmPassword } = req.body;
+            const { studentCode, fullName, email, password, confirmPassword } = req.body;
 
             // Input validation
-            if (!studentCode || !name || !email || !password || !confirmPassword) {
+            if (!fullName || !email || !password || !confirmPassword) {
                 return res.status(400).json({
                     success: false,
-                    message: 'All fields are required (studentCode, name, email, password, confirmPassword)'
+                    message: 'All fields are required (fullName, email, password, confirmPassword)'
                 });
             }
 
-            // Validate student code format
-            if (!/^SE\d{6}$/.test(studentCode)) {
+            // Validate student code format if provided
+            if (studentCode && !/^SE\d{6}$/.test(studentCode)) {
                 return res.status(400).json({
                     success: false,
                     message: 'Student code must be in format SE followed by 6 digits (e.g., SE150001)'
@@ -45,7 +45,7 @@ class AuthController {
             }
 
             // Call service layer
-            const result = await authService.registerUser({ studentCode, name, email, password });
+            const result = await authService.registerUser({ studentCode, fullName, email, password });
 
             res.status(201).json({
                 success: true,
@@ -277,6 +277,87 @@ class AuthController {
 
             // Call service layer
             const result = await authService.resendOTP(email);
+
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            // Handle service errors
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
+
+    // Admin/Lecturer Login
+    async adminLecturerLogin(req, res) {
+        try {
+            const { email, password, role } = req.body;
+
+            // Input validation
+            if (!email || !password || !role) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email, password, and role are required'
+                });
+            }
+
+            // Validate role
+            if (!['Admin', 'Lecturer'].includes(role)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Role must be either Admin or Lecturer'
+                });
+            }
+
+            // Call service layer
+            const result = await authService.adminLecturerLogin(email, password, role);
+
+            res.json({
+                success: true,
+                message: `${role} login successful`,
+                data: result
+            });
+        } catch (error) {
+            // Handle service errors
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
+
+    // Logout user
+    async logout(req, res) {
+        try {
+            // req.user is set by auth middleware
+            if (!req.user || !req.user.userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized - Please login first'
+                });
+            }
+
+            // Call service layer
+            const result = await authService.logoutUser(req.user.userId);
 
             res.json({
                 success: true,
