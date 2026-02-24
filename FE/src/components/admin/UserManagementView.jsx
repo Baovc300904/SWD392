@@ -47,14 +47,12 @@ export function UserManagementView() {
     try {
       setLoading(true);
       const data = await userService.getAllUsers();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
-      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-        setError('Unauthorized. Please login as Admin.');
-      } else {
-        setError('Failed to load users. Please try again.');
-      }
+      console.error('Failed to fetch users:', err);
+      setError(err?.message || 'Failed to load users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -77,12 +75,19 @@ export function UserManagementView() {
     setUpdateLoading(true);
     try {
       const roleChanged = editFormData.role !== editingUser.role;
+      
+      // Update user details
       await userService.updateUser(editingUser.userId, {
         fullName: editFormData.fullName,
         email: editFormData.email,
         studentCode: editFormData.studentCode,
       });
-      if (roleChanged) await userService.updateUserRole(editingUser.userId, editFormData.role);
+      
+      // Update role if changed
+      if (roleChanged) {
+        await userService.updateUserRole(editingUser.userId, editFormData.role);
+      }
+      
       await fetchUsers();
       closeEditModal();
       toast.success(`User "${editFormData.fullName}" updated successfully.`);

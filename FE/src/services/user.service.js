@@ -1,5 +1,11 @@
 import api from '../config/api.config';
 
+/**
+ * User Service
+ * Manages user data and operations
+ * All API responses follow format: { success: boolean, message: string, data: any }
+ * Response interceptor already unwraps to response.data
+ */
 const userService = {
     /**
      * Get all users (Admin only)
@@ -8,6 +14,7 @@ const userService = {
     getAllUsers: async () => {
         try {
             const response = await api.get('/users');
+            // Response: { success, message, count, data: [...users] }
             return response.data || [];
         } catch (error) {
             console.error('Get all users error:', error);
@@ -47,11 +54,11 @@ const userService = {
     /**
      * Create new user (Admin only)
      * @param {Object} userData - User data
-     * @param {string} userData.studentCode - Student code
-     * @param {string} userData.name - Full name
+     * @param {string} userData.studentCode - Student code (SE + 6 digits)
+     * @param {string} userData.fullName - Full name
      * @param {string} userData.email - Email
      * @param {string} userData.password - Password
-     * @param {string} userData.role - User role (optional)
+     * @param {string} userData.role - User role (Student/Lecturer/Admin)
      * @returns {Promise<Object>} Created user data
      */
     createUser: async (userData) => {
@@ -82,8 +89,8 @@ const userService = {
 
     /**
      * Update user role (Admin only)
-     * @param {string} id - User ID
-     * @param {string} role - New role (Student, Lecturer, Admin)
+     * @param {number} id - User ID
+     * @param {string} role - New role (Student/Lecturer/Admin)
      * @returns {Promise<Object>} Updated user data
      */
     updateUserRole: async (id, role) => {
@@ -99,7 +106,7 @@ const userService = {
     /**
      * Delete user (Admin only)
      * @param {number} id - User ID
-     * @returns {Promise<Object>} Delete confirmation
+     * @returns {Promise<Object>} Deleted user data
      */
     deleteUser: async (id) => {
         try {

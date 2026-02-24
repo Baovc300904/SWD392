@@ -14,12 +14,19 @@ import {
   Settings,
   LogOut,
   GraduationCap,
-  UserCircle
+  UserCircle,
+  Loader2
 } from 'lucide-react';
+import { channelService } from '../../services/channel.service';
+import { messageService } from '../../services/message.service';
 
-export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavigate }) {
+export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavigate, groupId }) {
   const [showChannels, setShowChannels] = useState(true);
   const [currentUser, setCurrentUser] = useState({ name: 'Loading...', role: 'user' });
+  const [showDMs, setShowDMs] = useState(true);
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCounts, setUnreadCounts] = useState({});
 
   useEffect(() => {
     // Get user from localStorage
@@ -36,14 +43,78 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavig
       }
     }
   }, []);
-  const [showDMs, setShowDMs] = useState(true);
 
-  const channels = [
-    { id: 'general-chat', name: 'general-chat', unread: 0 },
-    { id: 'project-tasks', name: 'project-tasks', unread: 2 },
-    { id: 'q&a-support', name: 'q&a-support', unread: 4 },
-    { id: 'ai-mentor-bot', name: 'ai-mentor-bot', unread: 0 },
-    { id: 'resources-files', name: 'resources-files', unread: 1 },
+  // Fetch channels from API
+  useEffect(() => {
+    const fetchChannels = async () => {
+      try {
+        setLoading(true);
+        
+        // If no groupId or backend not available, use mock data
+        if (!groupId) {
+          setChannels(getMockChannels());
+          setLoading(false);
+          return;
+        }
+
+        const response = await channelService.getGroupChannels(groupId);
+        
+        if (response.success) {
+          const channelList = response.data.channels || response.data || [];
+          setChannels(channelList);
+
+          // Fetch unread counts for each channel
+          const unreadPromises = channelList.map(async (channel) => {
+            try {
+              const unreadResponse = await messageService.getUnreadCount(channel.id);
+              return { channelId: channel.id, count: unreadResponse.data?.count || 0 };
+            } catch (err) {
+              return { channelId: channel.id, count: 0 };
+            }
+          });
+
+          const unreadResults = await Promise.all(unreadPromises);
+          const unreadMap = {};
+          unreadResults.forEach(({ channelId, count }) => {
+            unreadMap[channelId] = count;
+          });
+          setUnreadCounts(unreadMap);
+        }
+      } catch (err) {
+        // Fallback to default channels if API fails (silent fallback for better UX)
+        setChannels(getMockChannels());
+        setUnreadCounts({
+          'project-tasks': 2,
+          'q&a-support': 4,
+          'resources-files': 1
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChannels();
+
+    // Refresh unread counts every 30 seconds only if groupId exists
+    let interval;
+    if (groupId) {
+      interval = setInterval(() => {
+        fetchChannels();
+      }, 30000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [groupId]);
+
+  // Mock channels for development
+  const getMockChannels = () => [
+    { id: 'general-chat', name: 'general-chat', type: 'PUBLIC' },
+    { id: 'project-tasks', name: 'project-tasks', type: 'PUBLIC' },
+    { id: 'q&a-support', name: 'q&a-support', type: 'PUBLIC' },
+    { id: 'ai-mentor-bot', name: 'ai-mentor-bot', type: 'PUBLIC' },
+    { id: 'resources-files', name: 'resources-files', type: 'PUBLIC' },
   ];
 
   const directMessages = [
@@ -85,26 +156,45 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavig
           </button>
 
           {showChannels && (
-            <div className="mt-2 space-y-0.5">{channels.map((channel) => (
-              <button
-                key={channel.id}
-                onClick={() => onChannelChange(channel.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${activeChannel === channel.id
-                  ? 'bg-[#F27125] text-white font-medium shadow-md'
-                  : 'text-gray-300 hover:bg-white/10'
-                  }`}
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Hash className="w-4 h-4 flex-shrink-0 opacity-80" />
-                  <span className="truncate">{channel.name}</span>
+            <div className="mt-2 space-y-0.5">
+              {loading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 text-white/50 animate-spin" />
                 </div>
-                {channel.unread > 0 && activeChannel !== channel.id && (
-                  <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-[#F27125] text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
-                    {channel.unread}
-                  </span>
-                )}
-              </button>
-            ))}</div>
+              ) : (
+                channels.map((channel) => {
+                  const channelSlug = channel.name || channel.id;
+                  const isPrivate = channel.type === 'PRIVATE';
+                  const unreadCount = unreadCounts[channel.id] || 0;
+
+                  return (
+                    <button
+                      key={channel.id}
+                      onClick={() => onChannelChange(channelSlug, channel.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${
+                        activeChannel === channelSlug || activeChannel === channel.id
+                          ? 'bg-[#F27125] text-white font-medium shadow-md'
+                          : 'text-gray-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {isPrivate ? (
+                          <Lock className="w-4 h-4 flex-shrink-0 opacity-80" />
+                        ) : (
+                          <Hash className="w-4 h-4 flex-shrink-0 opacity-80" />
+                        )}
+                        <span className="truncate">{channelSlug}</span>
+                      </div>
+                      {unreadCount > 0 && activeChannel !== channelSlug && activeChannel !== channel.id && (
+                        <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-white text-[#F27125] text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
 

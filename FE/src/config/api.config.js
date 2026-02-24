@@ -3,6 +3,20 @@ import axios from 'axios';
 // Use local development API or production API
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
+// Helper: Get user from correct storage (localStorage or sessionStorage)
+const getStoredUser = () => {
+    const localUser = localStorage.getItem('user');
+    const sessionUser = sessionStorage.getItem('user');
+    return JSON.parse(localUser || sessionUser || '{}');
+};
+
+// Helper: Save user to correct storage
+const saveStoredUser = (userData) => {
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('user', JSON.stringify(userData));
+};
+
 const api = axios.create({
     baseURL: API_BASE_URL,
     headers: {
@@ -15,7 +29,7 @@ const api = axios.create({
 // Request interceptor - Add JWT token to all requests
 api.interceptors.request.use(
     (config) => {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const user = getStoredUser();
         if (user.token) {
             config.headers.Authorization = `Bearer ${user.token}`;
         }
@@ -67,12 +81,13 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             isRefreshing = true;
 
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const user = getStoredUser();
 
             if (!user.refreshToken) {
                 isRefreshing = false;
                 // No refresh token, clear session and reload
                 localStorage.removeItem('user');
+                sessionStorage.removeItem('user');
                 window.location.reload();
                 return Promise.reject(error);
             }
@@ -86,12 +101,12 @@ api.interceptors.response.use(
                 if (response.data.success && response.data.data) {
                     const newToken = response.data.data.accessToken;
 
-                    // Update user in localStorage
+                    // Update user in storage
                     const updatedUser = {
                         ...user,
                         token: newToken
                     };
-                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    saveStoredUser(updatedUser);
 
                     // Update Authorization header
                     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
@@ -108,6 +123,7 @@ api.interceptors.response.use(
                 isRefreshing = false;
 
                 // Refresh failed, clear session and reload
+                sessionStorage.removeItem('user');
                 localStorage.removeItem('user');
                 window.location.reload();
                 return Promise.reject(refreshError);
