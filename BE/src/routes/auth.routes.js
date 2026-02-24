@@ -170,15 +170,25 @@ router.post('/admin-lecturer-login', authController.adminLecturerLogin);
  *   post:
  *     summary: Logout and update status to Offline
  *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Logged out successfully
- *       401:
- *         description: Unauthorized
+ *       400:
+ *         description: Refresh token required
  */
-router.post('/logout', authenticate, authController.logout);
+router.post('/logout', authController.logout);
 
 /**
  * @swagger
@@ -332,5 +342,19 @@ router.post('/verify-otp', authController.verifyOTP);
  *         description: User not found
  */
 router.post('/resend-otp', authController.resendOTP);
+
+/**
+ * @swagger
+ * /api/auth/heartbeat:
+ *   post:
+ *     summary: Keep user status Online (call every 60s from frontend)
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Heartbeat received
+ */
+router.post('/heartbeat', authenticate, authController.heartbeat);
 
 module.exports = router;

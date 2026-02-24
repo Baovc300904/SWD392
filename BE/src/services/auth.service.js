@@ -251,22 +251,29 @@ class AuthService {
 
     /**
      * Logout user and update status to Offline
-     * @param {string} userId - User ID
+     * @param {string} refreshToken - Refresh token
      * @returns {Object} - Success message
      */
-    async logoutUser(userId) {
-        const user = await User.findByPk(userId);
-        
-        if (!user) {
-            throw { statusCode: 404, message: 'User not found' };
+    async logoutUser(refreshToken) {
+        if (!refreshToken) {
+            throw { statusCode: 400, message: 'Refresh token is required' };
         }
 
-        // Update user status to Offline
-        user.status = 'Offline';
-        user.isOnline = false;
-        user.lastSeenAt = new Date();
-        user.refreshToken = null; // Invalidate refresh token
-        await user.save();
+        // Find user by refreshToken (works even when accessToken is expired)
+        const user = await User.findOne({ where: { refreshToken } });
+
+        if (!user) {
+            // Token not found or already logged out - treat as success
+            return { message: 'Logged out successfully' };
+        }
+
+        // Update user status to Offline (use update() to force all fields)
+        await user.update({
+            status: 'Offline',
+            isOnline: false,
+            lastSeenAt: new Date(),
+            refreshToken: null
+        });
 
         return {
             message: 'Logged out successfully'

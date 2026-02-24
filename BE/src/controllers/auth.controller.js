@@ -348,16 +348,17 @@ class AuthController {
     // Logout user
     async logout(req, res) {
         try {
-            // req.user is set by auth middleware
-            if (!req.user || !req.user.userId) {
-                return res.status(401).json({
+            const { refreshToken } = req.body;
+
+            if (!refreshToken) {
+                return res.status(400).json({
                     success: false,
-                    message: 'Unauthorized - Please login first'
+                    message: 'Refresh token is required'
                 });
             }
 
-            // Call service layer
-            const result = await authService.logoutUser(req.user.userId);
+            // Call service layer - find user by refreshToken
+            const result = await authService.logoutUser(refreshToken);
 
             res.json({
                 success: true,
@@ -377,6 +378,20 @@ class AuthController {
                 message: MSG.GENERAL.SERVER_ERROR,
                 error: process.env.NODE_ENV === 'development' ? error.message : undefined
             });
+        }
+    }
+
+    // Heartbeat - cập nhật lastSeenAt để giữ trạng thái Online
+    async heartbeat(req, res) {
+        try {
+            const userId = req.user.userId;
+            await require('../models').User.update(
+                { lastSeenAt: new Date(), isOnline: true, status: 'Online' },
+                { where: { userId } }
+            );
+            res.json({ success: true, message: 'Heartbeat received' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: MSG.GENERAL.SERVER_ERROR });
         }
     }
 }
