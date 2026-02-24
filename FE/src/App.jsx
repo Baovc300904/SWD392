@@ -82,12 +82,17 @@ export default function App() {
 
   const [userRole, setUserRole] = useState(null);
   const [activeChannel, setActiveChannel] = useState('general-chat');
+  const [activeChannelId, setActiveChannelId] = useState(null);
+  const [currentGroupId, setCurrentGroupId] = useState(null);
 
   /* ─── Derive role from localStorage on mount ─── */
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (user?.token) {
       setUserRole(user.role?.toLowerCase() || null);
+      // TODO: Fetch user's current group from API
+      // For now, use null to enable offline mode with mock data
+      setCurrentGroupId(null);
     }
   }, []);
 
@@ -147,11 +152,19 @@ export default function App() {
       <div className="flex h-screen bg-white overflow-hidden">
         <SlackSidebar
           activeChannel={activeChannel}
-          onChannelChange={setActiveChannel}
+          onChannelChange={(channelSlug, channelId) => {
+            setActiveChannel(channelSlug);
+            setActiveChannelId(channelId);
+          }}
           onLogout={handleLogout}
           onNavigate={handleNavigate}
+          groupId={currentGroupId}
         />
-        <SlackChat channel={activeChannel} />
+        <SlackChat 
+          channel={activeChannel} 
+          channelId={activeChannelId}
+          groupId={currentGroupId}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -1,4 +1,6 @@
 import api from '../config/api.config';
+import { channelService } from './channel.service';
+import { messageService } from './message.service';
 
 // Topic Services
 export const topicService = {
@@ -197,5 +199,7 @@ export default {
   question: questionService,
   answer: answerService,
   semester: semesterService,
-  aiSuggestion: aiSuggestionService
+  aiSuggestion: aiSuggestionService,
+  channel: channelService,
+  message: messageService
 };

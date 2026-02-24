@@ -217,8 +217,21 @@ const authService = {
      */
     logout: async () => {
         try {
-            await api.post('/auth/logout');
-        } catch { /* ignore */ } finally {
+            // Get user data to retrieve refreshToken
+            const storage = getStorage();
+            const user = JSON.parse(storage.getItem('user') || '{}');
+            
+            // Call logout API with refreshToken
+            if (user.refreshToken) {
+                await api.post('/auth/logout', {
+                    refreshToken: user.refreshToken
+                });
+            }
+        } catch (error) {
+            // Ignore API errors during logout, still clear storage
+            console.warn('Logout API error:', error.message);
+        } finally {
+            // Always clear storage regardless of API response
             localStorage.removeItem('user');
             sessionStorage.removeItem('user');
             localStorage.removeItem('rememberMe');
