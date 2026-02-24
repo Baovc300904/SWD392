@@ -12,14 +12,11 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including devDependencies for build)
-RUN npm ci
+# Install dependencies
+RUN npm install --production
 
 # Copy source code
 COPY . .
-
-# Remove dev dependencies and keep only production
-RUN npm prune --production
 
 # Stage 2: Production stage
 FROM node:18-alpine
@@ -34,11 +31,8 @@ WORKDIR /usr/src/app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files
-COPY package*.json ./
-
-# Copy production dependencies from builder
-COPY --from=builder /usr/src/app/node_modules ./node_modules
+# Copy dependencies from builder
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/node_modules ./node_modules
 
 # Copy application code
 COPY --chown=nodejs:nodejs . .
