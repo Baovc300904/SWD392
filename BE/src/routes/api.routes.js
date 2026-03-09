@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// Import routes
+// Import routes (ONLY FOR 2 CORE BUSINESS FLOWS)
 const authRoutes = require('./auth.routes');
 const userRoutes = require('./user.routes');
 const classRoutes = require('./class.routes');
@@ -16,12 +16,12 @@ router.use('/auth', authRoutes);
 // User routes
 router.use('/users', userRoutes);
 
-// Academic Core routes (Q&A System)
+// FLOW 1: Topic Management
 router.use('/classes', classRoutes);
 router.use('/topics', topicRoutes);
 router.use('/groups', groupRoutes);
 
-// Q&A routes
+// FLOW 2: Q&A Hierarchical System
 router.use('/questions', questionRoutes);
 router.use('/', answerRoutes); // Includes /questions/:id/answers and /answers/:id
 

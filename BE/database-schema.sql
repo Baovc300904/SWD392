@@ -14,11 +14,23 @@ USE academic_collaboration_db;
 -- Bảng Người dùng
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    student_code VARCHAR(20) UNIQUE NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('STUDENT', 'LECTURER', 'MANAGER') NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    role ENUM('manager', 'lecturer', 'student') NOT NULL DEFAULT 'student',
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    otp VARCHAR(6) NULL,
+    otp_expires DATETIME NULL,
+    refresh_token TEXT NULL,
+    status ENUM('Online', 'Offline', 'Away') DEFAULT 'Offline',
+    is_online BOOLEAN DEFAULT FALSE,
+    last_seen_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_student_code (student_code),
+    INDEX idx_role (role)
 );
 
 -- Bảng Đề tài
@@ -93,15 +105,15 @@ CREATE TABLE answers (
 -- 2. INSERT MOCK DATA (Dữ liệu mẫu)
 -- ==========================================
 
--- Thêm Users (Pass mặc định để test là: hashed_password)
+-- Thêm Users (Password: 123456 - đã mã hóa bằng bcrypt)
 INSERT INTO users (id, full_name, email, password_hash, role) VALUES
-(1, 'Trưởng Bộ Môn (Manager)', 'manager@fpt.edu.vn', 'hashed_password', 'MANAGER'),
-(2, 'Giảng Viên Nguyễn Văn A', 'gva@fpt.edu.vn', 'hashed_password', 'LECTURER'),
-(3, 'Giảng Viên Trần Thị B', 'gvb@fpt.edu.vn', 'hashed_password', 'LECTURER'),
-(4, 'Sinh Viên Lê Văn C', 'sv1@fpt.edu.vn', 'hashed_password', 'STUDENT'),
-(5, 'Sinh Viên Phạm Thị D', 'sv2@fpt.edu.vn', 'hashed_password', 'STUDENT'),
-(6, 'Sinh Viên Hoàng Văn E', 'sv3@fpt.edu.vn', 'hashed_password', 'STUDENT'),
-(7, 'Sinh Viên Vũ Thị F', 'sv4@fpt.edu.vn', 'hashed_password', 'STUDENT');
+(1, 'Trưởng Bộ Môn (Manager)', 'manager@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'manager'),
+(2, 'Giảng Viên Nguyễn Văn A', 'gva@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(3, 'Giảng Viên Trần Thị B', 'gvb@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(4, 'Sinh Viên Lê Văn C', 'sv1@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(5, 'Sinh Viên Phạm Thị D', 'sv2@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(6, 'Sinh Viên Hoàng Văn E', 'sv3@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(7, 'Sinh Viên Vũ Thị F', 'sv4@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student');
 
 -- Thêm Topics (Đề tài)
 INSERT INTO topics (id, title, description, status, proposed_by, approved_by) VALUES
