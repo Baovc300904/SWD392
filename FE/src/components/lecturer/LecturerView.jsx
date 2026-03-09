@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { GroupSwitcher } from './GroupSwitcher';
 import { LecturerSidebar } from './LecturerSidebar';
 import { LecturerDashboard } from './LecturerDashboard';
+import { GroupManagementView } from './GroupManagementView';
+import { MilestoneManagementView } from './MilestoneManagementView';
+import { SubmissionGradingView } from './SubmissionGradingView';
+import { TopicApprovalsView } from '../admin/TopicApprovalsView';
 import { SlackSidebar } from '../slack/SlackSidebar';
 import { SlackChat } from '../slack/SlackChat';
 
@@ -62,7 +66,13 @@ export function LecturerView({ onLogout, onNavigate }) {
 
       {/* Column 3: Main Content */}
       {isInDashboard ? (
-        <LecturerDashboard />
+        <div className="flex-1 overflow-auto">
+          {dashboardView === 'dashboard' && <LecturerDashboard />}
+          {dashboardView === 'groups' && <GroupManagementView />}
+          {dashboardView === 'milestones' && <MilestoneManagementView />}
+          {dashboardView === 'grading' && <SubmissionGradingView />}
+          {dashboardView === 'approvals' && <TopicApprovalsView />}
+        </div>
       ) : (
         <SlackChat 
           channel={activeChannel}

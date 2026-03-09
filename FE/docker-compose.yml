@@ -1,0 +1,61 @@
+# =====================================================
+# SWP Hub - Frontend Docker Compose
+# Standalone frontend service
+# =====================================================
+
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    image: swd-frontend:latest
+    container_name: swd_frontend
+    restart: unless-stopped
+    
+    ports:
+      - "5173:80"
+    
+    environment:
+      - NODE_ENV=production
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Connect to backend network if needed
+    networks:
+      - swd_network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    
+    labels:
+      - "com.docker.compose.project=swd"
+      - "com.swd.service=frontend"
+      - "com.swd.component=web"
+      - "com.swd.version=1.0.0"
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  swd_network:
+    external: true
+    name: swd_swd_network

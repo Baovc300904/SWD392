@@ -36,8 +36,8 @@ export const topicService = {
   },
 
   // Reject topic (admin/lecturer only)
-  rejectTopic: async (id) => {
-    return await api.put(`/topics/${id}/reject`);
+  rejectTopic: async (id, reason = '') => {
+    return await api.put(`/topics/${id}/reject`, { rejectionReason: reason });
   }
 };
 
@@ -180,6 +180,78 @@ export const semesterService = {
   }
 };
 
+// Class Services
+export const classService = {
+  getAllClasses: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    return await api.get(`/classes?${params}`);
+  },
+  getClassById: async (id) => {
+    return await api.get(`/classes/${id}`);
+  },
+  createClass: async (data) => {
+    return await api.post('/classes', data);
+  },
+  updateClass: async (id, data) => {
+    return await api.put(`/classes/${id}`, data);
+  },
+  deleteClass: async (id) => {
+    return await api.delete(`/classes/${id}`);
+  },
+  getClassMembers: async (id) => {
+    return await api.get(`/classes/${id}/members`);
+  },
+  addClassMember: async (id, studentId) => {
+    return await api.post(`/classes/${id}/members`, { studentId });
+  },
+  removeClassMember: async (id, memberId) => {
+    return await api.delete(`/classes/${id}/members/${memberId}`);
+  }
+};
+
+// Milestone Services
+export const milestoneService = {
+  getAllMilestones: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    return await api.get(`/milestones?${params}`);
+  },
+  getMilestoneById: async (id) => {
+    return await api.get(`/milestones/${id}`);
+  },
+  createMilestone: async (data) => {
+    return await api.post('/milestones', data);
+  },
+  updateMilestone: async (id, data) => {
+    return await api.put(`/milestones/${id}`, data);
+  },
+  deleteMilestone: async (id) => {
+    return await api.delete(`/milestones/${id}`);
+  }
+};
+
+// Submission Services
+export const submissionService = {
+  getAllSubmissions: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    return await api.get(`/submissions?${params}`);
+  },
+  getSubmissionById: async (id) => {
+    return await api.get(`/submissions/${id}`);
+  },
+  createSubmission: async (data) => {
+    return await api.post('/submissions', data);
+  },
+  updateSubmission: async (id, data) => {
+    return await api.put(`/submissions/${id}`, data);
+  },
+  deleteSubmission: async (id) => {
+    return await api.delete(`/submissions/${id}`);
+  },
+  gradeSubmission: async (id, grade, feedback) => {
+    return await api.put(`/submissions/${id}/grade`, { grade, feedback });
+  }
+};
+
 // AI Suggestion Services
 export const aiSuggestionService = {
   // Get AI suggestion for a question
@@ -196,6 +268,9 @@ export const aiSuggestionService = {
 export default {
   topic: topicService,
   group: groupService,
+  class: classService,
+  milestone: milestoneService,
+  submission: submissionService,
   question: questionService,
   answer: answerService,
   semester: semesterService,

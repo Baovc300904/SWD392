@@ -6,23 +6,15 @@ import {
   Settings,
   LogOut,
   UserCircle,
-  Activity,
-  CheckCircle,
-  Clock,
-  TrendingUp,
-  Search,
-  Filter,
-  Edit,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Check
+  Calendar,
+  School
 } from 'lucide-react';
 import { DashboardView } from '../components/admin/DashboardView';
 import { UserManagementView } from '../components/admin/UserManagementView';
 import { TopicApprovalsView } from '../components/admin/TopicApprovalsView';
 import { SettingsView } from '../components/admin/SettingsView';
+import { SemesterManagementView } from '../components/admin/SemesterManagementView';
+import { ClassManagementView } from '../components/admin/ClassManagementView';
 
 export function AdminDashboard({ onLogout, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
@@ -93,6 +85,26 @@ export function AdminDashboard({ onLogout, onNavigate }) {
               Topic Approvals
             </button>
             <button
+              onClick={() => setActiveView('semesters')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'semesters'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
+            >
+              <Calendar className="w-5 h-5" />
+              Semesters
+            </button>
+            <button
+              onClick={() => setActiveView('classes')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'classes'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
+            >
+              <School className="w-5 h-5" />
+              Classes
+            </button>
+            <button
               onClick={() => setActiveView('settings')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'settings'
                 ? 'bg-[#F27125] text-white shadow-lg'
@@ -134,12 +146,16 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 {activeView === 'dashboard' && 'Dashboard Overview'}
                 {activeView === 'users' && 'User Management'}
                 {activeView === 'topics' && 'Topic Approvals'}
+                {activeView === 'semesters' && 'Semester Management'}
+                {activeView === 'classes' && 'Class Management'}
                 {activeView === 'settings' && 'Settings'}
               </h1>
               <p className="text-gray-600 mt-1">
                 {activeView === 'dashboard' && 'Welcome back, Admin. Here\'s what\'s happening today.'}
                 {activeView === 'users' && 'Manage students and lecturers'}
                 {activeView === 'topics' && 'Review and approve project topics'}
+                {activeView === 'semesters' && 'Create and manage academic semesters'}
+                {activeView === 'classes' && 'Manage classes and student enrollment'}
                 {activeView === 'settings' && 'Configure system settings'}
               </p>
             </div>
@@ -160,6 +176,8 @@ export function AdminDashboard({ onLogout, onNavigate }) {
           {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'users' && <UserManagementView />}
           {activeView === 'topics' && <TopicApprovalsView />}
+          {activeView === 'semesters' && <SemesterManagementView />}
+          {activeView === 'classes' && <ClassManagementView />}
           {activeView === 'settings' && <SettingsView />}
         </div>
       </div>
