@@ -1,70 +1,61 @@
 /**
- * AcademicCore Module - Topic Model (MySQL/Sequelize)
- * Represents project topics/ideas proposed by lecturers
+ * Topic Model (MySQL/Sequelize)
+ * Represents project topics proposed by lecturers
  */
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../../config/database.sequelize');
 
 const Topic = sequelize.define('Topic', {
-    topicId: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+    id: {
+        type: DataTypes.INTEGER,
         primaryKey: true,
-        field: 'topic_id'
-    },
-    createdBy: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        },
-        field: 'created_by'
+        autoIncrement: true
     },
     title: {
-        type: DataTypes.STRING(200),
+        type: DataTypes.STRING(255),
         allowNull: false,
         validate: {
-            notEmpty: { msg: 'Topic title is required' },
-            len: {
-                args: [1, 200],
-                msg: 'Topic title cannot exceed 200 characters'
-            }
+            notEmpty: { msg: 'Title is required' }
         }
-    },
-    descriptionFile: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        field: 'description_file'
     },
     description: {
         type: DataTypes.TEXT,
         allowNull: true
     },
     status: {
-        type: DataTypes.ENUM('Pending', 'Approved', 'Rejected', 'Assigned'),
-        defaultValue: 'Pending'
+        type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+        defaultValue: 'PENDING'
     },
-    maxGroups: {
+    proposedBy: {
         type: DataTypes.INTEGER,
-        defaultValue: 1,
-        validate: {
-            min: {
-                args: [1],
-                msg: 'At least 1 group can select this topic'
-            }
+        allowNull: true,
+        references: {
+            model: 'users',
+            key: 'id'
         },
-        field: 'max_groups'
+        field: 'proposed_by'
+    },
+    approvedBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'users',
+            key: 'id'
+        },
+        field: 'approved_by'
+    },
+    createdAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        field: 'created_at'
     }
 }, {
     tableName: 'topics',
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at',
+    timestamps: false,
     indexes: [
-        { fields: ['created_by'] },
         { fields: ['status'] },
-        { fields: ['created_at'] }
+        { fields: ['proposed_by'] },
+        { fields: ['approved_by'] }
     ]
 });
 

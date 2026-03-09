@@ -74,11 +74,8 @@ class AuthService {
      * @returns {Object} - User and tokens
      */
     async verifyOTP(email, otp) {
-        console.log('🔍 Verifying OTP - email:', email, ', otp:', otp);
-        
         // Find user with email and OTP
         const user = await User.findOne({ where: { email: email } });
-        console.log('👤 User found:', user ? user.email : 'null');
 
         if (!user) {
             throw { statusCode: 404, message: 'User not found' };

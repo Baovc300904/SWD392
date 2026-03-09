@@ -1,15 +1,12 @@
 /**
  * Database Models - Main Index (MySQL/Sequelize)
- * Central export point for all database models
+ * Central export point for all database models (Q&A System)
  */
 
 const { sequelize, testConnection, syncDatabase } = require('../config/database.sequelize');
 
-// AcademicCore Module
+// AcademicCore Module (7 models for Q&A system)
 const AcademicCore = require('./academicCore');
-
-// ChatEngine Module  
-const ChatEngine = require('./chatEngine');
 
 // Export all models
 module.exports = {
@@ -18,25 +15,15 @@ module.exports = {
     testConnection,
     syncDatabase,
 
-    // AcademicCore Models
+    // AcademicCore Models (INT-based, matching SQL schema)
     User: AcademicCore.User,
-    Semester: AcademicCore.Semester,
-    Class: AcademicCore.Class,
-    ClassMember: AcademicCore.ClassMember,
     Topic: AcademicCore.Topic,
-    Group: AcademicCore.Group,
+    Class: AcademicCore.Class,
+    StudentGroup: AcademicCore.StudentGroup,
     GroupMember: AcademicCore.GroupMember,
-    Milestone: AcademicCore.Milestone,
-    Submission: AcademicCore.Submission,
+    Question: AcademicCore.Question,
+    Answer: AcademicCore.Answer,
 
-    // ChatEngine Models
-    Channel: ChatEngine.Channel,
-    ChannelMember: ChatEngine.ChannelMember,
-    Message: ChatEngine.Message,
-    Attachment: ChatEngine.Attachment,
-    Reaction: ChatEngine.Reaction,
-
-    // Module exports for grouped access
-    AcademicCore,
-    ChatEngine
+    // Module export for grouped access
+    AcademicCore
 };

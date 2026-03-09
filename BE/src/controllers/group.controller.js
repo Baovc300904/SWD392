@@ -1,9 +1,9 @@
 /**
  * Group Controller
- * Handles CRUD operations for groups
+ * Handles CRUD operations for student groups
  */
 
-const { Group, Class, Topic, GroupMember, User, Submission, Channel } = require('../models');
+const { StudentGroup, Class, Topic, GroupMember, User } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -14,9 +14,9 @@ const { Op } = require('sequelize');
 const getAllGroups = async (req, res) => {
     try {
         const { classId, topicId, status, search } = req.query;
-        
+
         let whereClause = {};
-        
+
         if (classId) whereClause.classId = classId;
         if (topicId) whereClause.topicId = topicId;
         if (status) whereClause.status = status;
@@ -26,19 +26,19 @@ const getAllGroups = async (req, res) => {
                 { description: { [Op.like]: `%${search}%` } }
             ];
         }
-        
-        const groups = await Group.findAll({
+
+        const groups = await StudentGroup.findAll({
             where: whereClause,
             include: [
                 {
                     model: Class,
                     as: 'class',
-                    attributes: ['classId', 'className', 'status']
+                    attributes: ['id', 'className']
                 },
                 {
                     model: Topic,
                     as: 'topic',
-                    attributes: ['topicId', 'title', 'status']
+                    attributes: ['id', 'title', 'status']
                 },
                 {
                     model: GroupMember,
@@ -46,13 +46,13 @@ const getAllGroups = async (req, res) => {
                     include: [{
                         model: User,
                         as: 'student',
-                        attributes: ['userId', 'fullName', 'email', 'avatarURL']
+                        attributes: ['id', 'fullName', 'email']
                     }]
                 }
             ],
             order: [['createdAt', 'DESC']]
         });
-        
+
         res.status(200).json({
             success: true,
             count: groups.length,
@@ -76,8 +76,8 @@ const getAllGroups = async (req, res) => {
 const getGroupById = async (req, res) => {
     try {
         const { id } = req.params;
-        
-        const group = await Group.findByPk(id, {
+
+        const group = await StudentGroup.findByPk(id, {
             include: [
                 {
                     model: Class,
@@ -95,22 +95,17 @@ const getGroupById = async (req, res) => {
                         as: 'student',
                         attributes: ['userId', 'fullName', 'email', 'avatarURL', 'isOnline']
                     }]
-                },
-                {
-                    model: Submission,
-                    as: 'submissions',
-                    attributes: ['submissionId', 'milestoneId', 'grade', 'status', 'submissionAt']
                 }
             ]
         });
-        
+
         if (!group) {
             return res.status(404).json({
                 success: false,
                 message: 'Group not found'
             });
         }
-        
+
         res.status(200).json({
             success: true,
             data: group
@@ -133,14 +128,14 @@ const getGroupById = async (req, res) => {
 const createGroup = async (req, res) => {
     try {
         const { classId, topicId, groupName, description, maxMembers } = req.body;
-        
+
         if (!classId || !topicId || !groupName) {
             return res.status(400).json({
                 success: false,
                 message: 'Please provide classId, topicId, and groupName'
             });
         }
-        
+
         // Verify class exists
         const classData = await Class.findByPk(classId);
         if (!classData) {
@@ -149,7 +144,7 @@ const createGroup = async (req, res) => {
                 message: 'Class not found'
             });
         }
-        
+
         // Verify topic exists and is approved
         const topic = await Topic.findByPk(topicId);
         if (!topic) {
@@ -158,15 +153,15 @@ const createGroup = async (req, res) => {
                 message: 'Topic not found'
             });
         }
-        
+
         if (topic.status !== 'Approved') {
             return res.status(400).json({
                 success: false,
                 message: 'Topic must be approved before creating a group'
             });
         }
-        
-        const group = await Group.create({
+
+        const group = await StudentGroup.create({
             classId,
             topicId,
             groupName,
@@ -174,14 +169,7 @@ const createGroup = async (req, res) => {
             maxMembers: maxMembers || 5,
             status: 'Forming'
         });
-        
-        // Create a private channel for the group
-        await Channel.create({
-            groupId: group.groupId,
-            name: `${groupName}-private`,
-            type: 'PRIVATE'
-        });
-        
+
         res.status(201).json({
             success: true,
             message: 'Group created successfully',
@@ -206,18 +194,18 @@ const updateGroup = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        
+
         const group = await Group.findByPk(id);
-        
+
         if (!group) {
             return res.status(404).json({
                 success: false,
                 message: 'Group not found'
             });
         }
-        
+
         await group.update(updates);
-        
+
         res.status(200).json({
             success: true,
             message: 'Group updated successfully',
@@ -241,18 +229,18 @@ const updateGroup = async (req, res) => {
 const deleteGroup = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const group = await Group.findByPk(id);
-        
+
         if (!group) {
             return res.status(404).json({
                 success: false,
                 message: 'Group not found'
             });
         }
-        
+
         await group.destroy();
-        
+
         res.status(200).json({
             success: true,
             message: 'Group deleted successfully'
@@ -276,26 +264,26 @@ const addGroupMember = async (req, res) => {
     try {
         const { id } = req.params;
         const { userId, role } = req.body;
-        
+
         if (!userId) {
             return res.status(400).json({
                 success: false,
                 message: 'User ID is required'
             });
         }
-        
+
         // Check if group exists
         const group = await Group.findByPk(id, {
             include: [{ model: GroupMember, as: 'members' }]
         });
-        
+
         if (!group) {
             return res.status(404).json({
                 success: false,
                 message: 'Group not found'
             });
         }
-        
+
         // Check if group is full
         if (group.members && group.members.length >= group.maxMembers) {
             return res.status(400).json({
@@ -303,7 +291,7 @@ const addGroupMember = async (req, res) => {
                 message: 'Group is full'
             });
         }
-        
+
         // Check if user is a student
         const user = await User.findByPk(userId);
         if (!user || user.role !== 'Student') {
@@ -312,26 +300,26 @@ const addGroupMember = async (req, res) => {
                 message: 'User not found or invalid role'
             });
         }
-        
+
         // Check if already a member
         const existingMember = await GroupMember.findOne({
             where: { groupId: id, studentId: userId }
         });
-        
+
         if (existingMember) {
             return res.status(409).json({
                 success: false,
                 message: 'User is already a member of this group'
             });
         }
-        
+
         const member = await GroupMember.create({
             groupId: id,
             studentId: userId,
             role: role || 'Member',
             status: 'Active'
         });
-        
+
         res.status(201).json({
             success: true,
             message: 'Member added to group successfully',
@@ -355,20 +343,20 @@ const addGroupMember = async (req, res) => {
 const removeGroupMember = async (req, res) => {
     try {
         const { id, memberId } = req.params;
-        
+
         const member = await GroupMember.findOne({
             where: { id: memberId, groupId: id }
         });
-        
+
         if (!member) {
             return res.status(404).json({
                 success: false,
                 message: 'Group member not found'
             });
         }
-        
+
         await member.destroy();
-        
+
         res.status(200).json({
             success: true,
             message: 'Member removed from group successfully'
@@ -391,7 +379,7 @@ const removeGroupMember = async (req, res) => {
 const getGroupMembers = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const members = await GroupMember.findAll({
             where: { groupId: id },
             include: [{
@@ -401,7 +389,7 @@ const getGroupMembers = async (req, res) => {
             }],
             order: [['role', 'DESC'], ['joinedAt', 'ASC']]
         });
-        
+
         res.status(200).json({
             success: true,
             count: members.length,

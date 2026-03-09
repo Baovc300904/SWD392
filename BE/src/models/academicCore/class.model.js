@@ -1,74 +1,43 @@
 /**
- * AcademicCore Module - Class Model (MySQL/Sequelize)
- * Represents a class/course section within a semester
+ * Class Model (MySQL/Sequelize)
+ * Represents a class/course section
  */
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../../config/database.sequelize');
 
 const Class = sequelize.define('Class', {
-    classId: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+    id: {
+        type: DataTypes.INTEGER,
         primaryKey: true,
-        field: 'class_id'
-    },
-    semesterId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'semesters',
-            key: 'semester_id'
-        },
-        field: 'semester_id'
-    },
-    lecturerId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        },
-        field: 'lecturer_id'
+        autoIncrement: true
     },
     className: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.STRING(50),
         allowNull: false,
         validate: {
-            notEmpty: { msg: 'Class name is required' },
-            len: {
-                args: [1, 100],
-                msg: 'Class name cannot exceed 100 characters'
-            }
+            notEmpty: { msg: 'Class name is required' }
         },
         field: 'class_name'
     },
-    slackSpaceName: {
-        type: DataTypes.STRING(100),
+    lecturerId: {
+        type: DataTypes.INTEGER,
         allowNull: true,
-        unique: {
-            msg: 'Slack space name already exists'
+        references: {
+            model: 'users',
+            key: 'id'
         },
-        field: 'slack_space_name'
+        field: 'lecturer_id'
     },
-    description: {
-        type: DataTypes.STRING(500),
-        allowNull: true
-    },
-    status: {
-        type: DataTypes.ENUM('Active', 'Inactive', 'Completed'),
-        defaultValue: 'Active'
+    createdAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        field: 'created_at'
     }
 }, {
     tableName: 'classes',
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at',
+    timestamps: false,
     indexes: [
-        { fields: ['semester_id'] },
-        { fields: ['lecturer_id'] },
-        { fields: ['slack_space_name'], unique: true },
-        { fields: ['semester_id', 'lecturer_id'] },
-        { fields: ['status'] }
+        { fields: ['lecturer_id'] }
     ]
 });
 
