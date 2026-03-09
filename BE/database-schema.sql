@@ -31,7 +31,7 @@ CREATE TABLE users (
     INDEX idx_email (email),
     INDEX idx_student_code (student_code),
     INDEX idx_role (role)
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Đề tài
 CREATE TABLE topics (
@@ -44,7 +44,7 @@ CREATE TABLE topics (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (proposed_by) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Lớp học
 CREATE TABLE classes (
@@ -53,7 +53,7 @@ CREATE TABLE classes (
     lecturer_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (lecturer_id) REFERENCES users(id) ON DELETE SET NULL
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Nhóm Sinh viên
 CREATE TABLE student_groups (
@@ -64,7 +64,7 @@ CREATE TABLE student_groups (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
     FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE SET NULL
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Thành viên Nhóm (Nhiều-Nhiều giữa Sinh viên và Nhóm)
 CREATE TABLE group_members (
@@ -74,7 +74,7 @@ CREATE TABLE group_members (
     PRIMARY KEY (group_id, student_id),
     FOREIGN KEY (group_id) REFERENCES student_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Câu hỏi Q&A
 CREATE TABLE questions (
@@ -87,7 +87,7 @@ CREATE TABLE questions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (group_id) REFERENCES student_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (asked_by) REFERENCES users(id) ON DELETE CASCADE
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Câu trả lời Q&A
 CREATE TABLE answers (
@@ -99,7 +99,7 @@ CREATE TABLE answers (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (answered_by) REFERENCES users(id) ON DELETE CASCADE
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ==========================================
 -- 2. INSERT MOCK DATA (Dữ liệu mẫu)
