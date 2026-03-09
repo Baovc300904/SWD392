@@ -91,18 +91,18 @@ export function LoginPage({ onNavigate, onLogin }) {
     setLoading(true);
     try {
       const user = await authService.login(email, password, rememberMe);
-      if (loginRole === 'student' && user.role !== 'Student') {
+      const roleLower = user.role.toLowerCase();
+      if (loginRole === 'student' && roleLower !== 'student') {
         setError('This account is not a student account. Please use the Lecturer Portal tab.');
         setLoading(false);
         return;
       }
-      if (loginRole === 'lecturer' && user.role === 'Student') {
+      if (loginRole === 'lecturer' && roleLower === 'student') {
         setError('Student accounts must use the Student Portal tab on the left.');
         setLoading(false);
         return;
       }
-      const roleLower = user.role.toLowerCase();
-      if (roleLower === 'admin') onLogin('admin');
+      if (roleLower === 'manager') onLogin('admin');
       else if (roleLower === 'lecturer') onLogin('lecturer');
       else onLogin('student');
     } catch (err) {

@@ -250,9 +250,6 @@ export function RegisterPage({ onNavigate, onLogin }) {
       if (res.accessToken && res.user) {
         localStorage.setItem('user', JSON.stringify({ ...res.user, token: res.accessToken, refreshToken: res.refreshToken }));
         if (onLogin) onLogin(res.user);
-        const r = res.user.role?.toLowerCase();
-        const dest = r === 'admin' ? 'admin' : r === 'lecturer' ? 'lecturer' : 'group';
-        setTimeout(() => onNavigate(dest, { replace: true }), 800);
       } else {
         setStep(2); setOtpExpired(false);
       }

@@ -2,7 +2,8 @@ import {
   LayoutDashboard,
   Users,
   CheckSquare,
-  BookOpen,
+  Target,
+  GraduationCap,
   LogOut,
   ChevronDown,
   UserCircle
@@ -19,7 +20,7 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, onNavigate
     {
       id: 'groups',
       icon: Users,
-      label: 'All Groups Overview',
+      label: 'Groups Overview',
       badge: null,
     },
     {
@@ -29,9 +30,15 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, onNavigate
       badge: 3,
     },
     {
-      id: 'syllabus',
-      icon: BookOpen,
-      label: 'Syllabus Config',
+      id: 'milestones',
+      icon: Target,
+      label: 'Milestones',
+      badge: null,
+    },
+    {
+      id: 'grading',
+      icon: GraduationCap,
+      label: 'Submission Grading',
       badge: null,
     },
   ];

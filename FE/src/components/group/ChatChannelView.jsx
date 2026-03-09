@@ -42,7 +42,7 @@ export function ChatChannelView({ channel }) {
     },
   };
 
-  const info = channelInfo[channel typeof channelInfo] || channelInfo.general;
+  const info = channelInfo[channel] || channelInfo.general;
 
   const messages = [
     {
