@@ -3,7 +3,7 @@
  * Handles CRUD operations for topics
  */
 
-const { Topic, User, Group } = require('../models');
+const { Topic, User, StudentGroup } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -13,36 +13,41 @@ const { Op } = require('sequelize');
  */
 const getAllTopics = async (req, res) => {
     try {
-        const { status, createdBy, search } = req.query;
-        
+        const { status, proposedBy, search } = req.query;
+
         let whereClause = {};
-        
+
         if (status) whereClause.status = status;
-        if (createdBy) whereClause.createdBy = createdBy;
+        if (proposedBy) whereClause.proposedBy = proposedBy;
         if (search) {
             whereClause[Op.or] = [
                 { title: { [Op.like]: `%${search}%` } },
                 { description: { [Op.like]: `%${search}%` } }
             ];
         }
-        
+
         const topics = await Topic.findAll({
             where: whereClause,
             include: [
                 {
                     model: User,
-                    as: 'creator',
-                    attributes: ['userId', 'fullName', 'email', 'avatarURL', 'role']
+                    as: 'proposer',
+                    attributes: ['id', 'fullName', 'email', 'role']
                 },
                 {
-                    model: Group,
+                    model: User,
+                    as: 'approver',
+                    attributes: ['id', 'fullName', 'email', 'role']
+                },
+                {
+                    model: StudentGroup,
                     as: 'groups',
-                    attributes: ['groupId', 'groupName', 'status']
+                    attributes: ['id', 'groupName']
                 }
             ],
             order: [['createdAt', 'DESC']]
         });
-        
+
         res.status(200).json({
             success: true,
             count: topics.length,
@@ -66,7 +71,7 @@ const getAllTopics = async (req, res) => {
 const getTopicById = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const topic = await Topic.findByPk(id, {
             include: [
                 {
@@ -75,20 +80,20 @@ const getTopicById = async (req, res) => {
                     attributes: ['userId', 'fullName', 'email', 'avatarURL', 'role']
                 },
                 {
-                    model: Group,
+                    model: StudentGroup,
                     as: 'groups',
-                    attributes: ['groupId', 'groupName', 'status', 'maxMembers']
+                    attributes: ['id', 'groupName', 'status', 'maxMembers']
                 }
             ]
         });
-        
+
         if (!topic) {
             return res.status(404).json({
                 success: false,
                 message: 'Topic not found'
             });
         }
-        
+
         res.status(200).json({
             success: true,
             data: topic
@@ -111,14 +116,14 @@ const getTopicById = async (req, res) => {
 const createTopic = async (req, res) => {
     try {
         const { createdBy, title, description, descriptionFile, maxGroups } = req.body;
-        
+
         if (!createdBy || !title) {
             return res.status(400).json({
                 success: false,
                 message: 'Please provide createdBy and title'
             });
         }
-        
+
         // Verify creator exists and is a lecturer
         const creator = await User.findByPk(createdBy);
         if (!creator || creator.role !== 'Lecturer') {
@@ -127,7 +132,7 @@ const createTopic = async (req, res) => {
                 message: 'Creator not found or invalid role'
             });
         }
-        
+
         const topic = await Topic.create({
             createdBy,
             title,
@@ -136,7 +141,7 @@ const createTopic = async (req, res) => {
             maxGroups: maxGroups || 1,
             status: 'Pending'
         });
-        
+
         res.status(201).json({
             success: true,
             message: 'Topic created successfully',
@@ -161,18 +166,18 @@ const updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        
+
         const topic = await Topic.findByPk(id);
-        
+
         if (!topic) {
             return res.status(404).json({
                 success: false,
                 message: 'Topic not found'
             });
         }
-        
+
         await topic.update(updates);
-        
+
         res.status(200).json({
             success: true,
             message: 'Topic updated successfully',
@@ -196,18 +201,18 @@ const updateTopic = async (req, res) => {
 const deleteTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const topic = await Topic.findByPk(id);
-        
+
         if (!topic) {
             return res.status(404).json({
                 success: false,
                 message: 'Topic not found'
             });
         }
-        
+
         await topic.destroy();
-        
+
         res.status(200).json({
             success: true,
             message: 'Topic deleted successfully'
@@ -230,19 +235,19 @@ const deleteTopic = async (req, res) => {
 const approveTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const topic = await Topic.findByPk(id);
-        
+
         if (!topic) {
             return res.status(404).json({
                 success: false,
                 message: 'Topic not found'
             });
         }
-        
+
         topic.status = 'Approved';
         await topic.save();
-        
+
         res.status(200).json({
             success: true,
             message: 'Topic approved successfully',
@@ -266,19 +271,19 @@ const approveTopic = async (req, res) => {
 const rejectTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const topic = await Topic.findByPk(id);
-        
+
         if (!topic) {
             return res.status(404).json({
                 success: false,
                 message: 'Topic not found'
             });
         }
-        
+
         topic.status = 'Rejected';
         await topic.save();
-        
+
         res.status(200).json({
             success: true,
             message: 'Topic rejected successfully',
