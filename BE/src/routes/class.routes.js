@@ -10,10 +10,7 @@ const {
     getClassById,
     createClass,
     updateClass,
-    deleteClass,
-    addClassMember,
-    removeClassMember,
-    getClassMembers
+    deleteClass
 } = require('../controllers/class.controller');
 
 /**
@@ -42,26 +39,5 @@ router.route('/').get(getAllClasses).post(createClass);
  *     tags: [Classes]
  */
 router.route('/:id').get(getClassById).put(updateClass).delete(deleteClass);
-
-/**
- * @swagger
- * /api/classes/{id}/members:
- *   get:
- *     summary: Get class members
- *     tags: [Classes]
- *   post:
- *     summary: Add member to class
- *     tags: [Classes]
- */
-router.route('/:id/members').get(getClassMembers).post(addClassMember);
-
-/**
- * @swagger
- * /api/classes/{id}/members/{memberId}:
- *   delete:
- *     summary: Remove member from class
- *     tags: [Classes]
- */
-router.delete('/:id/members/:memberId', removeClassMember);
 
 module.exports = router;
