@@ -29,12 +29,7 @@ const getAllSemesters = async (req, res) => {
         
         const semesters = await Semester.findAll({
             where: whereClause,
-            order: [['startDate', 'DESC']],
-            include: [{
-                model: Class,
-                as: 'classes',
-                attributes: ['classId', 'className', 'status']
-            }]
+            order: [['startDate', 'DESC']]
         });
         
         res.status(200).json({

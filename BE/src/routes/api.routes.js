@@ -4,6 +4,7 @@ const router = express.Router();
 // Import routes (ONLY FOR 2 CORE BUSINESS FLOWS)
 const authRoutes = require('./auth.routes');
 const userRoutes = require('./user.routes');
+const semesterRoutes = require('./semester.routes');
 const classRoutes = require('./class.routes');
 const topicRoutes = require('./topic.routes');
 const groupRoutes = require('./group.routes');
@@ -17,6 +18,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 
 // FLOW 1: Topic Management
+router.use('/semesters', semesterRoutes);
 router.use('/classes', classRoutes);
 router.use('/topics', topicRoutes);
 router.use('/groups', groupRoutes);

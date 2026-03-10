@@ -6,6 +6,7 @@
 const User = require('./user.model');
 const Topic = require('./topic.model');
 const Class = require('./class.model');
+const Semester = require('./semester.model');
 const StudentGroup = require('./studentGroup.model');
 const GroupMember = require('./groupMember.model');
 const Question = require('./question.model');
@@ -30,7 +31,11 @@ Topic.hasMany(StudentGroup, { foreignKey: 'topicId', as: 'groups' });
 
 // Class Associations
 Class.belongsTo(User, { foreignKey: 'lecturerId', as: 'lecturer' });
+Class.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
 Class.hasMany(StudentGroup, { foreignKey: 'classId', as: 'groups' });
+
+// Semester Associations
+Semester.hasMany(Class, { foreignKey: 'semesterId', as: 'classes' });
 
 // StudentGroup Associations
 StudentGroup.belongsTo(Class, { foreignKey: 'classId', as: 'class' });
@@ -56,6 +61,7 @@ module.exports = {
     User,
     Topic,
     Class,
+    Semester,
     StudentGroup,
     GroupMember,
     Question,

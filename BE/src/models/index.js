@@ -19,6 +19,7 @@ module.exports = {
     User: AcademicCore.User,
     Topic: AcademicCore.Topic,
     Class: AcademicCore.Class,
+    Semester: AcademicCore.Semester,
     StudentGroup: AcademicCore.StudentGroup,
     GroupMember: AcademicCore.GroupMember,
     Question: AcademicCore.Question,

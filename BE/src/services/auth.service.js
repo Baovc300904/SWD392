@@ -39,6 +39,11 @@ class AuthService {
         const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
         const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
 
+        // Log OTP in development mode
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n🔐 DEV MODE - OTP for ${email}: ${otp}\n`);
+        }
+
         // Create new user with unverified email
         const user = await User.create({
             studentCode: studentCode || null,
@@ -75,7 +80,7 @@ class AuthService {
      */
     async verifyOTP(email, otp) {
         // Find user with email and OTP
-        const user = await User.findOne({ where: { email: email } });
+        const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
 
         if (!user) {
             throw { statusCode: 404, message: 'User not found' };
@@ -94,8 +99,18 @@ class AuthService {
             throw { statusCode: 400, message: 'OTP has expired. Please request a new one.' };
         }
 
-        // Verify OTP
-        if (user.otp !== otp) {
+        // Verify OTP (trim whitespace and compare)
+        const inputOtp = String(otp).trim();
+        const storedOtp = String(user.otp).trim();
+        
+        console.log('🔍 OTP Verification Debug:', {
+            email: email,
+            inputOtp: inputOtp,
+            storedOtp: storedOtp,
+            match: inputOtp === storedOtp
+        });
+        
+        if (storedOtp !== inputOtp) {
             throw { statusCode: 400, message: 'Invalid OTP code' };
         }
 
@@ -143,6 +158,11 @@ class AuthService {
         // Calculate OTP expiration time
         const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
         const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
+
+        // Log OTP in development mode
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n🔐 DEV MODE - RESEND OTP for ${email}: ${otp}\n`);
+        }
 
         user.otp = otp;
         user.otpExpires = otpExpires;

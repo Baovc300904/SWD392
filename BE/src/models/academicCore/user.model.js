@@ -46,13 +46,13 @@ const User = sequelize.define('User', {
         field: 'password_hash'
     },
     role: {
-        type: DataTypes.ENUM('STUDENT', 'LECTURER', 'MANAGER'),
+        type: DataTypes.ENUM('student', 'lecturer', 'manager'),
         allowNull: false,
-        defaultValue: 'STUDENT',
+        defaultValue: 'student',
         validate: {
             isIn: {
-                args: [['STUDENT', 'LECTURER', 'MANAGER']],
-                msg: 'Role must be STUDENT, LECTURER, or MANAGER'
+                args: [['student', 'lecturer', 'manager']],
+                msg: 'Role must be student, lecturer, or manager'
             }
         }
     },
