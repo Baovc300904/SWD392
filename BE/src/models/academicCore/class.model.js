@@ -19,6 +19,15 @@ const Class = sequelize.define('Class', {
         },
         field: 'class_name'
     },
+    semesterId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'semesters',
+            key: 'id'
+        },
+        field: 'semester_id'
+    },
     lecturerId: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -37,6 +46,7 @@ const Class = sequelize.define('Class', {
     tableName: 'classes',
     timestamps: false,
     indexes: [
+        { fields: ['semester_id'] },
         { fields: ['lecturer_id'] }
     ]
 });
