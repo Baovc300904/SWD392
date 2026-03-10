@@ -16,60 +16,73 @@ class AuthService {
      * @returns {Object} - Message to check email
      */
     async registerUser(userData) {
-        const { studentCode, fullName, email, password } = userData;
-
-        // Check if student code already exists (if provided)
-        if (studentCode) {
-            const existingStudentCode = await User.findOne({ where: { studentCode } });
-            if (existingStudentCode) {
-                throw { statusCode: 409, message: 'Student code already exists' };
-            }
-        }
-
-        // Check if email already exists
-        const existingUser = await User.findOne({ where: { email } });
-        if (existingUser) {
-            throw { statusCode: 409, message: MSG.AUTH.EMAIL_EXISTS };
-        }
-
-        // Generate 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // Calculate OTP expiration time
-        const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
-        const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
-
-        // Log OTP in development mode
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`\n🔐 DEV MODE - OTP for ${email}: ${otp}\n`);
-        }
-
-        // Create new user with unverified email
-        const user = await User.create({
-            studentCode: studentCode || null,
-            fullName,
-            email,
-            passwordHash: password,
-            role: 'STUDENT', // Match database enum values: STUDENT, LECTURER, MANAGER
-            isEmailVerified: false,
-            otp,
-            otpExpires
-        });
-
-        // Send OTP email
         try {
-            await emailService.sendOTP(email, otp, fullName);
-        } catch (error) {
-            // If email fails, delete the user
-            await user.destroy();
-            throw { statusCode: 500, message: 'Failed to send OTP email. Please try again.' };
-        }
+            const { studentCode, fullName, email, password } = userData;
 
-        return {
-            message: `Registration successful! OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minute${otpExpireMinutes === 1 ? '' : 's'}.`,
-            email,
-            userId: user.id
-        };
+            // Check if student code already exists (if provided)
+            if (studentCode) {
+                const existingStudentCode = await User.findOne({ where: { studentCode } });
+                if (existingStudentCode) {
+                    throw { statusCode: 409, message: 'Student code already exists' };
+                }
+            }
+
+            // Check if email already exists
+            const existingUser = await User.findOne({ where: { email } });
+            if (existingUser) {
+                throw { statusCode: 409, message: MSG.AUTH.EMAIL_EXISTS };
+            }
+
+            // Generate 6-digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+            // Calculate OTP expiration time
+            const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
+            const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
+
+            // Create new user with unverified email
+            console.log('📝 Creating user with data:', { studentCode, fullName, email, role: 'student' });
+            
+            const user = await User.create({
+                studentCode: studentCode || null,
+                fullName,
+                email,
+                passwordHash: password,
+                role: 'student', // Match database enum values: student, lecturer, manager
+                isEmailVerified: false,
+                otp,
+                otpExpires
+            });
+
+            console.log('✅ User created successfully:', user.id);
+
+            // Send OTP email
+            try {
+                await emailService.sendOTP(email, otp, fullName);
+            } catch (error) {
+                console.error('❌ Email service error:', error);
+                // If email fails, delete the user
+                await user.destroy();
+                throw { statusCode: 500, message: 'Failed to send OTP email. Please try again.' };
+            }
+
+            return {
+                message: `Registration successful! OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minute${otpExpireMinutes === 1 ? '' : 's'}.`,
+                email,
+                userId: user.id
+            };
+        } catch (error) {
+            // Log the error
+            console.error('❌ RegisterUser service error:', error);
+            
+            // Re-throw if it's already a formatted error
+            if (error.statusCode) {
+                throw error;
+            }
+            
+            // Throw a generic error
+            throw { statusCode: 500, message: error.message || 'Registration failed' };
+        }
     }
 
     /**
@@ -80,7 +93,7 @@ class AuthService {
      */
     async verifyOTP(email, otp) {
         // Find user with email and OTP
-        const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+        const user = await User.findOne({ where: { email: email } });
 
         if (!user) {
             throw { statusCode: 404, message: 'User not found' };
@@ -99,18 +112,8 @@ class AuthService {
             throw { statusCode: 400, message: 'OTP has expired. Please request a new one.' };
         }
 
-        // Verify OTP (trim whitespace and compare)
-        const inputOtp = String(otp).trim();
-        const storedOtp = String(user.otp).trim();
-        
-        console.log('🔍 OTP Verification Debug:', {
-            email: email,
-            inputOtp: inputOtp,
-            storedOtp: storedOtp,
-            match: inputOtp === storedOtp
-        });
-        
-        if (storedOtp !== inputOtp) {
+        // Verify OTP
+        if (user.otp !== otp) {
             throw { statusCode: 400, message: 'Invalid OTP code' };
         }
 
@@ -158,11 +161,6 @@ class AuthService {
         // Calculate OTP expiration time
         const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
         const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
-
-        // Log OTP in development mode
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`\n🔐 DEV MODE - RESEND OTP for ${email}: ${otp}\n`);
-        }
 
         user.otp = otp;
         user.otpExpires = otpExpires;
@@ -233,12 +231,12 @@ class AuthService {
         }
 
         // Check role authorization
-        if (user.role !== requiredRole && user.role !== 'MANAGER') {
-            throw { statusCode: 403, message: `Access denied. ${requiredRole} role required.` };
+        if (user.role !== requiredRole && user.role !== 'manager') {
+            throw { statusCode: 403, message: `Access denied. Only ${requiredRole} users can login here.` };
         }
 
-        // Check if email is verified (skip for MANAGER role)
-        if (!user.isEmailVerified && user.role !== 'MANAGER') {
+        // Check if email is verified (skip for manager role)
+        if (!user.isEmailVerified && user.role !== 'manager') {
             throw { statusCode: 403, message: 'Please verify your email before logging in' };
         }
 
