@@ -52,6 +52,9 @@ class AuthController {
                 data: result
             });
         } catch (error) {
+            // Log error for debugging
+            console.error('❌ Registration error:', error);
+            
             // Handle service errors
             if (error.statusCode) {
                 return res.status(error.statusCode).json({
@@ -60,10 +63,19 @@ class AuthController {
                 });
             }
 
+            // Handle Sequelize validation errors
+            if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
+                return res.status(400).json({
+                    success: false,
+                    message: error.errors ? error.errors[0].message : error.message
+                });
+            }
+
             res.status(500).json({
                 success: false,
                 message: MSG.GENERAL.SERVER_ERROR,
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
             });
         }
     }
@@ -313,10 +325,10 @@ class AuthController {
             }
 
             // Validate role
-            if (!['Admin', 'Lecturer'].includes(role)) {
+            if (!['manager', 'lecturer'].includes(role)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Role must be either Admin or Lecturer'
+                    message: 'Role must be either manager or lecturer'
                 });
             }
 
