@@ -135,6 +135,7 @@ function StudentGroupWorkspace({ currentGroupId, onLogout }) {
           activeTool={activeTool}
           onToolChange={setActiveTool}
           onLogout={onLogout}
+          groupId={currentGroupId}
         />
         <div className="flex-1 overflow-auto bg-gray-50">
           {renderContent()}

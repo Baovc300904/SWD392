@@ -44,7 +44,9 @@ function AuthInput({ icon: Icon, type = 'text', rightEl, label, hint, ...props }
 /* ── OTP digit boxes ── */
 function OtpBoxes({ value, onChange }) {
   const refs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
-  const digits = value.padEnd(6, '').split('').slice(0, 6);
+  // Ensure value is always a string (fix controlled/uncontrolled warning)
+  const safeValue = String(value || '');
+  const digits = safeValue.padEnd(6, '').split('').slice(0, 6);
 
   const handleKey = (i, e) => {
     if (e.key === 'Backspace') {
@@ -75,7 +77,7 @@ function OtpBoxes({ value, onChange }) {
           type="text"
           inputMode="numeric"
           maxLength={1}
-          value={digits[i] === ' ' ? '' : digits[i]}
+          value={digits[i] === ' ' ? '' : (digits[i] || '')}
           onKeyDown={e => handleKey(i, e)}
           onPaste={handlePaste}
           onChange={() => { }}
