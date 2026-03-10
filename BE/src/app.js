@@ -29,7 +29,7 @@ testConnection().then(async () => {
                 fullName: 'System Administrator',
                 email: adminEmail,
                 passwordHash: adminPassword, // Will be hashed via hook
-                role: 'MANAGER',  // Match database enum: 'STUDENT', 'LECTURER', 'MANAGER'
+                role: 'manager',  // Must match User model enum: student, lecturer, manager
                 isEmailVerified: true, // Admin account is pre-verified
                 isOnline: false, // Default to offline, will be online after login
                 status: 'Offline'

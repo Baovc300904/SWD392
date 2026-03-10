@@ -16,7 +16,6 @@ const sequelize = new Sequelize(
         logging: process.env.NODE_ENV === 'development' ? console.log : false,
         dialectOptions: {
             charset: 'utf8mb4',
-            collation: 'utf8mb4_unicode_ci',
             supportBigNumbers: true,
             bigNumberStrings: true
         },
