@@ -14,12 +14,37 @@ USE academic_collaboration_db;
 -- Bảng Người dùng
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    student_code VARCHAR(20) UNIQUE NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('STUDENT', 'LECTURER', 'MANAGER') NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+    role ENUM('manager', 'lecturer', 'student') NOT NULL DEFAULT 'student',
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    otp VARCHAR(6) NULL,
+    otp_expires DATETIME NULL,
+    refresh_token TEXT NULL,
+    status ENUM('Online', 'Offline', 'Away') DEFAULT 'Offline',
+    is_online BOOLEAN DEFAULT FALSE,
+    last_seen_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_student_code (student_code),
+    INDEX idx_role (role)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Bảng Học kỳ (Semesters)
+CREATE TABLE semesters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status ENUM('Upcoming', 'Active', 'Completed') DEFAULT 'Upcoming',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_name (name),
+    INDEX idx_status (status)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Đề tài
 CREATE TABLE topics (
@@ -32,16 +57,28 @@ CREATE TABLE topics (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (proposed_by) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Lớp học
 CREATE TABLE classes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     class_name VARCHAR(50) NOT NULL,
+    semester_id INT,
     lecturer_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE SET NULL,
     FOREIGN KEY (lecturer_id) REFERENCES users(id) ON DELETE SET NULL
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Bảng Enrollment (Phân bổ Sinh viên vào Lớp)
+CREATE TABLE class_enrollments (
+    class_id INT,
+    student_id INT,
+    enrolled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (class_id, student_id),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Nhóm Sinh viên
 CREATE TABLE student_groups (
@@ -52,7 +89,7 @@ CREATE TABLE student_groups (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
     FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE SET NULL
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Thành viên Nhóm (Nhiều-Nhiều giữa Sinh viên và Nhóm)
 CREATE TABLE group_members (
@@ -62,7 +99,7 @@ CREATE TABLE group_members (
     PRIMARY KEY (group_id, student_id),
     FOREIGN KEY (group_id) REFERENCES student_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Câu hỏi Q&A
 CREATE TABLE questions (
@@ -75,7 +112,7 @@ CREATE TABLE questions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (group_id) REFERENCES student_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (asked_by) REFERENCES users(id) ON DELETE CASCADE
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Câu trả lời Q&A
 CREATE TABLE answers (
@@ -87,21 +124,27 @@ CREATE TABLE answers (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (answered_by) REFERENCES users(id) ON DELETE CASCADE
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ==========================================
 -- 2. INSERT MOCK DATA (Dữ liệu mẫu)
 -- ==========================================
 
--- Thêm Users (Pass mặc định để test là: hashed_password)
-INSERT INTO users (id, full_name, email, password_hash, role) VALUES
-(1, 'Trưởng Bộ Môn (Manager)', 'manager@fpt.edu.vn', 'hashed_password', 'MANAGER'),
-(2, 'Giảng Viên Nguyễn Văn A', 'gva@fpt.edu.vn', 'hashed_password', 'LECTURER'),
-(3, 'Giảng Viên Trần Thị B', 'gvb@fpt.edu.vn', 'hashed_password', 'LECTURER'),
-(4, 'Sinh Viên Lê Văn C', 'sv1@fpt.edu.vn', 'hashed_password', 'STUDENT'),
-(5, 'Sinh Viên Phạm Thị D', 'sv2@fpt.edu.vn', 'hashed_password', 'STUDENT'),
-(6, 'Sinh Viên Hoàng Văn E', 'sv3@fpt.edu.vn', 'hashed_password', 'STUDENT'),
-(7, 'Sinh Viên Vũ Thị F', 'sv4@fpt.edu.vn', 'hashed_password', 'STUDENT');
+-- Thêm Users (Password: 123456 - đã mã hóa bằng bcrypt)
+INSERT INTO users (id, student_code, full_name, email, password_hash, role) VALUES
+(1, NULL, 'Trưởng Bộ Môn (Manager)', 'manager@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'manager'),
+(2, NULL, 'Giảng Viên Nguyễn Văn A', 'gva@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(3, NULL, 'Giảng Viên Trần Thị B', 'gvb@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(4, 'SE171234', 'Sinh Viên Lê Văn C', 'sv1@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(5, 'SE171235', 'Sinh Viên Phạm Thị D', 'sv2@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(6, 'SE171236', 'Sinh Viên Hoàng Văn E', 'sv3@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(7, 'SE171237', 'Sinh Viên Vũ Thị F', 'sv4@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student');
+
+-- Thêm Semesters (Học kỳ)
+INSERT INTO semesters (id, name, start_date, end_date, status) VALUES
+(1, 'Spring 2026', '2026-01-15', '2026-05-15', 'Active'),
+(2, 'Summer 2026', '2026-05-20', '2026-08-20', 'Upcoming'),
+(3, 'Fall 2025', '2025-09-01', '2025-12-20', 'Completed');
 
 -- Thêm Topics (Đề tài)
 INSERT INTO topics (id, title, description, status, proposed_by, approved_by) VALUES
@@ -110,9 +153,14 @@ INSERT INTO topics (id, title, description, status, proposed_by, approved_by) VA
 (3, 'Nền tảng học Tiếng Anh AI', 'Dùng OpenAI để luyện giao tiếp.', 'PENDING', 2, NULL);
 
 -- Thêm Classes (Lớp học)
-INSERT INTO classes (id, class_name, lecturer_id) VALUES
-(1, 'SE1701', 2),
-(2, 'SE1702', 3);
+INSERT INTO classes (id, class_name, semester_id, lecturer_id) VALUES
+(1, 'SE1701', 1, 2),
+(2, 'SE1702', 1, 3);
+
+-- Phân bổ Sinh viên vào Lớp
+INSERT INTO class_enrollments (class_id, student_id) VALUES
+(1, 4), (1, 5), -- SV 4, 5 vào lớp SE1701
+(2, 6), (2, 7); -- SV 6, 7 vào lớp SE1702
 
 -- Thêm Groups (Nhóm)
 INSERT INTO student_groups (id, group_name, class_id, topic_id) VALUES

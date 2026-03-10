@@ -39,13 +39,18 @@ class AuthService {
         const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
         const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
 
+        // Log OTP in development mode
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n🔐 DEV MODE - OTP for ${email}: ${otp}\n`);
+        }
+
         // Create new user with unverified email
         const user = await User.create({
             studentCode: studentCode || null,
             fullName,
             email,
             passwordHash: password,
-            role: 'Student',
+            role: 'STUDENT', // Match database enum values: STUDENT, LECTURER, MANAGER
             isEmailVerified: false,
             otp,
             otpExpires
@@ -63,7 +68,7 @@ class AuthService {
         return {
             message: `Registration successful! OTP has been sent to ${email}. Please verify within ${otpExpireMinutes} minute${otpExpireMinutes === 1 ? '' : 's'}.`,
             email,
-            userId: user.userId
+            userId: user.id
         };
     }
 
@@ -75,7 +80,7 @@ class AuthService {
      */
     async verifyOTP(email, otp) {
         // Find user with email and OTP
-        const user = await User.findOne({ where: { email: email } });
+        const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
 
         if (!user) {
             throw { statusCode: 404, message: 'User not found' };
@@ -94,8 +99,18 @@ class AuthService {
             throw { statusCode: 400, message: 'OTP has expired. Please request a new one.' };
         }
 
-        // Verify OTP
-        if (user.otp !== otp) {
+        // Verify OTP (trim whitespace and compare)
+        const inputOtp = String(otp).trim();
+        const storedOtp = String(user.otp).trim();
+        
+        console.log('🔍 OTP Verification Debug:', {
+            email: email,
+            inputOtp: inputOtp,
+            storedOtp: storedOtp,
+            match: inputOtp === storedOtp
+        });
+        
+        if (storedOtp !== inputOtp) {
             throw { statusCode: 400, message: 'Invalid OTP code' };
         }
 
@@ -144,6 +159,11 @@ class AuthService {
         const otpExpireMinutes = parseInt(process.env.OTP_EXPIRE_MINUTES) || 10;
         const otpExpires = new Date(Date.now() + otpExpireMinutes * 60 * 1000);
 
+        // Log OTP in development mode
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n🔐 DEV MODE - RESEND OTP for ${email}: ${otp}\n`);
+        }
+
         user.otp = otp;
         user.otpExpires = otpExpires;
         await user.save();
@@ -169,8 +189,8 @@ class AuthService {
             throw { statusCode: 401, message: MSG.AUTH.INVALID_CREDENTIALS };
         }
 
-        // Check if email is verified (skip for Admin role)
-        if (!user.isEmailVerified && user.role !== 'Admin') {
+        // Check if email is verified (skip for MANAGER role)
+        if (!user.isEmailVerified && user.role !== 'MANAGER') {
             throw { statusCode: 403, message: 'Please verify your email before logging in' };
         }
 
@@ -199,10 +219,10 @@ class AuthService {
     }
 
     /**
-     * Admin/Lecturer Login with role validation
+     * Manager/Lecturer Login with role validation
      * @param {string} email - User email
      * @param {string} password - User password
-     * @param {string} requiredRole - Required role ('Admin' or 'Lecturer')
+     * @param {string} requiredRole - Required role ('MANAGER' or 'LECTURER')
      * @returns {Object} - User and tokens
      */
     async adminLecturerLogin(email, password, requiredRole) {
@@ -213,12 +233,12 @@ class AuthService {
         }
 
         // Check role authorization
-        if (user.role !== requiredRole && user.role !== 'Admin') {
+        if (user.role !== requiredRole && user.role !== 'MANAGER') {
             throw { statusCode: 403, message: `Access denied. ${requiredRole} role required.` };
         }
 
-        // Check if email is verified (skip for Admin role)
-        if (!user.isEmailVerified && user.role !== 'Admin') {
+        // Check if email is verified (skip for MANAGER role)
+        if (!user.isEmailVerified && user.role !== 'MANAGER') {
             throw { statusCode: 403, message: 'Please verify your email before logging in' };
         }
 
@@ -300,7 +320,7 @@ class AuthService {
         // Generate new access token
         const accessToken = jwt.sign(
             {
-                userId: user.userId,
+                userId: user.id,
                 email: user.email,
                 role: user.role
             },
@@ -419,7 +439,7 @@ class AuthService {
     generateTokens(user) {
         const accessToken = jwt.sign(
             {
-                userId: user.userId,
+                userId: user.id,
                 email: user.email,
                 role: user.role
             },
@@ -429,7 +449,7 @@ class AuthService {
 
         const refreshToken = jwt.sign(
             {
-                userId: user.userId
+                userId: user.id
             },
             jwtConfig.refreshSecret,
             { expiresIn: jwtConfig.refreshExpiresIn }

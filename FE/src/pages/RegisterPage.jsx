@@ -44,7 +44,9 @@ function AuthInput({ icon: Icon, type = 'text', rightEl, label, hint, ...props }
 /* ── OTP digit boxes ── */
 function OtpBoxes({ value, onChange }) {
   const refs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
-  const digits = value.padEnd(6, '').split('').slice(0, 6);
+  // Ensure value is always a string (fix controlled/uncontrolled warning)
+  const safeValue = String(value || '');
+  const digits = safeValue.padEnd(6, '').split('').slice(0, 6);
 
   const handleKey = (i, e) => {
     if (e.key === 'Backspace') {
@@ -75,7 +77,7 @@ function OtpBoxes({ value, onChange }) {
           type="text"
           inputMode="numeric"
           maxLength={1}
-          value={digits[i] === ' ' ? '' : digits[i]}
+          value={digits[i] === ' ' ? '' : (digits[i] || '')}
           onKeyDown={e => handleKey(i, e)}
           onPaste={handlePaste}
           onChange={() => { }}
@@ -250,9 +252,6 @@ export function RegisterPage({ onNavigate, onLogin }) {
       if (res.accessToken && res.user) {
         localStorage.setItem('user', JSON.stringify({ ...res.user, token: res.accessToken, refreshToken: res.refreshToken }));
         if (onLogin) onLogin(res.user);
-        const r = res.user.role?.toLowerCase();
-        const dest = r === 'admin' ? 'admin' : r === 'lecturer' ? 'lecturer' : 'group';
-        setTimeout(() => onNavigate(dest, { replace: true }), 800);
       } else {
         setStep(2); setOtpExpired(false);
       }

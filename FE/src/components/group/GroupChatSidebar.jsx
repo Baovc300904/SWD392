@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Hash,
   ChevronDown,
@@ -6,25 +6,54 @@ import {
   LogOut,
   Plus
 } from 'lucide-react';
+import groupService from '../../services/group.service';
 
-export function GroupChatSidebar({ activeChannel, onChannelChange, onLogout }) {
+export function GroupChatSidebar({ activeChannel, onChannelChange, onLogout, groupId }) {
   const [showChannels, setShowChannels] = useState(true);
   const [showDMs, setShowDMs] = useState(true);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch group members from API
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!groupId) return;
+      
+      setLoading(true);
+      try {
+        const membersList = await groupService.getGroupMembers(groupId);
+        // Add AI bot to the members list
+        const aiBot = {
+          id: 'ai-bot',
+          full_name: '🤖 AI Assistant',
+          role: 'Bot',
+          is_online: true,
+          isBot: true
+        };
+        setMembers([aiBot, ...membersList]);
+      } catch (error) {
+        console.error('Failed to fetch members:', error);
+        // Fallback: at least show AI bot
+        setMembers([{
+          id: 'ai-bot',
+          full_name: '🤖 AI Assistant',
+          role: 'Bot',
+          is_online: true,
+          isBot: true
+        }]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMembers();
+  }, [groupId]);
 
   const channels = [
     { id: 'general', name: 'general', unread: 0 },
     { id: 'tasks-projects', name: 'tasks-projects', unread: 3 },
     { id: 'q&a-forum', name: 'q&a-forum', unread: 12 },
     { id: 'resources', name: 'resources', unread: 0 },
-  ];
-
-  const members = [
-    { id: 'ai-bot', name: '🤖 AI Assistant', role: 'Bot', online: true, isBot: true },
-    { id: 1, name: 'Nguyen Van A', role: 'Leader', online: true, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member1' },
-    { id: 2, name: 'Tran Thi B', role: 'Developer', online: true, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member2' },
-    { id: 3, name: 'Le Van C', role: 'Developer', online: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member3' },
-    { id: 4, name: 'Pham Thi D', role: 'Designer', online: true, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member4' },
-    { id: 5, name: 'Dr. Tran Minh', role: 'Mentor', online: true, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mentor1' },
   ];
 
   return (

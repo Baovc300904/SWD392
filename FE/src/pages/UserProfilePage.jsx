@@ -68,11 +68,11 @@ export function UserProfilePage({ onNavigate, onLogout }) {
 
     const [editing, setEditing] = useState(false);
     const [formData, setFormData] = useState({
-        fullName: currentUser?.fullName || '',
-        email: currentUser?.email || '',
-        phone: currentUser?.phone || '',
-        address: currentUser?.address || '',
-        bio: currentUser?.bio || '',
+        fullName: currentUser?.fullName ?? '',
+        email: currentUser?.email ?? '',
+        phone: currentUser?.phone ?? '',
+        address: currentUser?.address ?? '',
+        bio: currentUser?.bio ?? '',
     });
     const [savingProfile, setSavingProfile] = useState(false);
 
@@ -170,9 +170,9 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                 { icon: Award, label: 'Topics Approved', value: '24' },
             ],
         },
-        admin: {
+        manager: {
             color: ORANGE,
-            label: 'Administrator',
+            label: 'Manager',
             icon: Shield,
             stats: [
                 { icon: Users, label: 'Total Users', value: '2,400+' },
@@ -191,7 +191,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
             {/* Top bar */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                 <button
-                    onClick={() => onNavigate && onNavigate(role === 'admin' ? 'admin' : role === 'lecturer' ? 'lecturer' : 'group')}
+                    onClick={() => onNavigate && onNavigate(role === 'manager' ? 'admin' : role === 'lecturer' ? 'lecturer' : 'group')}
                     className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition text-sm group">
                     <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                     Back to Dashboard
@@ -250,7 +250,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                             <div className="space-y-1">
                                 {[
                                     { label: 'Change Password', icon: Lock, action: () => setShowPwSection(s => !s) },
-                                    ...(role === 'admin' ? [{ label: 'User Management', icon: Users, action: () => onNavigate('admin') }] : []),
+                                    ...(role === 'manager' ? [{ label: 'User Management', icon: Users, action: () => onNavigate('admin') }] : []),
                                 ].map((item, i) => (
                                     <button key={i} onClick={item.action}
                                         className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 transition group">

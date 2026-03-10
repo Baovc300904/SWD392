@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import { LandingPage } from './pages/LandingPage';
@@ -10,11 +10,140 @@ import { ContactPage } from './pages/ContactPage';
 import { FAQPage } from './pages/FAQPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { DocumentationPage } from './pages/DocumentationPage';
-import { SlackSidebar } from './components/slack/SlackSidebar';
 import { SlackChat } from './components/slack/SlackChat';
 import { LecturerView } from './components/lecturer/LecturerView';
 import { UserProfilePage } from './pages/UserProfilePage';
+import { GroupSidebar } from './components/group/GroupSidebar';
+import { GroupDashboardView } from './components/group/GroupDashboardView';
+import { TaskBoardView } from './components/group/TaskBoardView';
+import { QAForumView } from './components/group/QAForumView';
+import { AIAssistantView } from './components/group/AIAssistantView';
+import { ResourcesView } from './components/group/ResourcesView';
+import { StudentTopicView } from './components/group/StudentTopicView';
 import authService from './services/auth.service';
+
+/* ─── Error Boundary for Student Workspace ─── */
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Student Workspace Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-gray-50">
+          <div className="text-center max-w-md p-8">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Có lỗi xảy ra</h2>
+            <p className="text-gray-600 mb-4">Component bị lỗi. Vui lòng tải lại trang.</p>
+            <div className="text-xs text-gray-500 mb-4 p-3 bg-gray-100 rounded font-mono text-left overflow-auto max-h-32">
+              {this.state.error?.toString()}
+            </div>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="px-6 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg"
+            >
+              Quay về Trang chủ
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+/* ─── Student group workspace (top-level to avoid re-mount on App re-render) ─── */
+function StudentGroupWorkspace({ currentGroupId, onLogout }) {
+  const [activeTool, setActiveTool] = useState('dashboard');
+  const [activeChannel, setActiveChannel] = useState('general-chat');
+  const [activeChannelId, setActiveChannelId] = useState(null);
+
+  console.log('[StudentGroupWorkspace] Rendering, activeTool:', activeTool);
+
+  const renderContent = () => {
+    try {
+      console.log('[renderContent] Rendering tool:', activeTool);
+      
+      // Simple fallback first
+      if (!activeTool || activeTool === 'dashboard') {
+        return (
+          <div className="p-8 bg-white">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+              🎉 Group Workspace Dashboard
+            </h1>
+            <p className="text-gray-600 mb-4">
+              Welcome to the Student Group Workspace! Active tool: {activeTool}
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-800">
+                ✅ If you see this, the basic rendering works!
+              </p>
+            </div>
+          </div>
+        );
+      }
+      
+      switch (activeTool) {
+        case 'topic':        return <StudentTopicView groupId={currentGroupId} />;
+        case 'task-board':   return <TaskBoardView groupId={currentGroupId} />;
+        case 'qa-forum':     return <QAForumView groupId={currentGroupId} />;
+        case 'ai-assistant': return <AIAssistantView groupId={currentGroupId} />;
+        case 'resources':    return <ResourcesView groupId={currentGroupId} />;
+        case 'chat':         return <SlackChat channel={activeChannel} channelId={activeChannelId} groupId={currentGroupId} />;
+        default:             
+          return (
+            <div className="p-8 bg-white">
+              <h1 className="text-2xl font-bold mb-4">Unknown tool: {activeTool}</h1>
+            </div>
+          );
+      }
+    } catch (error) {
+      console.error('[renderContent] Render error:', error);
+      return (
+        <div className="flex items-center justify-center h-full bg-white">
+          <div className="text-center p-8">
+            <div className="text-6xl mb-4">⚠️</div>
+            <p className="text-red-600 mb-4 font-bold">Lỗi render component</p>
+            <p className="text-sm text-gray-600 mb-4">{error.message}</p>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="px-6 py-2 bg-[#F27125] text-white rounded-lg hover:bg-[#d96420]"
+            >
+              Quay về Trang chủ
+            </button>
+          </div>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <ErrorBoundary>
+      <div className="flex h-screen bg-white overflow-hidden">
+        <GroupSidebar
+          activeTool={activeTool}
+          onToolChange={setActiveTool}
+          onLogout={onLogout}
+          groupId={currentGroupId}
+        />
+        <div className="flex-1 overflow-auto bg-gray-50">
+          {renderContent()}
+        </div>
+      </div>
+    </ErrorBoundary>
+  );
+}
 
 /* ─── Map page name → path ─── */
 const PAGE_TO_ROUTE = {
@@ -34,15 +163,49 @@ const PAGE_TO_ROUTE = {
 
 /* ─── ProtectedRoute: chỉ cho user đã đăng nhập ─── */
 function ProtectedRoute({ allowedRoles, children }) {
+  const location = useLocation();
   const user = authService.getCurrentUser();
+  
   if (!user || !user.token) {
     return <Navigate to="/login" replace />;
   }
-  if (allowedRoles && !allowedRoles.includes(user.role?.toLowerCase())) {
-    const role = user.role?.toLowerCase();
-    const dest = role === 'admin' ? '/admin' : role === 'lecturer' ? '/lecturer' : '/group';
+  
+  // Normalize role to lowercase: manager, lecturer, student
+  const normalizedRole = user.role?.toLowerCase();
+  
+  if (allowedRoles && !allowedRoles.includes(normalizedRole)) {
+    // Determine correct destination based on role
+    const dest = normalizedRole === 'manager' ? '/admin' : 
+                 normalizedRole === 'lecturer' ? '/lecturer' : '/group';
+    
+    // Prevent redirect loop
+    if (location.pathname === dest) {
+      return (
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-center p-8 max-w-md">
+            <div className="text-6xl mb-4">🚫</div>
+            <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
+            <p className="text-gray-600 mb-4">
+              Your role cannot access this page.
+            </p>
+            <button
+              onClick={() => {
+                authService.logout();
+                window.location.href = '/login';
+              }}
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+            >
+              Logout & Login Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     return <Navigate to={dest} replace />;
   }
+  
+  console.log('[ProtectedRoute] Access granted to', location.pathname);
   return children;
 }
 
@@ -81,8 +244,6 @@ export default function App() {
   const location = useLocation();
 
   const [userRole, setUserRole] = useState(null);
-  const [activeChannel, setActiveChannel] = useState('general-chat');
-  const [activeChannelId, setActiveChannelId] = useState(null);
   const [currentGroupId, setCurrentGroupId] = useState(null);
 
   /* ─── Derive role from localStorage on mount ─── */
@@ -146,26 +307,10 @@ export default function App() {
     navigate('/', { replace: true });
   };
 
-  /* ─── Slack group view ─── */
+  /* ─── Student group workspace ─── */
   const GroupView = (
     <ProtectedRoute allowedRoles={['student']}>
-      <div className="flex h-screen bg-white overflow-hidden">
-        <SlackSidebar
-          activeChannel={activeChannel}
-          onChannelChange={(channelSlug, channelId) => {
-            setActiveChannel(channelSlug);
-            setActiveChannelId(channelId);
-          }}
-          onLogout={handleLogout}
-          onNavigate={handleNavigate}
-          groupId={currentGroupId}
-        />
-        <SlackChat 
-          channel={activeChannel} 
-          channelId={activeChannelId}
-          groupId={currentGroupId}
-        />
-      </div>
+      <StudentGroupWorkspace currentGroupId={currentGroupId} onLogout={handleLogout} />
     </ProtectedRoute>
   );
 
@@ -201,7 +346,7 @@ export default function App() {
 
       {/* ── Protected: Admin ── */}
       <Route path="/admin" element={
-        <ProtectedRoute allowedRoles={['admin']}>
+        <ProtectedRoute allowedRoles={['manager']}>
           <AdminDashboard onLogout={handleLogout} onNavigate={handleNavigate} />
         </ProtectedRoute>
       } />
