@@ -19,7 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const _bg = Color(0xFFF6F7FB);
   static const _cardBorder = Color(0xFFE6E8EF);
   static const _muted = Color(0xFF6B7280);
-  static const _accent = Color(0xFF0F766E);
+  static const _accent = Color(0xFFF27125);
 
   bool _loading = true;
   String? _error;

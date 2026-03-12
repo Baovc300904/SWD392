@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 sealed class AppTheme {
-  static const _brand = Color(0xFF0F766E);
-  static const _surface = Color(0xFFF6F8FB);
+  static const _brand = Color(0xFFF27125);
+  static const _surface = Color(0xFFF9F6F2);
+  static const _darkSurface = Color(0xFF13151A);
 
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
@@ -71,25 +72,39 @@ sealed class AppTheme {
   }
 
   static ThemeData get dark {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: _brand,
+      brightness: Brightness.dark,
+    );
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _brand,
-        brightness: Brightness.dark,
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: _darkSurface,
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        backgroundColor: _darkSurface,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        indicatorColor: Colors.transparent,
+        backgroundColor: const Color(0xFF1E2028),
+        indicatorColor: scheme.primary.withValues(alpha: 0.2),
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: 22,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
           );
         }),
       ),

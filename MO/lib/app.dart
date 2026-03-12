@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 import 'navigation/root_scaffold.dart';
 import 'state/app_session.dart';
 import 'theme/app_settings.dart';
@@ -25,7 +25,7 @@ class MobileApp extends StatelessWidget {
           themeMode: AppSettings.themeMode.value,
           home: AppSession.instance.isAuthenticated
               ? const RootScaffold()
-              : const LoginScreen(),
+              : const HomeScreen(),
         );
       },
     );

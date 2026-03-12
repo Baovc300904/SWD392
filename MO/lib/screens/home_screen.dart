@@ -1,296 +1,330 @@
 import 'package:flutter/material.dart';
 
-class HomeScreen extends StatelessWidget {
+import 'login_screen.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  static const _messages = <_ChatItem>[
-    _ChatItem.message(
-      name: 'Tuyet Minh',
-      time: '9:12 AM',
-      text: "Good morning team! Let's have a quick\nsync on today's priorities.",
-      emoji: '👏',
-      count: 3,
-    ),
-    _ChatItem.message(
-      name: 'Tran Thi B',
-      time: '9:32 AM',
-      text: "Morning! I've finished the authentication\nflow. It's ready for testing.",
-      emoji: '🎉',
-      count: 2,
-      emoji2: '👍',
-      count2: 1,
-    ),
-    _ChatItem.message(
-      name: 'Le Van C',
-      time: '9:35 AM',
-      text: "Great work! I'll start working on the\ndatabase integration today.",
-    ),
-    _ChatItem.separator('NEW MESSAGES'),
-    _ChatItem.message(
-      name: 'Pham Thi D',
-      time: '9:38 AM',
-      text:
-          "I'm updating the UI mockups based on\nyesterday's feedback. Will share in a bit!",
-      emoji: '✨',
-      count: 1,
-    ),
-    _ChatItem.message(
-      name: 'Dr. Tran Minh',
-      time: '10:15 AM',
-      text:
-          "Good progress everyone. Don't forget we\nhave our sprint review on Friday. Make\nsure to prepare your demos.",
-    ),
-  ];
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _showBackToTop = false;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              itemCount: _messages.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final item = _messages[index];
-                return switch (item) {
-                  _ChatMessageItem() => _ChatMessage(item: item),
-                  _ChatSeparatorItem() => _ChatSeparator(text: item.text),
-                };
-              },
-            ),
-          ),
-          const _Composer(),
-        ],
-      ),
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final visible = _scrollController.offset > 300;
+    if (visible != _showBackToTop) {
+      setState(() => _showBackToTop = visible);
+    }
+  }
+
+  Future<void> _goToLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
-}
 
-sealed class _ChatItem {
-  const _ChatItem();
-
-  const factory _ChatItem.message({
-    required String name,
-    required String time,
-    required String text,
-    String? emoji,
-    int? count,
-    String? emoji2,
-    int? count2,
-  }) = _ChatMessageItem;
-
-  const factory _ChatItem.separator(String text) = _ChatSeparatorItem;
-}
-
-final class _ChatMessageItem extends _ChatItem {
-  const _ChatMessageItem({
-    required this.name,
-    required this.time,
-    required this.text,
-    this.emoji,
-    this.count,
-    this.emoji2,
-    this.count2,
-  });
-
-  final String name;
-  final String time;
-  final String text;
-  final String? emoji;
-  final int? count;
-  final String? emoji2;
-  final int? count2;
-}
-
-final class _ChatSeparatorItem extends _ChatItem {
-  const _ChatSeparatorItem(this.text);
-  final String text;
-}
-
-class _ChatMessage extends StatelessWidget {
-  const _ChatMessage({required this.item});
-
-  final _ChatMessageItem item;
+  void _showSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature page is not integrated yet in MO.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final avatarColor = Colors.primaries[item.name.hashCode % Colors.primaries.length];
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: avatarColor.shade200,
-          child: Text(
-            item.name.trim().isEmpty ? '?' : item.name.trim()[0].toUpperCase(),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      floatingActionButton: AnimatedSlide(
+        duration: const Duration(milliseconds: 240),
+        offset: _showBackToTop ? Offset.zero : const Offset(0, 2),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 240),
+          opacity: _showBackToTop ? 1 : 0,
+          child: FloatingActionButton(
+            onPressed: () {
+              _scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOutCubic,
+              );
+            },
+            backgroundColor: const Color(0xFFF27125),
+            child: const Icon(Icons.keyboard_arrow_up, color: Colors.white),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
+      ),
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            toolbarHeight: 72,
+            backgroundColor: Colors.white.withValues(alpha: 0.95),
+            surfaceTintColor: Colors.transparent,
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF27125),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
                     child: Text(
-                      item.name,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                      'S',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    item.time,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'SWP Hub',
+                  style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => _showSoon('About'), child: const Text('About')),
+              TextButton(onPressed: () => _showSoon('Docs'), child: const Text('Docs')),
+              TextButton(onPressed: () => _showSoon('FAQ'), child: const Text('FAQ')),
+              const SizedBox(width: 6),
+              TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton(
+                  onPressed: _goToLogin,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFF27125),
+                    foregroundColor: Colors.white,
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(item.text, style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  if (item.emoji != null && item.count != null)
-                    _ReactionChip(emoji: item.emoji!, count: item.count!),
-                  if (item.emoji2 != null && item.count2 != null)
-                    _ReactionChip(emoji: item.emoji2!, count: item.count2!),
-                  _AddReactionButton(),
-                ],
+                  child: const Text('Get Started'),
+                ),
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-}
 
-class _ChatSeparator extends StatelessWidget {
-  const _ChatSeparator({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider()),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.red,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              letterSpacing: 0.4,
-            ),
-          ),
-        ),
-        const Expanded(child: Divider()),
-      ],
-    );
-  }
-}
-
-class _ReactionChip extends StatelessWidget {
-  const _ReactionChip({required this.emoji, required this.count});
-
-  final String emoji;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        '$emoji $count',
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _AddReactionButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: IconButton(
-        visualDensity: VisualDensity.compact,
-        iconSize: 18,
-        onPressed: () {},
-        icon: const Icon(Icons.emoji_emotions_outlined),
-      ),
-    );
-  }
-}
-
-class _Composer extends StatelessWidget {
-  const _Composer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.attach_file),
-          ),
-          Expanded(
+          SliverToBoxAdapter(
             child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(22),
+              padding: const EdgeInsets.fromLTRB(24, 80, 24, 80),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1D21),
               ),
-              child: const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Message #general-chat',
-                  style: TextStyle(color: Color(0xFF6B7280)),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1180),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Monitor & Manage the Complete\nStudent Project Experience',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 48,
+                          height: 1.15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'The all-in-one platform for FPT students to manage topics, form groups, and get instant answers.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 20, height: 1.5),
+                      ),
+                      const SizedBox(height: 30),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: _goToLogin,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFF27125),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                            ),
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _showSoon('Documentation'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0x55FFFFFF)),
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                            ),
+                            icon: const Icon(Icons.play_circle_outline),
+                            label: const Text('View Documentation', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 34),
+                      Container(
+                        height: 340,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0x0DFFFFFF),
+                          border: Border.all(color: const Color(0x33FFFFFF)),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Product Preview',
+                            style: TextStyle(color: Color(0x99FFFFFF), fontSize: 22, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.send_outlined),
+
+          SliverToBoxAdapter(
+            child: Container(
+              color: const Color(0xFFF9FAFB),
+              padding: const EdgeInsets.fromLTRB(24, 70, 24, 70),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1180),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Why Choose SWP Hub?',
+                        style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Everything you need to succeed in your Software Project',
+                        style: TextStyle(fontSize: 20, color: Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(height: 34),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final narrow = constraints.maxWidth < 960;
+                          return Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: [
+                              _featureCard(
+                                width: narrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3,
+                                title: 'AI-Powered Answers',
+                                desc:
+                                    'Get syllabus-based suggestions instantly. Our AI assistant analyzes your questions and provides accurate answers.',
+                                icon: Icons.psychology_alt_outlined,
+                              ),
+                              _featureCard(
+                                width: narrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3,
+                                title: 'Smart Group Matching',
+                                desc: 'Find teammates that match your skill set and form balanced project teams quickly.',
+                                icon: Icons.groups_2_outlined,
+                              ),
+                              _featureCard(
+                                width: narrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3,
+                                title: 'Topic Management',
+                                desc: 'Streamlined workflow for topic submission, approval, and milestone tracking.',
+                                icon: Icons.shield_outlined,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
+
+          SliverToBoxAdapter(
+            child: Container(
+              color: const Color(0xFF1A1D21),
+              padding: const EdgeInsets.fromLTRB(24, 64, 24, 64),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 920),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Ready to start your journey?',
+                        style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Join thousands of FPT students already using SWP Hub to ace their projects.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 20),
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: _goToLogin,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFF27125),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                        ),
+                        child: const Text('Get Started for Free', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _featureCard({
+    required double width,
+    required String title,
+    required String desc,
+    required IconData icon,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0x1AF27125),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFFF27125), size: 26),
+          ),
+          const SizedBox(height: 14),
+          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF111827))),
+          const SizedBox(height: 8),
+          Text(desc, style: const TextStyle(color: Color(0xFF6B7280), height: 1.5)),
         ],
       ),
     );
