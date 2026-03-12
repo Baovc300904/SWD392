@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../services/answer_service.dart';
+import '../../models/topic_item.dart';
 import '../../services/question_service.dart';
 import '../../services/topic_service.dart';
 import '../../state/app_session.dart';
+import '../../widgets/ui_kit.dart';
 import '../profile_screen.dart';
+import '../question_detail_screen.dart';
 
 class LecturerShell extends StatefulWidget {
   const LecturerShell({super.key});
@@ -18,15 +20,15 @@ class _LecturerShellState extends State<LecturerShell> {
 
   static const _tabs = <NavigationDestination>[
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-    NavigationDestination(icon: Icon(Icons.topic_outlined), label: 'Topics'),
+    NavigationDestination(icon: Icon(Icons.lightbulb_outline), label: 'Proposals'),
     NavigationDestination(icon: Icon(Icons.quiz_outlined), label: 'Q&A'),
     NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
   ];
 
   static const _titles = <String>[
     'Lecturer Dashboard',
-    'Topic Management',
-    'Q&A Management',
+    'Topic Proposals',
+    'Hierarchical Q&A',
     'Account',
   ];
 
@@ -34,7 +36,7 @@ class _LecturerShellState extends State<LecturerShell> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       const _LecturerDashboardPage(),
-      const _LecturerTopicsPage(),
+      const _LecturerProposalPage(),
       const _LecturerQAPage(),
       const ProfileScreen(),
     ];
@@ -61,8 +63,10 @@ class _LecturerDashboardPage extends StatefulWidget {
 class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
   bool _loading = true;
   String? _error;
-  int _topics = 0;
-  int _questions = 0;
+  int _pendingTopics = 0;
+  int _approvedTopics = 0;
+  int _waitingQuestions = 0;
+  int _escalatedQuestions = 0;
 
   @override
   void initState() {
@@ -81,10 +85,16 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
         TopicService.instance.getAll(),
         QuestionService.instance.getAll(),
       ]);
+
+      final topics = result[0] as List<TopicItem>;
+      final questions = result[1] as List<dynamic>;
+
       if (!mounted) return;
       setState(() {
-        _topics = (result[0] as List).length;
-        _questions = (result[1] as List).length;
+        _pendingTopics = topics.where((t) => t.status.toUpperCase() == 'PENDING').length;
+        _approvedTopics = topics.where((t) => t.status.toUpperCase() == 'APPROVED').length;
+        _waitingQuestions = questions.where((q) => q.status == 'WAITING_LECTURER').length;
+        _escalatedQuestions = questions.where((q) => q.status == 'ESCALATED_TO_MANAGER').length;
       });
     } catch (e) {
       if (!mounted) return;
@@ -104,14 +114,20 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Lecturer summary based on topic and Q&A resources.'),
-          const SizedBox(height: 12),
+          const DashboardHero(
+            title: 'Lecturer Workspace',
+            subtitle: 'Propose topics, answer waiting tickets, and escalate edge cases to manager.',
+            icon: Icons.psychology_alt_outlined,
+          ),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              _CountCard(label: 'Topics', value: _topics),
-              _CountCard(label: 'Questions', value: _questions),
+              _CountCard(label: 'Topics Pending', value: _pendingTopics, icon: Icons.pending_actions_outlined),
+              _CountCard(label: 'Topics Approved', value: _approvedTopics, icon: Icons.task_alt_outlined),
+              _CountCard(label: 'WAITING_LECTURER', value: _waitingQuestions, icon: Icons.schedule_outlined),
+              _CountCard(label: 'Escalated', value: _escalatedQuestions, icon: Icons.trending_up_outlined),
             ],
           ),
         ],
@@ -120,20 +136,21 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
   }
 }
 
-class _LecturerTopicsPage extends StatefulWidget {
-  const _LecturerTopicsPage();
+class _LecturerProposalPage extends StatefulWidget {
+  const _LecturerProposalPage();
 
   @override
-  State<_LecturerTopicsPage> createState() => _LecturerTopicsPageState();
+  State<_LecturerProposalPage> createState() => _LecturerProposalPageState();
 }
 
-class _LecturerTopicsPageState extends State<_LecturerTopicsPage> {
+class _LecturerProposalPageState extends State<_LecturerProposalPage> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
+  final _syllabusController = TextEditingController();
 
   bool _loading = true;
   String? _error;
-  List<dynamic> _topics = const [];
+  List<TopicItem> _topics = const [];
 
   @override
   void initState() {
@@ -145,6 +162,7 @@ class _LecturerTopicsPageState extends State<_LecturerTopicsPage> {
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
+    _syllabusController.dispose();
     super.dispose();
   }
 
@@ -166,25 +184,50 @@ class _LecturerTopicsPageState extends State<_LecturerTopicsPage> {
     }
   }
 
-  Future<void> _createTopic() async {
+  Future<void> _createTopicProposal() async {
     final title = _titleController.text.trim();
-    if (title.isEmpty) return;
+    final desc = _descController.text.trim();
+    if (title.isEmpty || desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui long nhap day du tieu de va mo ta.')),
+      );
+      return;
+    }
 
     try {
       await TopicService.instance.create(
-        createdBy: AppSession.instance.session?.userId ?? 0,
+        proposerId: AppSession.instance.session?.userId ?? 0,
         title: title,
-        description: _descController.text.trim(),
+        description: desc,
+        syllabusUrl: _syllabusController.text.trim().isEmpty
+            ? null
+            : _syllabusController.text.trim(),
         maxGroups: 5,
       );
+
       _titleController.clear();
       _descController.clear();
+      _syllabusController.clear();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Da gui de xuat topic (PENDING).')),
+      );
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+        return const Color(0xFF166534);
+      case 'REJECTED':
+        return const Color(0xFFB91C1C);
+      default:
+        return const Color(0xFF92400E);
     }
   }
 
@@ -195,15 +238,16 @@ class _LecturerTopicsPageState extends State<_LecturerTopicsPage> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        const SizedBox(height: 8),
+        SectionCard(
+          margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
           child: Column(
             children: [
               TextField(
                 controller: _titleController,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  labelText: 'Topic title',
+                  labelText: 'Ten de tai',
                 ),
               ),
               const SizedBox(height: 8),
@@ -211,18 +255,26 @@ class _LecturerTopicsPageState extends State<_LecturerTopicsPage> {
                 controller: _descController,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  labelText: 'Description',
+                  labelText: 'Mo ta chi tiet (Cong nghe, muc tieu)',
                 ),
-                minLines: 2,
-                maxLines: 3,
+                minLines: 3,
+                maxLines: 5,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _syllabusController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Syllabus file link',
+                ),
               ),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
-                  onPressed: _createTopic,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Topic'),
+                  onPressed: _createTopicProposal,
+                  icon: const Icon(Icons.send_outlined),
+                  label: const Text('Gui de xuat moi'),
                 ),
               ),
             ],
@@ -236,9 +288,24 @@ class _LecturerTopicsPageState extends State<_LecturerTopicsPage> {
               itemBuilder: (_, i) {
                 final topic = _topics[i];
                 return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   child: ListTile(
                     title: Text(topic.title),
-                    subtitle: Text('Status: ${topic.status}'),
+                    subtitle: Text(topic.description),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _statusColor(topic.status).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        topic.status.toUpperCase(),
+                        style: TextStyle(
+                          color: _statusColor(topic.status),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -286,28 +353,6 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
     }
   }
 
-  Future<void> _resolve(int id) async {
-    await QuestionService.instance.resolve(id);
-    await _load();
-  }
-
-  Future<void> _escalate(int id) async {
-    await QuestionService.instance.escalate(id);
-    await _load();
-  }
-
-  Future<void> _quickAnswer(int questionId) async {
-    final userId = AppSession.instance.session?.userId ?? 0;
-    await AnswerService.instance.create(
-      questionId: questionId,
-      answeredBy: userId,
-      content: 'Da tiep nhan va dang xu ly cau hoi nay.',
-      isPublic: true,
-      markAsResolved: false,
-    );
-    await _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -323,26 +368,16 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
             child: ListTile(
               title: Text(question.title),
               subtitle: Text(question.status),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  IconButton(
-                    tooltip: 'Answer',
-                    onPressed: () => _quickAnswer(question.id),
-                    icon: const Icon(Icons.reply_outlined, color: Colors.blue),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => QuestionDetailScreen(questionId: question.id),
                   ),
-                  IconButton(
-                    tooltip: 'Resolve',
-                    onPressed: () => _resolve(question.id),
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-                  ),
-                  IconButton(
-                    tooltip: 'Escalate',
-                    onPressed: () => _escalate(question.id),
-                    icon: const Icon(Icons.north_outlined, color: Colors.orange),
-                  ),
-                ],
-              ),
+                );
+                if (!mounted) return;
+                await _load();
+              },
             ),
           );
         },
@@ -352,29 +387,14 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
 }
 
 class _CountCard extends StatelessWidget {
-  const _CountCard({required this.label, required this.value});
+  const _CountCard({required this.label, required this.value, required this.icon});
 
   final String label;
   final int value;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 160,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Color(0xFF6B7280))),
-          const SizedBox(height: 6),
-          Text('$value', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-        ],
-      ),
-    );
+    return StatCard(label: label, value: value, icon: icon);
   }
 }

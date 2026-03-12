@@ -27,12 +27,30 @@ class AuthService {
       auth: false,
       body: <String, dynamic>{
         'studentCode': studentCode,
+        'name': fullName,
         'fullName': fullName,
         'email': email,
         'password': password,
         'confirmPassword': confirmPassword,
       },
     );
+  }
+
+  Future<AuthSession> adminLecturerLogin({
+    required String email,
+    required String password,
+    required String role,
+  }) async {
+    final data = await ApiClient.instance.post(
+      '/auth/admin-lecturer-login',
+      auth: false,
+      body: <String, dynamic>{
+        'email': email,
+        'password': password,
+        'role': role,
+      },
+    );
+    return AuthSession.fromApi(data);
   }
 
   Future<Map<String, dynamic>> refreshToken(String refreshToken) {

@@ -6,12 +6,13 @@ class QuestionService {
 
   static final QuestionService instance = QuestionService._();
 
-  Future<List<QuestionItem>> getAll({String? status, int? groupId}) async {
+  Future<List<QuestionItem>> getAll({String? status, int? groupId, String? search}) async {
     final query = <String, String>{};
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (groupId != null) query['groupId'] = '$groupId';
+    if (search != null && search.isNotEmpty) query['search'] = search;
 
-    final response = await ApiClient.instance.get('/questions', query: query, auth: false);
+    final response = await ApiClient.instance.get('/questions', query: query);
     final data = response['data'] as List<dynamic>? ?? <dynamic>[];
     return data
         .whereType<Map<String, dynamic>>()
@@ -20,7 +21,7 @@ class QuestionService {
   }
 
   Future<QuestionItem> getById(int id) async {
-    final response = await ApiClient.instance.get('/questions/$id', auth: false);
+    final response = await ApiClient.instance.get('/questions/$id');
     final map = response['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
     return QuestionItem.fromJson(map);
   }
@@ -33,7 +34,6 @@ class QuestionService {
   }) {
     return ApiClient.instance.post(
       '/questions',
-      auth: false,
       body: <String, dynamic>{
         'title': title,
         'content': content,
@@ -44,14 +44,23 @@ class QuestionService {
   }
 
   Future<Map<String, dynamic>> escalate(int id) {
-    return ApiClient.instance.put('/questions/$id/escalate', auth: false);
+    return ApiClient.instance.put('/questions/$id/escalate');
   }
 
   Future<Map<String, dynamic>> resolve(int id) {
-    return ApiClient.instance.put('/questions/$id/resolve', auth: false);
+    return ApiClient.instance.put('/questions/$id/resolve');
   }
 
   Future<Map<String, dynamic>> deleteQuestion(int id) {
-    return ApiClient.instance.delete('/questions/$id', auth: false);
+    return ApiClient.instance.delete('/questions/$id');
+  }
+
+  Future<Map<String, dynamic>> getAiSuggestion(int id) {
+    return ApiClient.instance.get('/questions/$id/ai-suggestion');
+  }
+
+  Future<Map<String, dynamic>> generateAiSuggestion(int id) {
+    return ApiClient.instance.post('/questions/$id/ai-suggestion');
   }
 }
+

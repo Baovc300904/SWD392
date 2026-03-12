@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/question_item.dart';
+import '../services/ai_draft_service.dart';
 import '../services/answer_service.dart';
 import '../services/question_service.dart';
 import '../state/app_session.dart';
@@ -16,10 +17,15 @@ class QuestionDetailScreen extends StatefulWidget {
 
 class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   bool _loading = true;
+  bool _sending = false;
   String? _error;
   QuestionItem? _question;
   List<Map<String, dynamic>> _answers = const <Map<String, dynamic>>[];
   final TextEditingController _answerController = TextEditingController();
+  bool _isPublic = true;
+
+  String get _role => AppSession.instance.session?.normalizedRole ?? 'student';
+  bool get _canModerate => _role == 'lecturer' || _role == 'manager';
 
   @override
   void initState() {
@@ -69,9 +75,40 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _escalate() async {
+    try {
+      await QuestionService.instance.escalate(widget.questionId);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _generateAiDraft() async {
+    final q = _question;
+    if (q == null) return;
+
+    try {
+      final draft = await AiDraftService.instance.buildSmartDraft(
+        questionId: q.id,
+        questionTitle: q.title,
+        questionContent: q.content,
       );
+      if (!mounted) return;
+      setState(() {
+        _answerController.text = draft.trim();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI smart draft da duoc tao.')), 
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -81,20 +118,22 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
     final userId = AppSession.instance.session?.userId ?? 1;
 
+    setState(() => _sending = true);
     try {
       await AnswerService.instance.create(
         questionId: widget.questionId,
         answeredBy: userId,
         content: content,
-        isPublic: true,
+        isPublic: _isPublic,
+        markAsResolved: true,
       );
       _answerController.clear();
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -124,15 +163,22 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                           children: [
                             Chip(label: Text(_question!.status)),
                             const Spacer(),
-                            FilledButton(
-                              onPressed: _resolve,
-                              child: const Text('Mark Resolved'),
-                            ),
+                            if (_canModerate)
+                              TextButton.icon(
+                                onPressed: _escalate,
+                                icon: const Icon(Icons.north_outlined),
+                                label: const Text('Escalate'),
+                              ),
+                            if (_canModerate)
+                              FilledButton(
+                                onPressed: _resolve,
+                                child: const Text('Resolve'),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          'Answers',
+                          'Answer Thread',
                           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                         ),
                         const SizedBox(height: 8),
@@ -144,29 +190,47 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                               child: ListTile(
                                 title: Text(answer['content']?.toString() ?? ''),
                                 subtitle: Text(
-                                  'Public: ${answer['isPublic'] == true ? 'Yes' : 'No'}',
+                                  'Visibility: ${answer['isPublic'] == true ? 'Public' : 'Private'}',
                                 ),
                               ),
                             ),
                           ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: _answerController,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Nhap answer moi...',
+                        if (_canModerate) ...[
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _answerController,
+                            minLines: 4,
+                            maxLines: 8,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'Nhap noi dung tra loi...',
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: FilledButton(
-                            onPressed: _addAnswer,
-                            child: const Text('Add Answer'),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Public answer to Knowledge Library'),
+                            subtitle: const Text('Tat: Private cho nhom hoi'),
+                            value: _isPublic,
+                            onChanged: (value) => setState(() => _isPublic = value),
                           ),
-                        ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _generateAiDraft,
+                                icon: const Icon(Icons.auto_awesome_outlined),
+                                label: const Text('Smart Draft'),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton.icon(
+                                onPressed: _sending ? null : _addAnswer,
+                                icon: const Icon(Icons.send_outlined),
+                                label: const Text('Send Answer'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
     );

@@ -3,7 +3,7 @@
 ## Requirement Coverage
 
 - [x] Apply standardized mobile UI template
-- [x] API integration for 5 resources with 20+ endpoints
+- [x] API integration for all BE route groups (8 resources, 35+ endpoints)
 - [x] Complete 3 core app flows
 - [x] Push notification integration (local push + backend polling)
 
@@ -23,7 +23,7 @@
 	  - `lib/screens/question_detail_screen.dart`
 	- Supports list, detail, resolve, answer, and delete actions.
 
-## API Coverage (5 Resources, 20+ Endpoints)
+## API Coverage (All BE Route Groups)
 
 1. Auth (10 endpoints)
 	- `/auth/register`, `/auth/login`, `/auth/admin-lecturer-login`
@@ -38,11 +38,25 @@
 	- `/semesters`, `/semesters/active`, `/semesters/:id`
 	- `POST /semesters`, `PUT /semesters/:id`, `DELETE /semesters/:id`
 
-4. Questions (6 endpoints)
+4. Classes (5 endpoints)
+	- `/classes`, `/classes/:id`
+	- `POST /classes`, `PUT /classes/:id`, `DELETE /classes/:id`
+
+5. Topics (7 endpoints)
+	- `/topics`, `/topics/:id`
+	- `POST /topics`, `PUT /topics/:id`, `DELETE /topics/:id`
+	- `PUT /topics/:id/approve`, `PUT /topics/:id/reject`
+
+6. Groups (8 endpoints)
+	- `/groups`, `/groups/:id`, `/groups/:id/members`
+	- `POST /groups`, `PUT /groups/:id`, `DELETE /groups/:id`
+	- `POST /groups/:id/members`, `DELETE /groups/:id/members/:memberId`
+
+7. Questions (6 endpoints)
 	- `/questions`, `/questions/:id`
 	- `POST /questions`, `PUT /questions/:id/escalate`, `PUT /questions/:id/resolve`, `DELETE /questions/:id`
 
-5. Answers (6 endpoints)
+8. Answers (6 endpoints)
 	- `/questions/:questionId/answers`
 	- `POST /questions/:questionId/answers`
 	- `PUT /answers/:id`, `PUT /answers/:id/toggle-visibility`, `DELETE /answers/:id`, `/answers/public`

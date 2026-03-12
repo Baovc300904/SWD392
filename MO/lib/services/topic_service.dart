@@ -26,23 +26,30 @@ class TopicService {
   }
 
   Future<Map<String, dynamic>> create({
-    required int createdBy,
+    required int proposerId,
     required String title,
     required String description,
+    String? syllabusUrl,
     required int maxGroups,
   }) {
     return ApiClient.instance.post(
       '/topics',
       body: <String, dynamic>{
-        'createdBy': createdBy,
+        // Keep both keys for compatibility with BE versions.
+        'createdBy': proposerId,
+        'proposedBy': proposerId,
         'title': title,
         'description': description,
+        'descriptionFile': syllabusUrl,
         'maxGroups': maxGroups,
       },
     );
   }
 
-  Future<Map<String, dynamic>> update(int id, Map<String, dynamic> payload) {
+  Future<Map<String, dynamic>> update(
+    int id,
+    Map<String, dynamic> payload,
+  ) {
     return ApiClient.instance.put('/topics/$id', body: payload);
   }
 
@@ -54,7 +61,13 @@ class TopicService {
     return ApiClient.instance.put('/topics/$id/approve');
   }
 
-  Future<Map<String, dynamic>> reject(int id) {
-    return ApiClient.instance.put('/topics/$id/reject');
+  Future<Map<String, dynamic>> reject(int id, {String? reason}) {
+    return ApiClient.instance.put(
+      '/topics/$id/reject',
+      body: <String, dynamic>{
+        if (reason != null && reason.isNotEmpty) 'rejectionReason': reason,
+      },
+    );
   }
 }
+

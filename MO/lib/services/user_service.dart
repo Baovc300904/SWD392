@@ -32,6 +32,7 @@ class UserService {
       '/users',
       body: <String, dynamic>{
         'studentCode': studentCode,
+        'name': fullName,
         'fullName': fullName,
         'email': email,
         'password': password,

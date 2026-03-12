@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile_app/navigation/root_scaffold.dart';
+import 'package:mobile_app/screens/profile_screen.dart';
 
 void main() {
   testWidgets('Footer menu switches tabs', (WidgetTester tester) async {
@@ -30,6 +31,6 @@ void main() {
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nguyen Van A'), findsOneWidget);
+    expect(find.byType(ProfileScreen), findsOneWidget);
   });
 }

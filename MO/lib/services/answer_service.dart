@@ -12,7 +12,6 @@ class AnswerService {
     final response = await ApiClient.instance.get(
       '/questions/$questionId/answers',
       query: query,
-      auth: false,
     );
     final data = response['data'] as List<dynamic>? ?? <dynamic>[];
     return data.cast<Map<String, dynamic>>();
@@ -27,7 +26,6 @@ class AnswerService {
   }) {
     return ApiClient.instance.post(
       '/questions/$questionId/answers',
-      auth: false,
       body: <String, dynamic>{
         'answeredBy': answeredBy,
         'content': content,
@@ -40,7 +38,6 @@ class AnswerService {
   Future<Map<String, dynamic>> update(int id, {String? content, bool? isPublic}) {
     return ApiClient.instance.put(
       '/answers/$id',
-      auth: false,
       body: <String, dynamic>{
         if (content != null) 'content': content,
         if (isPublic != null) 'isPublic': isPublic,
@@ -49,15 +46,15 @@ class AnswerService {
   }
 
   Future<Map<String, dynamic>> toggleVisibility(int id) {
-    return ApiClient.instance.put('/answers/$id/toggle-visibility', auth: false);
+    return ApiClient.instance.put('/answers/$id/toggle-visibility');
   }
 
   Future<Map<String, dynamic>> deleteAnswer(int id) {
-    return ApiClient.instance.delete('/answers/$id', auth: false);
+    return ApiClient.instance.delete('/answers/$id');
   }
 
   Future<List<Map<String, dynamic>>> getPublicAnswers() async {
-    final response = await ApiClient.instance.get('/answers/public', auth: false);
+    final response = await ApiClient.instance.get('/answers/public');
     final data = response['data'] as List<dynamic>? ?? <dynamic>[];
     return data.cast<Map<String, dynamic>>();
   }

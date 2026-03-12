@@ -5,8 +5,12 @@ class ClassService {
 
   static final ClassService instance = ClassService._();
 
-  Future<List<Map<String, dynamic>>> getAll() async {
-    final response = await ApiClient.instance.get('/classes');
+  Future<List<Map<String, dynamic>>> getAll({String? search, int? lecturerId}) async {
+    final query = <String, String>{
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (lecturerId != null) 'lecturerId': '$lecturerId',
+    };
+    final response = await ApiClient.instance.get('/classes', query: query);
     final data = response['data'] as List<dynamic>? ?? <dynamic>[];
     return data.cast<Map<String, dynamic>>();
   }
@@ -18,17 +22,15 @@ class ClassService {
 
   Future<Map<String, dynamic>> create({
     required String className,
-    required String semesterId,
-    String? description,
-    String status = 'Active',
+    required int lecturerId,
+    int? semesterId,
   }) {
     return ApiClient.instance.post(
       '/classes',
       body: <String, dynamic>{
         'className': className,
+        'lecturerId': lecturerId,
         'semesterId': semesterId,
-        'description': description,
-        'status': status,
       },
     );
   }
