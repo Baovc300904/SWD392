@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/question_service.dart';
+import '../services/semester_service.dart';
+import '../services/topic_service.dart';
+import '../services/user_service.dart';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -8,96 +13,129 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  static const _bg = Color(0xFFF6F7FB);
-  static const _cardBorder = Color(0xFFE6E8EF);
-  static const _muted = Color(0xFF6B7280);
-  static const _accent = Color(0xFFE67E22);
+  bool _loading = true;
+  String? _error;
 
-  bool _myTasks = false;
+  int _semesterCount = 0;
+  int _topicCount = 0;
+  int _questionCount = 0;
+  int _userCount = 0;
 
-  static const _tasks = <_TaskItem>[
-    _TaskItem(
-      title: 'Design Database Schema',
-      tag: 'Backend',
-      tagColor: Color(0xFFE6F0FF),
-      tagTextColor: Color(0xFF2563EB),
-      priority: 'High Priority',
-      priorityColor: Color(0xFFFFE4E6),
-      priorityTextColor: Color(0xFFEF4444),
-      dueText: 'Tomorrow',
-      dueIsUrgent: true,
-      status: 'In Progress',
-      avatarText: 'DB',
-    ),
-    _TaskItem(
-      title: 'Implement Authentication API',
-      tag: 'Backend',
-      tagColor: Color(0xFFE6F0FF),
-      tagTextColor: Color(0xFF2563EB),
-      priority: 'High Priority',
-      priorityColor: Color(0xFFFFE4E6),
-      priorityTextColor: Color(0xFFEF4444),
-      dueText: 'Jan 23',
-      dueIsUrgent: false,
-      status: 'In Progress',
-      avatarText: 'AU',
-    ),
-    _TaskItem(
-      title: 'Create UI Mockups',
-      tag: 'Design',
-      tagColor: Color(0xFFF3E8FF),
-      tagTextColor: Color(0xFF7C3AED),
-      priority: null,
-      dueText: 'Jan 25',
-      dueIsUrgent: false,
-      status: 'To Do',
-      avatarText: 'UI',
-    ),
-    _TaskItem(
-      title: 'Write Unit Tests',
-      tag: 'Testing',
-      tagColor: Color(0xFFDCFCE7),
-      tagTextColor: Color(0xFF16A34A),
-      priority: null,
-      dueText: 'Jan 26',
-      dueIsUrgent: false,
-      status: 'To Do',
-      avatarText: 'UT',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final semestersFuture = SemesterService.instance.getAll();
+      final topicsFuture = TopicService.instance.getAll();
+      final questionsFuture = QuestionService.instance.getAll();
+      final usersFuture = UserService.instance.getAllUsers();
+
+      final results = await Future.wait<dynamic>([
+        semestersFuture,
+        topicsFuture,
+        questionsFuture,
+        usersFuture,
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _semesterCount = (results[0] as List).length;
+        _topicCount = (results[1] as List).length;
+        _questionCount = (results[2] as List).length;
+        _userCount = (results[3] as List).length;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tasks = _myTasks ? _tasks.take(2).toList() : _tasks;
-
     return Scaffold(
-      backgroundColor: _bg,
-      body: SafeArea(
+      body: RefreshIndicator(
+        onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'Project Tasks',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+              'Overview',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Realtime summary for 4 key resources in your backend.',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+            const SizedBox(height: 14),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else if (_error != null)
+              _ErrorCard(message: _error!, onRetry: _load)
+            else
+              GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 1.3,
+                children: [
+                  _MetricCard(
+                    icon: Icons.calendar_today_outlined,
+                    title: 'Semesters',
+                    value: _semesterCount.toString(),
+                  ),
+                  _MetricCard(
+                    icon: Icons.topic_outlined,
+                    title: 'Topics',
+                    value: _topicCount.toString(),
+                  ),
+                  _MetricCard(
+                    icon: Icons.help_outline,
+                    title: 'Questions',
+                    value: _questionCount.toString(),
+                  ),
+                  _MetricCard(
+                    icon: Icons.group_outlined,
+                    title: 'Users',
+                    value: _userCount.toString(),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: const Text(
+                'Template da duoc chuan hoa theo 3 luong: Dashboard, Create main entity, Management (List/Detail/Delete).',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(height: 12),
-            _Segmented(
-              leftText: 'All Tasks',
-              rightText: 'My Tasks',
-              leftSelected: !_myTasks,
-              onLeft: () => setState(() => _myTasks = false),
-              onRight: () => setState(() => _myTasks = true),
-            ),
-            const SizedBox(height: 12),
-            const _ProgressCard(percent: 0.67),
-            const SizedBox(height: 14),
-            ...tasks.map((t) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _TaskCard(task: t),
-                )),
           ],
         ),
       ),
@@ -105,299 +143,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _Segmented extends StatelessWidget {
-  const _Segmented({
-    required this.leftText,
-    required this.rightText,
-    required this.leftSelected,
-    required this.onLeft,
-    required this.onRight,
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.icon,
+    required this.title,
+    required this.value,
   });
 
-  final String leftText;
-  final String rightText;
-  final bool leftSelected;
-  final VoidCallback onLeft;
-  final VoidCallback onRight;
+  final IconData icon;
+  final String title;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: const Border.fromBorderSide(
-          BorderSide(color: _DashboardScreenState._cardBorder),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SegmentButton(
-              text: leftText,
-              selected: leftSelected,
-              onTap: onLeft,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _SegmentButton(
-              text: rightText,
-              selected: !leftSelected,
-              onTap: onRight,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SegmentButton extends StatelessWidget {
-  const _SegmentButton({
-    required this.text,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String text;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? _DashboardScreenState._accent : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF111827),
-            fontWeight: FontWeight.w800,
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.percent});
-
-  final double percent;
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = (percent * 100).round();
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F3FF),
-        borderRadius: BorderRadius.circular(16),
-        border: const Border.fromBorderSide(
-          BorderSide(color: _DashboardScreenState._cardBorder),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Project Progress',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              Text(
-                '$pct%',
-                style: const TextStyle(
-                  color: _DashboardScreenState._accent,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 8,
-              value: percent.clamp(0, 1),
-              backgroundColor: const Color(0xFFE5E7EB),
-              valueColor: const AlwaysStoppedAnimation(
-                _DashboardScreenState._accent,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            '8 of 12 tasks completed',
-            style: TextStyle(
-              color: _DashboardScreenState._muted,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task});
-
-  final _TaskItem task;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final avatarColor = Colors.primaries[task.title.hashCode % Colors.primaries.length];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: const Border.fromBorderSide(
-          BorderSide(color: _DashboardScreenState._cardBorder),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 14,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    task.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: avatarColor.shade200,
-                  child: Text(
-                    task.avatarText,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _Pill(text: task.tag, bg: task.tagColor, fg: task.tagTextColor),
-                if (task.priority != null)
-                  _Pill(
-                    text: task.priority!,
-                    bg: task.priorityColor ?? const Color(0xFFFFE4E6),
-                    fg: task.priorityTextColor ?? const Color(0xFFEF4444),
-                    icon: Icons.priority_high,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1, color: _DashboardScreenState._cardBorder),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(
-                  Icons.schedule,
-                  size: 16,
-                  color: task.dueIsUrgent
-                      ? const Color(0xFFEF4444)
-                      : _DashboardScreenState._muted,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  task.dueText,
-                  style: TextStyle(
-                    color: task.dueIsUrgent
-                        ? const Color(0xFFEF4444)
-                        : _DashboardScreenState._muted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  task.status,
-                  style: const TextStyle(
-                    color: _DashboardScreenState._muted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Icon(Icons.chevron_right, color: _DashboardScreenState._muted),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({
-    required this.text,
-    required this.bg,
-    required this.fg,
-    this.icon,
-  });
-
-  final String text;
-  final Color bg;
-  final Color fg;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: fg),
-            const SizedBox(width: 6),
-          ],
+          Icon(icon, color: const Color(0xFFE67E22)),
+          const Spacer(),
           Text(
-            text,
-            style: TextStyle(
-              color: fg,
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
+            value,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -406,30 +185,34 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class _TaskItem {
-  const _TaskItem({
-    required this.title,
-    required this.tag,
-    required this.tagColor,
-    required this.tagTextColor,
-    required this.dueText,
-    required this.dueIsUrgent,
-    required this.status,
-    required this.avatarText,
-    this.priority,
-    this.priorityColor,
-    this.priorityTextColor,
-  });
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message, required this.onRetry});
 
-  final String title;
-  final String tag;
-  final Color tagColor;
-  final Color tagTextColor;
-  final String? priority;
-  final Color? priorityColor;
-  final Color? priorityTextColor;
-  final String dueText;
-  final bool dueIsUrgent;
-  final String status;
-  final String avatarText;
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Cannot load dashboard',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(message, style: const TextStyle(color: Color(0xFF7F1D1D))),
+          const SizedBox(height: 10),
+          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
 }

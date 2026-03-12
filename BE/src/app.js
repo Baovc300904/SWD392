@@ -52,13 +52,15 @@ testConnection().then(async () => {
 
 
 // Middleware
-// CORS configuration - Allow Frontend origins
+// CORS configuration - allow localhost/127.0.0.1 on any port for local dev
+const allowedOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const corsOptions = {
-    origin: [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5175'
-    ],
+    origin(origin, callback) {
+        if (!origin || allowedOriginPattern.test(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     optionsSuccessStatus: 200
 };

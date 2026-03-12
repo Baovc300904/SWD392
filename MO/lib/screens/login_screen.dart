@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../navigation/root_scaffold.dart';
+import '../services/auth_service.dart';
+import '../services/notification_service.dart';
+import '../state/app_session.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,16 +39,29 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final session = await AuthService.instance.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      await AppSession.instance.setSession(session);
+      await NotificationService.instance.startQuestionPolling();
+
       if (!mounted) return;
 
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const RootScaffold()),
       );
-    } finally {
+    } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -298,14 +314,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _accent,
                               foregroundColor: Colors.white,
-                              disabledBackgroundColor: _accent.withOpacity(0.6),
+                              disabledBackgroundColor: _accent.withValues(alpha: 0.6),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               elevation: 0,
                             ).copyWith(
                               shadowColor: WidgetStateProperty.all(
-                                _accent.withOpacity(0.6),
+                                _accent.withValues(alpha: 0.6),
                               ),
                             ),
                             child: _isSubmitting

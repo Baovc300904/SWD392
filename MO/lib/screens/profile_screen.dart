@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../screens/login_screen.dart';
+import '../services/auth_service.dart';
+import '../services/notification_service.dart';
+import '../state/app_session.dart';
 import '../theme/app_settings.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -42,6 +45,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (ok != true || !mounted) return;
+
+    final refreshToken = AppSession.instance.session?.refreshToken;
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await AuthService.instance.logout(refreshToken);
+      } catch (_) {
+        // Keep local logout resilient when network logout fails.
+      }
+    }
+    await NotificationService.instance.stop();
+    await AppSession.instance.clear();
+    if (!mounted) return;
 
     await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
