@@ -1,61 +1,92 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Plus, MessageSquare, ThumbsUp, Pin } from 'lucide-react';
+import questionService from '../../services/question.service';
+import authService from '../../services/auth.service';
 
-export function QAForumView() {
+export function QAForumView({ groupId }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [threads, setThreads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [newQuestion, setNewQuestion] = useState('');
 
-  const threads = [
-    {
-      id: 1,
-      author: { name: 'Nguyen Van A', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member1' },
-      title: 'How to implement JWT authentication in Node.js?',
-      preview: 'I\'m trying to set up JWT authentication for our backend API. Should we use cookies or local storage?',
-      timestamp: '2 hours ago',
-      replies: 5,
-      likes: 3,
-      pinned: true,
-      tags: ['Backend', 'Security'],
-    },
-    {
-      id: 2,
-      author: { name: 'Tran Thi B', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member2' },
-      title: 'Best practices for React state management?',
-      preview: 'For our e-commerce app, should we use Redux or Context API? The app will have complex state...',
-      timestamp: '5 hours ago',
-      replies: 8,
-      likes: 7,
-      pinned: false,
-      tags: ['Frontend', 'React'],
-    },
-    {
-      id: 3,
-      author: { name: 'Le Van C', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member3' },
-      title: 'Database schema design for products table',
-      preview: 'Should we separate product variants into a different table or use JSON fields?',
-      timestamp: '1 day ago',
-      replies: 12,
-      likes: 5,
-      pinned: false,
-      tags: ['Database', 'Design'],
-    },
-    {
-      id: 4,
-      author: { name: 'Pham Thi D', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member4' },
-      title: 'UI feedback: Landing page color scheme',
-      preview: 'I\'ve created two versions of our landing page. Which color palette looks more professional?',
-      timestamp: '2 days ago',
-      replies: 4,
-      likes: 2,
-      pinned: false,
-      tags: ['Design', 'UI/UX'],
-    },
-  ];
+  const currentUser = authService.getCurrentUser();
+  const currentUserId = currentUser?.userId || currentUser?.id;
+  const currentRole = String(currentUser?.role || '').toLowerCase();
+
+  const getAvatarSrc = (thread) =>
+    thread?.asker?.avatarURL || thread?.asker?.avatarUrl || thread?.asker?.avatar_url || '';
+
+  const getInitials = (name) => String(name || 'U')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  useEffect(() => {
+    loadQuestions();
+  }, [groupId]);
+
+  const loadQuestions = async () => {
+    try {
+      setLoading(true);
+      const response = await questionService.getAllQuestions(groupId ? { groupId } : {});
+      const questions = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+      setThreads(questions);
+    } catch (error) {
+      console.error('Failed to load questions:', error);
+      setThreads([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateQuestion = async () => {
+    const content = newQuestion.trim();
+    if (!content) return;
+    if (!groupId) {
+      alert('Không xác định được nhóm hiện tại để tạo câu hỏi.');
+      return;
+    }
+
+    try {
+      setPosting(true);
+      await questionService.createQuestion({
+        title: content.slice(0, 80),
+        content,
+        groupId,
+        askedBy: currentUser?.userId || currentUser?.id
+      });
+      setNewQuestion('');
+      loadQuestions();
+    } catch (error) {
+      alert(error?.message || 'Không thể tạo câu hỏi');
+    } finally {
+      setPosting(false);
+    }
+  };
 
   const filteredThreads = threads.filter(
     (thread) =>
-      thread.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      thread.preview.toLowerCase().includes(searchTerm.toLowerCase())
+      (thread.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (thread.content || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const canViewAnswer = (answer, thread) => {
+    if (!answer) return false;
+    if (answer.isPublic) return true;
+    if (!currentUserId) return false;
+    const answererId = answer.answeredBy || answer.answerer?.id;
+    const askerId = thread?.askedBy || thread?.asker?.id;
+    if (Number(answererId) === Number(currentUserId)) return true;
+    if (Number(askerId) === Number(currentUserId)) return true;
+    if (currentRole === 'lecturer' || currentRole === 'manager') return true;
+    return false;
+  };
+
+  const visibleAnswers = (thread) => (Array.isArray(thread?.answers) ? thread.answers : []).filter((answer) => canViewAnswer(answer, thread));
 
   return (
     <div className="flex-1 flex flex-col h-screen bg-white">
@@ -88,6 +119,9 @@ export function QAForumView() {
       {/* Thread List */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-3">
+          {loading && (
+            <div className="text-center py-8 text-sm text-gray-500">Đang tải câu hỏi...</div>
+          )}
           {filteredThreads.map((thread) => (
             <div
               key={thread.id}
@@ -95,11 +129,17 @@ export function QAForumView() {
             >
               <div className="flex gap-3">
                 {/* Avatar */}
-                <img
-                  src={thread.author.avatar}
-                  alt={thread.author.name}
-                  className="w-10 h-10 rounded flex-shrink-0"
-                />
+                {getAvatarSrc(thread) ? (
+                  <img
+                    src={getAvatarSrc(thread)}
+                    alt={thread.asker?.fullName || 'User'}
+                    className="w-10 h-10 rounded object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded flex-shrink-0 bg-[#F27125]/10 text-[#F27125] font-semibold text-xs flex items-center justify-center">
+                    {getInitials(thread.asker?.fullName || thread.asker?.name)}
+                  </div>
+                )}
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -112,32 +152,43 @@ export function QAForumView() {
                     </h3>
                   </div>
 
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{thread.preview}</p>
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{thread.content}</p>
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5">
                         <MessageSquare className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{thread.replies} replies</span>
+                        <span className="text-sm text-gray-600">{visibleAnswers(thread).length} replies</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <ThumbsUp className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{thread.likes}</span>
+                        <span className="text-sm text-gray-600">{thread.status === 'RESOLVED' ? 1 : 0}</span>
                       </div>
-                      <span className="text-sm text-gray-500">{thread.timestamp}</span>
+                      <span className="text-sm text-gray-500">{new Date(thread.createdAt).toLocaleString()}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {thread.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        {thread.status || 'WAITING_LECTURER'}
+                      </span>
                     </div>
                   </div>
+
+                  {visibleAnswers(thread).length > 0 && (
+                    <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                      {visibleAnswers(thread).map((answer) => (
+                        <div key={answer.id} className="bg-gray-50 rounded-lg px-3 py-2">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-xs font-semibold text-gray-700">{answer.answerer?.fullName || 'Lecturer'}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${answer.isPublic ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {answer.isPublic ? 'Public' : 'Private'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{answer.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -158,6 +209,8 @@ export function QAForumView() {
           <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#0054a6] focus-within:border-transparent">
             <textarea
               placeholder="Ask a question or share your knowledge..."
+              value={newQuestion}
+              onChange={(e) => setNewQuestion(e.target.value)}
               className="w-full px-4 py-3 focus:outline-none resize-none"
               rows={3}
             />
@@ -172,8 +225,12 @@ export function QAForumView() {
                 <button className="hover:text-gray-700">Code</button>
                 <button className="hover:text-gray-700">Link</button>
               </div>
-              <button className="bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-1.5 rounded text-sm font-medium transition">
-                Post
+              <button
+                onClick={handleCreateQuestion}
+                disabled={posting}
+                className="bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-1.5 rounded text-sm font-medium transition disabled:opacity-60"
+              >
+                {posting ? 'Posting...' : 'Post'}
               </button>
             </div>
           </div>

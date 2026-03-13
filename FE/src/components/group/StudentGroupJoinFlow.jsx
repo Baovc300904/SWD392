@@ -6,6 +6,22 @@ import classService from '../../services/class.service';
 import groupService from '../../services/group.service';
 import topicService from '../../services/topic.service';
 
+const toArray = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  if (Array.isArray(payload?.rows)) {
+    return payload.rows;
+  }
+
+  return [];
+};
+
 /**
  * StudentGroupJoinFlow
  * Luồng cho sinh viên khi chưa có nhóm:
@@ -48,9 +64,9 @@ export function StudentGroupJoinFlow({ onGroupJoined, onLogout }) {
         topicService.getAllTopics({ status: 'APPROVED' })
       ]);
 
-      const availableClasses = Array.isArray(classData) ? classData : [];
-      const availableGroups = Array.isArray(groupsData) ? groupsData : [];
-      const approvedTopics = Array.isArray(topicsData) ? topicsData : [];
+      const availableClasses = toArray(classData);
+      const availableGroups = toArray(groupsData);
+      const approvedTopics = toArray(topicsData);
 
       setClasses(availableClasses);
       setGroups(availableGroups);
@@ -273,14 +289,28 @@ export function StudentGroupJoinFlow({ onGroupJoined, onLogout }) {
         )}
 
         {/* Existing Groups List */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold mb-4">Danh Sách Nhóm Hiện Có</h2>
+        <div className="bg-white rounded-lg shadow-md p-6 border border-slate-200">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Danh Sách Nhóm Hiện Có</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                {selectedClassId ? `Đang hiển thị nhóm của lớp đã chọn.` : 'Đang hiển thị tất cả nhóm khả dụng.'}
+              </p>
+            </div>
+            <div className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold">
+              {filteredGroups.length} nhóm
+            </div>
+          </div>
           
           {filteredGroups.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Chưa có nhóm nào phù hợp</p>
-              <p className="text-sm text-gray-400 mt-2">{canCreateGroup ? 'Hãy tạo nhóm mới để bắt đầu.' : 'Vui lòng liên hệ lecturer nếu bạn cần tạo nhóm mới.'}</p>
+            <div className="text-center py-14 px-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+              <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-slate-700">Chưa có nhóm nào phù hợp</p>
+              <p className="text-sm text-slate-600 mt-2 max-w-xl mx-auto">
+                {canCreateGroup
+                  ? 'Hiện chưa có nhóm trong bộ lọc này. Bạn có thể tạo nhóm mới để bắt đầu ngay.'
+                  : 'Hiện chưa có nhóm trong bộ lọc này. Nếu cần được phân vào nhóm, vui lòng liên hệ lecturer.'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

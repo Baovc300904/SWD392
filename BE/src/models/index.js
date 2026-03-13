@@ -24,6 +24,8 @@ module.exports = {
     GroupMember: AcademicCore.GroupMember,
     Question: AcademicCore.Question,
     Answer: AcademicCore.Answer,
+    Submission: AcademicCore.Submission,
+    Task: AcademicCore.Task,
 
     // Module export for grouped access
     AcademicCore

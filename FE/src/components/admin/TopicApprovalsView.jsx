@@ -6,17 +6,20 @@ import {
 import { toast } from 'sonner';
 import { topicService } from '../../services/app.service';
 
+const normalizeStatus = (status) => String(status || '').toUpperCase();
+const getTopicId = (topic) => topic?.id ?? topic?.topicId;
+
 function StatusBadge({ status }) {
   const map = {
-    Pending:  { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
-    Approved: { bg: 'bg-green-100',  text: 'text-green-700',  icon: CheckCircle2 },
-    Rejected: { bg: 'bg-red-100',    text: 'text-red-700',    icon: XCircle },
+    PENDING:  { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock, label: 'PENDING' },
+    APPROVED: { bg: 'bg-green-100',  text: 'text-green-700',  icon: CheckCircle2, label: 'APPROVED' },
+    REJECTED: { bg: 'bg-red-100',    text: 'text-red-700',    icon: XCircle, label: 'REJECTED' },
   };
-  const cfg = map[status] || map.Pending;
+  const cfg = map[normalizeStatus(status)] || map.PENDING;
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full ${cfg.bg} ${cfg.text}`}>
-      <Icon className="w-3 h-3" />{status}
+      <Icon className="w-3 h-3" />{cfg.label}
     </span>
   );
 }
@@ -45,30 +48,42 @@ export function TopicApprovalsView() {
   };
 
   const handleApprove = async (topic) => {
-    setActionLoading(p => ({ ...p, [topic.topicId]: 'approve' }));
+    const topicId = getTopicId(topic);
+    if (!topicId) {
+      toast.error('Không tìm thấy ID topic để duyệt');
+      return;
+    }
+
+    setActionLoading(p => ({ ...p, [topicId]: 'approve' }));
     try {
-      await topicService.approveTopic(topic.topicId);
+      await topicService.approveTopic(topicId);
       toast.success(`Đã duyệt "${topic.title}"`);
       fetchTopics();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Duyệt thất bại');
     } finally {
-      setActionLoading(p => { const n = { ...p }; delete n[topic.topicId]; return n; });
+      setActionLoading(p => { const n = { ...p }; delete n[topicId]; return n; });
     }
   };
 
   const handleReject = async () => {
     if (!rejectModal) return;
-    setActionLoading(p => ({ ...p, [rejectModal.topicId]: 'reject' }));
+    const topicId = getTopicId(rejectModal);
+    if (!topicId) {
+      toast.error('Không tìm thấy ID topic để từ chối');
+      return;
+    }
+
+    setActionLoading(p => ({ ...p, [topicId]: 'reject' }));
     try {
-      await topicService.rejectTopic(rejectModal.topicId, rejectReason);
+      await topicService.rejectTopic(topicId, rejectReason);
       toast.success(`Đã từ chối "${rejectModal.title}"`);
       setRejectModal(null); setRejectReason('');
       fetchTopics();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Từ chối thất bại');
     } finally {
-      setActionLoading(p => { const n = { ...p }; delete n[rejectModal?.topicId]; return n; });
+      setActionLoading(p => { const n = { ...p }; delete n[topicId]; return n; });
     }
   };
 
@@ -76,15 +91,15 @@ export function TopicApprovalsView() {
     const matchSearch = !searchTerm ||
       t.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = statusFilter === 'all' || t.status === statusFilter;
+    const matchStatus = statusFilter === 'all' || normalizeStatus(t.status) === statusFilter;
     return matchSearch && matchStatus;
   });
 
   const counts = {
     all: topics.length,
-    Pending:  topics.filter(t => t.status === 'Pending').length,
-    Approved: topics.filter(t => t.status === 'Approved').length,
-    Rejected: topics.filter(t => t.status === 'Rejected').length,
+    PENDING:  topics.filter(t => normalizeStatus(t.status) === 'PENDING').length,
+    APPROVED: topics.filter(t => normalizeStatus(t.status) === 'APPROVED').length,
+    REJECTED: topics.filter(t => normalizeStatus(t.status) === 'REJECTED').length,
   };
 
   if (loading) return (
@@ -105,9 +120,9 @@ export function TopicApprovalsView() {
 
   const STATUSES = [
     { key: 'all',      label: 'Tất cả',    count: counts.all,      color: 'bg-gray-100 text-gray-700' },
-    { key: 'Pending',  label: 'Chờ duyệt', count: counts.Pending,  color: 'bg-yellow-100 text-yellow-700' },
-    { key: 'Approved', label: 'Đã duyệt',  count: counts.Approved, color: 'bg-green-100 text-green-700' },
-    { key: 'Rejected', label: 'Từ chối',   count: counts.Rejected, color: 'bg-red-100 text-red-700' },
+    { key: 'PENDING',  label: 'Chờ duyệt', count: counts.PENDING,  color: 'bg-yellow-100 text-yellow-700' },
+    { key: 'APPROVED', label: 'Đã duyệt',  count: counts.APPROVED, color: 'bg-green-100 text-green-700' },
+    { key: 'REJECTED', label: 'Từ chối',   count: counts.REJECTED, color: 'bg-red-100 text-red-700' },
   ];
 
   return (
@@ -151,7 +166,7 @@ export function TopicApprovalsView() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(topic => {
-            const tid = topic.topicId || topic.id;
+            const tid = getTopicId(topic);
             const busy = actionLoading[tid];
             return (
               <div key={tid} className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col hover:shadow-md transition">
@@ -170,7 +185,7 @@ export function TopicApprovalsView() {
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">
                     <Eye className="w-3.5 h-3.5" /> Chi tiết
                   </button>
-                  {(topic.status === 'Pending' || !topic.status) && (
+                  {(normalizeStatus(topic.status) === 'PENDING' || !topic.status) && (
                     <>
                       <button onClick={() => { setRejectModal(topic); setRejectReason(''); }} disabled={!!busy}
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 hover:bg-red-50 rounded-lg disabled:opacity-50">
@@ -228,7 +243,7 @@ export function TopicApprovalsView() {
               </button>
               <button onClick={handleReject} disabled={!!actionLoading[rejectModal.topicId]}
                 className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg disabled:opacity-60 flex items-center justify-center gap-2">
-                {actionLoading[rejectModal.topicId] ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                {actionLoading[getTopicId(rejectModal)] ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                 Từ chối
               </button>
             </div>

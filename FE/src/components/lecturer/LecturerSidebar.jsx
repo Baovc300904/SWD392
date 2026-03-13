@@ -1,17 +1,50 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
   LayoutDashboard,
   FileText,
   MessageSquare,
   Users,
   ChevronDown,
+  UserCircle,
   LogOut
 } from 'lucide-react';
+import { semesterService } from '../../services/app.service';
 
 /**
  * Lecturer Sidebar - Matches Admin Theme
  * Dark Navy (#1a1d21) with Orange (#F27125) accents
  */
-export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUser }) {
+export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUser, onNavigate }) {
+  const [semesterOpen, setSemesterOpen] = useState(false);
+  const [semesters, setSemesters] = useState([]);
+  const [activeSemesterName, setActiveSemesterName] = useState('Spring 2026');
+
+  useEffect(() => {
+    const loadSemesters = async () => {
+      try {
+        const response = await semesterService.getAllSemesters();
+        const data = Array.isArray(response?.data) ? response.data : [];
+        setSemesters(data);
+
+        const activeSemester = data.find((semester) => String(semester.status || '').toLowerCase() === 'active');
+        if (activeSemester?.name) {
+          setActiveSemesterName(activeSemester.name);
+        } else if (data[0]?.name) {
+          setActiveSemesterName(data[0].name);
+        }
+      } catch {
+        setSemesters([]);
+      }
+    };
+
+    loadSemesters();
+  }, []);
+
+  const pastSemesters = useMemo(
+    () => semesters.filter((semester) => String(semester.status || '').toLowerCase() === 'completed'),
+    [semesters]
+  );
+
   const menuItems = [
     {
       id: 'dashboard',
@@ -81,24 +114,52 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
 
       {/* Semester Selector */}
       <div className="px-4 pb-4 border-b border-white/10">
-        <button className="w-full flex items-center justify-between px-4 py-3 bg-[#0d0f11] hover:bg-white/5 rounded-lg transition-colors border border-white/10">
+        <button
+          onClick={() => setSemesterOpen((open) => !open)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-[#0d0f11] hover:bg-white/5 rounded-lg transition-colors border border-white/10"
+        >
           <div className="text-left">
             <div className="text-xs text-gray-400 uppercase">Học kỳ</div>
-            <div className="text-sm font-semibold text-white">Spring 2026</div>
+            <div className="text-sm font-semibold text-white">{activeSemesterName}</div>
           </div>
           <ChevronDown className="w-4 h-4 text-gray-400" />
         </button>
+
+        {semesterOpen && (
+          <div className="mt-2 rounded-lg border border-white/10 bg-[#0d0f11] overflow-hidden">
+            <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-white/10">
+              Học kỳ đã qua
+            </div>
+            {pastSemesters.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-gray-500">Chưa có học kỳ đã qua</div>
+            ) : (
+              pastSemesters.map((semester) => (
+                <div key={semester.id} className="px-3 py-2 text-sm text-gray-200 hover:bg-white/5">
+                  {semester.name}
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* User Profile */}
       <div className="mt-auto p-4 border-t border-white/10">
         <div className="flex items-center gap-3 mb-3">
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">
-                {currentUser?.fullName?.charAt(0) || 'L'}
-              </span>
-            </div>
+            {currentUser?.avatarURL || currentUser?.avatarUrl || currentUser?.avatar_url ? (
+              <img
+                src={currentUser?.avatarURL || currentUser?.avatarUrl || currentUser?.avatar_url}
+                alt={currentUser?.fullName || 'Lecturer'}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-sm">
+                  {currentUser?.fullName?.charAt(0) || 'L'}
+                </span>
+              </div>
+            )}
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1a1d21] rounded-full"></div>
           </div>
           <div className="flex-1 min-w-0">
@@ -110,6 +171,15 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
             </div>
           </div>
         </div>
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('profile')}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition mb-2"
+          >
+            <UserCircle className="w-4 h-4" />
+            My Profile
+          </button>
+        )}
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"

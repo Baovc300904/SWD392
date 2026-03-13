@@ -21,11 +21,11 @@ exports.getAllQuestions = async (req, res) => {
         const questions = await Question.findAll({
             where,
             include: [
-                { model: User, as: 'asker', attributes: ['id', 'fullName', 'email'] },
+                { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
                 { model: StudentGroup, as: 'group', attributes: ['id', 'groupName'] },
                 {
                     model: Answer, as: 'answers', include: [
-                        { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role'] }
+                        { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role', 'avatarURL'] }
                     ]
                 }
             ],
@@ -55,11 +55,11 @@ exports.getQuestionById = async (req, res) => {
     try {
         const question = await Question.findByPk(req.params.id, {
             include: [
-                { model: User, as: 'asker', attributes: ['id', 'fullName', 'email'] },
+                { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
                 { model: StudentGroup, as: 'group', attributes: ['id', 'groupName'] },
                 {
                     model: Answer, as: 'answers', include: [
-                        { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role'] }
+                        { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role', 'avatarURL'] }
                     ]
                 }
             ]

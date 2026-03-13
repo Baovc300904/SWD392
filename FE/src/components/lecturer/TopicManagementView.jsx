@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Filter, ChevronDown, Check, X, Eye } from 'lucide-react';
+import { Search, Plus, Filter, ChevronDown, Check, X, Eye, Upload } from 'lucide-react';
 import topicService from '../../services/topic.service';
+import authService from '../../services/auth.service';
 
 /**
  * Topic Management View - Task 19
  * List all topics with filtering and approval actions
  */
 export function TopicManagementView() {
+  const currentUser = authService.getCurrentUser();
+  const canApproveTopics = currentUser?.role?.toLowerCase() === 'manager';
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formData, setFormData] = useState({ title: '', description: '', maxGroups: 1 });
+  const [syllabusFile, setSyllabusFile] = useState(null);
 
   useEffect(() => {
     loadTopics();
@@ -21,11 +28,41 @@ export function TopicManagementView() {
     try {
       setLoading(true);
       const response = await topicService.getAllTopics();
-      setTopics(response.data || []);
+      setTopics(Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load topics:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ title: '', description: '', maxGroups: 1 });
+    setSyllabusFile(null);
+  };
+
+  const handleCreateTopic = async (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) {
+      alert('Vui lòng nhập tiêu đề đề tài');
+      return;
+    }
+
+    const payload = {
+      title: formData.title.trim(),
+      description: formData.description,
+    };
+
+    try {
+      setCreating(true);
+      await topicService.createTopic(payload, syllabusFile);
+      resetForm();
+      setShowCreateForm(false);
+      loadTopics();
+    } catch (error) {
+      alert('Lỗi khi tạo đề tài: ' + (error.message || 'Unknown error'));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -44,7 +81,7 @@ export function TopicManagementView() {
     if (!reason) return;
     
     try {
-      await topicService.rejectTopic(topicId, { reason });
+      await topicService.rejectTopic(topicId, reason);
       loadTopics();
     } catch (error) {
       console.error('Failed to reject topic:', error);
@@ -81,13 +118,100 @@ export function TopicManagementView() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Quản lý Đề tài</h1>
-            <p className="text-sm text-gray-600 mt-1">Quản lý và duyệt các đề tài của sinh viên</p>
+            <p className="text-sm text-gray-600 mt-1">Quản lý đề tài và theo dõi trạng thái duyệt</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg font-medium transition-colors shadow-md">
+          <button
+            onClick={() => setShowCreateForm((prev) => !prev)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg font-medium transition-colors shadow-md"
+          >
             <Plus className="w-4 h-4" />
-            Thêm mới
+            {showCreateForm ? 'Đóng form' : 'Tạo đề tài'}
           </button>
         </div>
+
+        {showCreateForm && (
+          <form onSubmit={handleCreateTopic} className="mt-5 border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Nhập tiêu đề đề tài"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Số nhóm tối đa</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxGroups}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, maxGroups: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+              <textarea
+                rows="3"
+                value={formData.description}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="Mô tả đề tài"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">File syllabus (tùy chọn)</label>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#F27125]/30 bg-[#F27125]/10 text-[#F27125] text-sm font-semibold cursor-pointer hover:bg-[#F27125]/20 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  Chọn file
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setSyllabusFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+                <span className="text-sm text-gray-600 truncate max-w-xs">
+                  {syllabusFile ? syllabusFile.name : 'Chưa chọn file nào'}
+                </span>
+                {syllabusFile && (
+                  <button
+                    type="button"
+                    onClick={() => setSyllabusFile(null)}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Bỏ chọn
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  resetForm();
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={creating}
+                className="px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg text-sm disabled:opacity-60"
+              >
+                {creating ? 'Đang tạo...' : 'Tạo đề tài'}
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* Toolbar */}
         <div className="flex items-center gap-4">
@@ -191,7 +315,7 @@ export function TopicManagementView() {
                           >
                             <Eye className="w-4 h-4 text-gray-600" />
                           </button>
-                          {topic.status?.toUpperCase() === 'PENDING' && (
+                          {canApproveTopics && topic.status?.toUpperCase() === 'PENDING' && (
                             <>
                               <button
                                 onClick={() => handleApprove(topic.id)}

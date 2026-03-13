@@ -10,6 +10,8 @@ const topicRoutes = require('./topic.routes');
 const groupRoutes = require('./group.routes');
 const questionRoutes = require('./question.routes');
 const answerRoutes = require('./answer.routes');
+const submissionRoutes = require('./submission.routes');
+const taskRoutes = require('./task.routes');
 
 // Authentication routes
 router.use('/auth', authRoutes);
@@ -26,5 +28,11 @@ router.use('/groups', groupRoutes);
 // FLOW 2: Q&A Hierarchical System
 router.use('/questions', questionRoutes);
 router.use('/', answerRoutes); // Includes /questions/:id/answers and /answers/:id
+
+// FLOW 3: Submission Management
+router.use('/submissions', submissionRoutes);
+
+// FLOW 4: Task Board Management
+router.use('/tasks', taskRoutes);
 
 module.exports = router;

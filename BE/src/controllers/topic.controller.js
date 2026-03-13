@@ -115,31 +115,31 @@ const getTopicById = async (req, res) => {
  */
 const createTopic = async (req, res) => {
     try {
-        const { createdBy, title, description, descriptionFile, maxGroups } = req.body;
+        const { title, description, descriptionFile } = req.body;
 
-        if (!createdBy || !title) {
+        // User is already authenticated via middleware; get id from JWT
+        const proposedById = req.user?.userId || req.user?.id;
+
+        if (!title) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide createdBy and title'
+                message: 'Please provide title'
             });
         }
 
-        // Verify creator exists and is a lecturer
-        const creator = await User.findByPk(createdBy);
-        if (!creator || creator.role !== 'Lecturer') {
-            return res.status(404).json({
+        if (!proposedById) {
+            return res.status(401).json({
                 success: false,
-                message: 'Creator not found or invalid role'
+                message: 'Unauthorized: could not identify user'
             });
         }
 
         const topic = await Topic.create({
-            createdBy,
+            proposedBy: proposedById,
             title,
             description,
             descriptionFile,
-            maxGroups: maxGroups || 1,
-            status: 'Pending'
+            status: 'PENDING'
         });
 
         res.status(201).json({
@@ -245,7 +245,7 @@ const approveTopic = async (req, res) => {
             });
         }
 
-        topic.status = 'Approved';
+        topic.status = 'APPROVED';
         await topic.save();
 
         res.status(200).json({
@@ -281,7 +281,7 @@ const rejectTopic = async (req, res) => {
             });
         }
 
-        topic.status = 'Rejected';
+        topic.status = 'REJECTED';
         await topic.save();
 
         res.status(200).json({

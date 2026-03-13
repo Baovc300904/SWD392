@@ -41,8 +41,34 @@ export function SlackChat({ channel, channelId, groupId }) {
   const [sending, setSending] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', dueDate: '' });
+  const [creatingTask, setCreatingTask] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const TASK_PREFIX = '[TASK_JSON]';
+
+  const getAvatarSrc = (user) => user?.avatarURL || user?.avatarUrl || user?.avatar_url || user?.avatar || '';
+  const getInitials = (name) => String(name || 'U')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  const isTaskChannel = channel === 'project-tasks';
+
+  const parseTaskContent = (content) => {
+    if (typeof content !== 'string' || !content.startsWith(TASK_PREFIX)) return null;
+    try {
+      const payload = JSON.parse(content.slice(TASK_PREFIX.length));
+      if (!payload?.title) return null;
+      return payload;
+    } catch {
+      return null;
+    }
+  };
+
+  const formatTaskContent = (payload) => `${TASK_PREFIX}${JSON.stringify(payload)}`;
 
   // Fetch channel info and messages when channel changes
   useEffect(() => {
@@ -107,7 +133,6 @@ export function SlackChat({ channel, channelId, groupId }) {
         id: 1,
         name: 'Nguyen Van A',
         fullName: 'Nguyen Van A',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member1',
         time: '9:30 AM',
       },
       content: "Good morning team! Let's have a quick sync on today's priorities.",
@@ -121,7 +146,6 @@ export function SlackChat({ channel, channelId, groupId }) {
         id: 2,
         name: 'Tran Thi B',
         fullName: 'Tran Thi B',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member2',
         time: '9:32 AM',
       },
       content: "Morning! I've finished the authentication flow. It's ready for testing.",
@@ -135,7 +159,6 @@ export function SlackChat({ channel, channelId, groupId }) {
         id: 3,
         name: 'Le Van C',
         fullName: 'Le Van C',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member3',
         time: '9:35 AM',
       },
       content: "Great work! I'll start working on the database integration today.",
@@ -149,7 +172,6 @@ export function SlackChat({ channel, channelId, groupId }) {
         id: 4,
         name: 'Pham Thi D',
         fullName: 'Pham Thi D',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member4',
         time: '9:38 AM',
       },
       content: "I'm updating the UI mockups based on yesterday's feedback. Will share in a bit!",
@@ -163,7 +185,6 @@ export function SlackChat({ channel, channelId, groupId }) {
         id: 5,
         name: 'Dr. Tran Minh',
         fullName: 'Dr. Tran Minh',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mentor1',
         time: '10:15 AM',
       },
       content: "Good progress everyone. Don't forget we have our sprint review on Friday. Make sure to prepare your demos.",
@@ -213,11 +234,9 @@ export function SlackChat({ channel, channelId, groupId }) {
     setAttachments(prev => prev.filter(att => att.id !== attachmentId));
   };
 
-  // Send message
-  const handleSendMessage = async () => {
-    if (!message.trim() && attachments.length === 0) return;
+  const sendMessageContent = async (content, customAttachments = attachments) => {
+    if (!content?.trim() && customAttachments.length === 0) return;
 
-    setSending(true);
     try {
       // If no valid channelId (offline mode), create mock message
       if (!channelId || typeof channelId === 'string') {
@@ -228,31 +247,26 @@ export function SlackChat({ channel, channelId, groupId }) {
             id: currentUser.id || 999,
             name: currentUser.fullName || currentUser.name || 'You',
             fullName: currentUser.fullName || currentUser.name || 'You',
-            avatar: currentUser.avatarURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=CurrentUser',
+            avatarURL: currentUser.avatarURL || currentUser.avatar_url || currentUser.avatarUrl || '',
           },
-          content: message.trim(),
+          content: content.trim(),
           reactions: [],
-          attachments: attachments,
+          attachments: customAttachments,
           createdAt: new Date().toISOString(),
         };
         setMessages(prev => [...prev, mockMessage]);
-        setMessage('');
-        setAttachments([]);
-        setSending(false);
         return;
       }
 
       const response = await messageService.sendMessage({
         channelId,
-        content: message.trim(),
-        attachments: attachments.map(att => att.id)
+        content: content.trim(),
+        attachments: customAttachments.map(att => att.id)
       });
 
       if (response.success) {
         // Add new message to list
         setMessages(prev => [...prev, response.data]);
-        setMessage('');
-        setAttachments([]);
       }
     } catch (err) {
       // Silent fallback: add message locally for better UX
@@ -263,18 +277,51 @@ export function SlackChat({ channel, channelId, groupId }) {
           id: currentUser.id || 999,
           name: currentUser.fullName || currentUser.name || 'You',
           fullName: currentUser.fullName || currentUser.name || 'You',
-          avatar: currentUser.avatarURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=CurrentUser',
+          avatarURL: currentUser.avatarURL || currentUser.avatar_url || currentUser.avatarUrl || '',
         },
-        content: message.trim(),
+        content: content.trim(),
         reactions: [],
-        attachments: attachments,
+        attachments: customAttachments,
         createdAt: new Date().toISOString(),
       };
       setMessages(prev => [...prev, mockMessage]);
+    }
+  };
+
+  // Send message
+  const handleSendMessage = async () => {
+    if (!message.trim() && attachments.length === 0) return;
+
+    setSending(true);
+    try {
+      await sendMessageContent(message, attachments);
       setMessage('');
       setAttachments([]);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleCreateTask = async () => {
+    const title = taskForm.title.trim();
+    if (!title) return;
+
+    const taskPayload = {
+      type: 'task',
+      title,
+      description: taskForm.description.trim(),
+      assignee: taskForm.assignee.trim(),
+      dueDate: taskForm.dueDate || null,
+      createdAt: new Date().toISOString(),
+      createdBy: JSON.parse(localStorage.getItem('user') || '{}')?.fullName || 'Unknown User',
+    };
+
+    setCreatingTask(true);
+    try {
+      await sendMessageContent(formatTaskContent(taskPayload), []);
+      setTaskForm({ title: '', description: '', assignee: '', dueDate: '' });
+    } finally {
+      setCreatingTask(false);
     }
   };
 
@@ -323,7 +370,7 @@ export function SlackChat({ channel, channelId, groupId }) {
   if (channel === 'q&a-support') {
     return (
       <div className="flex-1 flex h-screen overflow-hidden">
-        <QAChannelView />
+        <QAChannelView groupId={groupId} />
         <AIAssistantPanel isOpen={showAIPanel} onClose={() => setShowAIPanel(false)} />
       </div>
     );
@@ -422,6 +469,9 @@ export function SlackChat({ channel, channelId, groupId }) {
             ) : (
               messages.map((msg, index) => {
                 const showAvatar = index === 0 || messages[index - 1].user?.id !== msg.user?.id;
+                const avatarSrc = getAvatarSrc(msg.user);
+                const initials = getInitials(msg.user?.fullName || msg.user?.name);
+                const taskMeta = parseTaskContent(msg.content);
                 const msgTime = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('en-US', {
                   hour: 'numeric',
                   minute: '2-digit',
@@ -436,11 +486,17 @@ export function SlackChat({ channel, channelId, groupId }) {
                     {/* Avatar */}
                     <div className="w-10 flex-shrink-0">
                       {showAvatar && (
-                        <img
-                          src={msg.user?.avatarURL || msg.user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.user?.id}`}
-                          alt={msg.user?.fullName || msg.user?.name || 'User'}
-                          className="w-10 h-10 rounded-lg shadow-sm"
-                        />
+                        avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt={msg.user?.fullName || msg.user?.name || 'User'}
+                            className="w-10 h-10 rounded-lg shadow-sm object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg shadow-sm bg-[#F27125]/10 text-[#F27125] font-semibold text-xs flex items-center justify-center">
+                            {initials}
+                          </div>
+                        )
                       )}
                     </div>
 
@@ -455,9 +511,24 @@ export function SlackChat({ channel, channelId, groupId }) {
                         </div>
                       )}
 
-                      <div className="text-[15px] text-gray-800 leading-relaxed">
-                        {msg.content}
-                      </div>
+                      {taskMeta ? (
+                        <div className="rounded-xl border border-orange-200 bg-orange-50 p-3">
+                          <div className="text-xs font-bold text-orange-700 mb-1">PROJECT TASK</div>
+                          <h4 className="text-sm font-semibold text-gray-900">{taskMeta.title}</h4>
+                          {taskMeta.description && (
+                            <p className="text-sm text-gray-700 mt-1">{taskMeta.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-600">
+                            {taskMeta.assignee && <span>Assignee: {taskMeta.assignee}</span>}
+                            {taskMeta.dueDate && <span>Due: {new Date(taskMeta.dueDate).toLocaleDateString('vi-VN')}</span>}
+                            <span>By: {taskMeta.createdBy || 'Unknown'}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[15px] text-gray-800 leading-relaxed">
+                          {msg.content}
+                        </div>
+                      )}
 
                       {/* Attachments */}
                       {msg.attachments && msg.attachments.length > 0 && (
@@ -465,7 +536,7 @@ export function SlackChat({ channel, channelId, groupId }) {
                           {msg.attachments.map((attachment) => (
                             <a
                               key={attachment.id}
-                              href={attachment.filePath}
+                              href={attachment.fileUrl || attachment.url || attachment.filePath}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition max-w-sm"
@@ -583,6 +654,50 @@ export function SlackChat({ channel, channelId, groupId }) {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {isTaskChannel && (
+            <div className="mb-3 border border-orange-200 bg-orange-50 rounded-lg p-3">
+              <div className="text-sm font-semibold text-orange-800 mb-2">Tạo task mới</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <input
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Task title"
+                  className="px-3 py-2 border border-orange-200 rounded-lg text-sm bg-white"
+                  disabled={creatingTask}
+                />
+                <input
+                  value={taskForm.assignee}
+                  onChange={(e) => setTaskForm((prev) => ({ ...prev, assignee: e.target.value }))}
+                  placeholder="Assignee (optional)"
+                  className="px-3 py-2 border border-orange-200 rounded-lg text-sm bg-white"
+                  disabled={creatingTask}
+                />
+                <input
+                  type="date"
+                  value={taskForm.dueDate}
+                  onChange={(e) => setTaskForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+                  className="px-3 py-2 border border-orange-200 rounded-lg text-sm bg-white"
+                  disabled={creatingTask}
+                />
+                <button
+                  onClick={handleCreateTask}
+                  disabled={creatingTask || !taskForm.title.trim()}
+                  className="px-3 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg text-sm font-semibold disabled:opacity-60"
+                >
+                  {creatingTask ? 'Đang tạo task...' : 'Tạo task'}
+                </button>
+              </div>
+              <textarea
+                value={taskForm.description}
+                onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Mô tả task..."
+                rows={2}
+                className="mt-2 w-full px-3 py-2 border border-orange-200 rounded-lg text-sm bg-white resize-none"
+                disabled={creatingTask}
+              />
             </div>
           )}
 

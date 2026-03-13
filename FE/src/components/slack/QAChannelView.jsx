@@ -1,80 +1,109 @@
-import { useState } from 'react';
-import { 
-  Hash, 
-  Star, 
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Hash,
+  Star,
   Info,
-  ArrowUp,
   MessageSquare,
-  AlertCircle,
   Search,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Loader2,
+  Plus,
 } from 'lucide-react';
+import questionService from '../../services/question.service';
+import authService from '../../services/auth.service';
 
-export function QAChannelView() {
+export function QAChannelView({ groupId }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [newQuestionTitle, setNewQuestionTitle] = useState('');
+  const [newQuestion, setNewQuestion] = useState('');
+  const [posting, setPosting] = useState(false);
 
-  const questions = [
-    {
-      id: 1,
-      user: {
-        name: 'Le Van C',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member3',
-        time: '2 hours ago',
-      },
-      status: 'solved',
-      title: 'Error 403 when calling API from React frontend',
-      description: 'I\'m getting a 403 Forbidden error when trying to call our backend API from the React app. CORS is configured on the backend. What could be wrong?',
-      tags: ['React', 'Backend', 'CORS'],
-      votes: 12,
-      answers: 5,
-    },
-    {
-      id: 2,
-      user: {
-        name: 'Tran Thi B',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member2',
-        time: '5 hours ago',
-      },
-      status: 'pending',
-      title: 'Best practice for storing JWT tokens in React?',
-      description: 'Should I use localStorage, sessionStorage, or HTTP-only cookies for storing JWT tokens? What\'s the most secure approach for our e-commerce app?',
-      tags: ['Security', 'JWT', 'React'],
-      votes: 8,
-      answers: 3,
-    },
-    {
-      id: 3,
-      user: {
-        name: 'Pham Thi D',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member4',
-        time: '1 day ago',
-      },
-      status: 'pending',
-      title: 'How to implement real-time notifications with Socket.io?',
-      description: 'Need help setting up Socket.io for real-time order notifications. Should the connection be established on app mount or when user logs in?',
-      tags: ['Socket.io', 'Real-time', 'Backend'],
-      votes: 15,
-      answers: 7,
-    },
-    {
-      id: 4,
-      user: {
-        name: 'Nguyen Van A',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Member1',
-        time: '2 days ago',
-      },
-      status: 'solved',
-      title: 'Database schema design for product variants',
-      description: 'What\'s the best way to handle product variants (size, color) in our database? Should we use separate tables or JSON columns?',
-      tags: ['Database', 'Design', 'PostgreSQL'],
-      votes: 20,
-      answers: 9,
-    },
-  ];
+  const currentUser = authService.getCurrentUser();
+  const currentUserId = currentUser?.userId || currentUser?.id;
+  const currentRole = String(currentUser?.role || '').toLowerCase();
+
+  const loadQuestions = async () => {
+    try {
+      setLoading(true);
+      const filters = groupId ? { groupId } : {};
+      const response = await questionService.getAllQuestions(filters);
+      const list = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+      setQuestions(list);
+    } catch (error) {
+      console.error('Failed to load Q&A questions:', error);
+      setQuestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadQuestions();
+  }, [groupId]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      const keyword = searchTerm.toLowerCase();
+      const matchesSearch =
+        (q.title || '').toLowerCase().includes(keyword)
+        || (q.content || '').toLowerCase().includes(keyword)
+        || (q.asker?.fullName || '').toLowerCase().includes(keyword);
+
+      const matchesStatus =
+        statusFilter === 'ALL'
+        || (statusFilter === 'RESOLVED' && q.status === 'RESOLVED')
+        || (statusFilter === 'PENDING' && q.status !== 'RESOLVED');
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [questions, searchTerm, statusFilter]);
+
+  const canViewAnswer = (answer, question) => {
+    if (!answer) return false;
+    if (answer.isPublic) return true;
+    if (!currentUserId) return false;
+    const answererId = answer.answeredBy || answer.answerer?.id;
+    const askerId = question?.askedBy || question?.asker?.id;
+    if (Number(answererId) === Number(currentUserId)) return true;
+    if (Number(askerId) === Number(currentUserId)) return true;
+    if (currentRole === 'lecturer' || currentRole === 'manager') return true;
+    return false;
+  };
+
+  const getVisibleAnswers = (question) => (Array.isArray(question?.answers) ? question.answers : []).filter((answer) => canViewAnswer(answer, question));
+
+  const handleCreateQuestion = async () => {
+    const title = newQuestionTitle.trim();
+    const content = newQuestion.trim();
+    if (!title || !content) return;
+    if (!groupId) {
+      alert('Không xác định được group hiện tại để tạo câu hỏi.');
+      return;
+    }
+
+    try {
+      setPosting(true);
+      await questionService.createQuestion({
+        title: title.slice(0, 120),
+        content,
+        groupId,
+        askedBy: currentUser?.userId || currentUser?.id,
+      });
+      setNewQuestionTitle('');
+      setNewQuestion('');
+      await loadQuestions();
+    } catch (error) {
+      alert(error?.message || 'Không thể tạo câu hỏi');
+    } finally {
+      setPosting(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col h-screen bg-gray-50">
-      {/* Channel Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Hash className="w-5 h-5 text-[#F27125]" />
@@ -83,15 +112,12 @@ export function QAChannelView() {
             <Star className="w-5 h-5 text-gray-400 hover:text-[#F27125] transition" />
           </button>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <Info className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
+        <button className="p-2 hover:bg-gray-100 rounded-lg transition">
+          <Info className="w-5 h-5 text-gray-600" />
+        </button>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="px-6 py-4 bg-white border-b border-gray-200">
+      <div className="px-6 py-4 bg-white border-b border-gray-200 space-y-3">
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -103,80 +129,109 @@ export function QAChannelView() {
               className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-[#F27125] focus:ring-2 focus:ring-[#F27125]/20 transition"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium text-gray-700">
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>Filter</span>
-          </button>
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-2 border-gray-300 rounded-lg">
+            <SlidersHorizontal className="w-4 h-4 text-gray-500" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-sm font-medium text-gray-700 bg-transparent outline-none"
+            >
+              <option value="ALL">All</option>
+              <option value="PENDING">Pending</option>
+              <option value="RESOLVED">Resolved</option>
+            </select>
+          </div>
+        </div>
+
+        {!groupId && (
+          <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            Chưa có group để tạo câu hỏi. Vui lòng chọn đúng nhóm trước khi đăng câu hỏi.
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <input
+            value={newQuestionTitle}
+            onChange={(e) => setNewQuestionTitle(e.target.value)}
+            placeholder="Tiêu đề câu hỏi..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            disabled={!groupId || posting}
+          />
+          <div className="flex gap-2">
+            <textarea
+            value={newQuestion}
+            onChange={(e) => setNewQuestion(e.target.value)}
+              placeholder="Mô tả chi tiết câu hỏi của bạn..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
+              rows={2}
+              disabled={!groupId || posting}
+            />
+            <button
+              onClick={handleCreateQuestion}
+              disabled={posting || !groupId || !newQuestionTitle.trim() || !newQuestion.trim()}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#F27125] text-white rounded-lg text-sm font-semibold disabled:opacity-60 self-end"
+            >
+              <Plus className="w-4 h-4" />
+              {posting ? 'Đang tạo...' : 'Tạo câu hỏi'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Questions List */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="space-y-4">
-          {questions.map((q) => (
-            <div
-              key={q.id}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:border-[#F27125] hover:shadow-md transition cursor-pointer"
-            >
-              {/* Question Header */}
-              <div className="flex items-start gap-4 mb-4">
-                <img
-                  src={q.user.avatar}
-                  alt={q.user.name}
-                  className="w-11 h-11 rounded-lg shadow-sm flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-lg text-gray-900 mb-2 leading-snug">{q.title}</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
-                    {q.description}
-                  </p>
-                  
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {q.tags.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-200 transition"
-                      >
-                        {tag}
-                      </span>
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="w-7 h-7 text-[#F27125] animate-spin" />
+          </div>
+        ) : filteredQuestions.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+            Chưa có câu hỏi nào.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredQuestions.map((q) => (
+              <div
+                key={q.id}
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:border-[#F27125] hover:shadow-md transition"
+              >
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div>
+                    <h3 className="font-bold text-gray-900">{q.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{q.content}</p>
+                  </div>
+                  <div className={`px-3 py-1 rounded-lg text-xs font-bold ${q.status === 'RESOLVED' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                    {q.status === 'RESOLVED' ? 'Resolved' : q.status || 'WAITING'}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div>
+                    {q.asker?.fullName || 'Unknown'} • {new Date(q.createdAt).toLocaleString()}
+                  </div>
+                  <div className="font-medium">{getVisibleAnswers(q).length} answers</div>
+                </div>
+
+                {getVisibleAnswers(q).length > 0 && (
+                  <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                    {getVisibleAnswers(q).map((answer) => (
+                      <div key={answer.id} className="bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-xs font-semibold text-gray-700">{answer.answerer?.fullName || 'Lecturer'}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${answer.isPublic ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {answer.isPublic ? 'Public' : 'Private'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{answer.content}</p>
+                      </div>
                     ))}
                   </div>
-
-                  {/* Meta Info */}
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="font-medium">{q.user.name}</span>
-                    <span>•</span>
-                    <span>{q.user.time}</span>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                  <div className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${
-                    q.status === 'solved'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-orange-100 text-orange-700'
-                  }`}>
-                    {q.status === 'solved' ? '✓ Solved' : 'Pending'}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <ArrowUp className="w-4 h-4 text-[#F27125]" />
-                      <span className="text-sm font-bold">{q.votes}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <MessageSquare className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-bold">{q.answers}</span>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

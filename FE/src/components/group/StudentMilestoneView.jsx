@@ -30,7 +30,7 @@ export function StudentMilestoneView({ groupId, classId }) {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [submitModal, setSubmitModal]   = useState(null);
-  const [form, setForm]                 = useState({ repoUrl: '', description: '' });
+  const [form, setForm]                 = useState({ fileUrl: '', notes: '' });
   const [submitting, setSubmitting]     = useState(false);
 
   useEffect(() => { fetchAll(); }, [groupId, classId]);
@@ -42,30 +42,36 @@ export function StudentMilestoneView({ groupId, classId }) {
         milestoneService.getAllMilestones(classId ? { classId } : {}),
         submissionService.getAllSubmissions(groupId ? { groupId } : {}),
       ]);
-      setMilestones(msRes?.data?.data || msRes?.data || []);
-      setSubmissions(subRes?.data?.data || subRes?.data || []);
+      const milestoneList = msRes?.data?.data || msRes?.data || [];
+      const submissionList = subRes?.data?.data || subRes?.data || [];
+      setMilestones(Array.isArray(milestoneList) ? milestoneList : []);
+      setSubmissions(Array.isArray(submissionList) ? submissionList : []);
     } catch {
       setError('Không thể tải dữ liệu milestones.');
     } finally { setLoading(false); }
   };
 
-  const getSubmission = (milestoneId) =>
-    submissions.find(s => s.milestoneId === milestoneId || s.milestone?.milestoneId === milestoneId);
+  const normalizeText = (text) => String(text || '').trim().toLowerCase();
+
+  const getSubmission = (milestoneTitle) => {
+    const normalizedTitle = normalizeText(milestoneTitle);
+    return submissions.find((submission) => normalizeText(submission?.milestoneName) === normalizedTitle);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.repoUrl.trim()) { toast.error('Vui lòng nhập URL repository.'); return; }
+    if (!form.fileUrl.trim()) { toast.error('Vui lòng nhập link bài nộp.'); return; }
     setSubmitting(true);
     try {
       await submissionService.createSubmission({
-        milestoneId: submitModal.milestoneId,
         groupId,
-        repoUrl: form.repoUrl,
-        description: form.description,
+        milestoneName: submitModal.title,
+        fileUrl: form.fileUrl,
+        notes: form.notes,
       });
       toast.success(`Nộp bài Milestone "${submitModal.title}" thành công!`);
       setSubmitModal(null);
-      setForm({ repoUrl: '', description: '' });
+      setForm({ fileUrl: '', notes: '' });
       fetchAll();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Nộp bài thất bại');
@@ -158,10 +164,10 @@ export function StudentMilestoneView({ groupId, classId }) {
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   {sub ? (
                     <div className="space-y-1">
-                      {sub.repoUrl && (
-                        <a href={sub.repoUrl} target="_blank" rel="noopener noreferrer"
+                      {(sub.fileUrl || sub.filePath) && (
+                        <a href={sub.fileUrl || sub.filePath} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
-                          <Link2 className="w-3.5 h-3.5" /> {sub.repoUrl}
+                          <Link2 className="w-3.5 h-3.5" /> {sub.fileUrl || sub.filePath}
                         </a>
                       )}
                       {sub.feedback && (
@@ -172,7 +178,7 @@ export function StudentMilestoneView({ groupId, classId }) {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setSubmitModal(ms); setForm({ repoUrl: '', description: '' }); }}
+                      onClick={() => { setSubmitModal(ms); setForm({ fileUrl: '', notes: '' }); }}
                       disabled={overdue}
                       className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                       <Upload className="w-4 h-4" />
@@ -202,12 +208,12 @@ export function StudentMilestoneView({ groupId, classId }) {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  URL Repository <span className="text-red-500">*</span>
+                  Link bài nộp <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input value={form.repoUrl} onChange={e => setForm(p => ({ ...p, repoUrl: e.target.value }))}
-                    placeholder="https://github.com/your-team/project"
+                  <input value={form.fileUrl} onChange={e => setForm(p => ({ ...p, fileUrl: e.target.value }))}
+                    placeholder="https://drive.google.com/... hoặc link ảnh/file"
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#F27125]" />
                 </div>
               </div>
@@ -215,7 +221,7 @@ export function StudentMilestoneView({ groupId, classId }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Ghi chú <span className="text-gray-400 font-normal">(không bắt buộc)</span>
                 </label>
-                <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
                   placeholder="Mô tả những gì đã hoàn thành trong milestone này..."
                   rows={3} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#F27125] resize-none" />
               </div>

@@ -11,6 +11,8 @@ const StudentGroup = require('./studentGroup.model');
 const GroupMember = require('./groupMember.model');
 const Question = require('./question.model');
 const Answer = require('./answer.model');
+const Submission = require('./submission.model');
+const Task = require('./task.model');
 
 // ====================================
 // Define Associations
@@ -22,6 +24,10 @@ User.hasMany(Topic, { foreignKey: 'proposedBy', as: 'topicsProposed' });
 User.hasMany(Topic, { foreignKey: 'approvedBy', as: 'topicsApproved' });
 User.hasMany(Question, { foreignKey: 'askedBy', as: 'questionsAsked' });
 User.hasMany(Answer, { foreignKey: 'answeredBy', as: 'answersGiven' });
+User.hasMany(Submission, { foreignKey: 'submittedBy', as: 'submissions' });
+User.hasMany(Submission, { foreignKey: 'gradedBy', as: 'gradedSubmissions' });
+User.hasMany(Task, { foreignKey: 'createdBy', as: 'tasksCreated' });
+User.hasMany(Task, { foreignKey: 'assigneeId', as: 'tasksAssigned' });
 User.belongsToMany(StudentGroup, { through: GroupMember, foreignKey: 'studentId', as: 'groups' });
 
 // Topic Associations
@@ -41,6 +47,8 @@ Semester.hasMany(Class, { foreignKey: 'semesterId', as: 'classes' });
 StudentGroup.belongsTo(Class, { foreignKey: 'classId', as: 'class' });
 StudentGroup.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic' });
 StudentGroup.hasMany(Question, { foreignKey: 'groupId', as: 'questions' });
+StudentGroup.hasMany(Submission, { foreignKey: 'groupId', as: 'submissions' });
+StudentGroup.hasMany(Task, { foreignKey: 'groupId', as: 'tasks' });
 StudentGroup.belongsToMany(User, { through: GroupMember, foreignKey: 'groupId', as: 'members' });
 
 // GroupMember Associations
@@ -56,6 +64,16 @@ Question.hasMany(Answer, { foreignKey: 'questionId', as: 'answers' });
 Answer.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
 Answer.belongsTo(User, { foreignKey: 'answeredBy', as: 'answerer' });
 
+// Submission Associations
+Submission.belongsTo(StudentGroup, { foreignKey: 'groupId', as: 'group' });
+Submission.belongsTo(User, { foreignKey: 'submittedBy', as: 'submitter' });
+Submission.belongsTo(User, { foreignKey: 'gradedBy', as: 'grader' });
+
+// Task Associations
+Task.belongsTo(StudentGroup, { foreignKey: 'groupId', as: 'group' });
+Task.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Task.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
+
 // Export all models
 module.exports = {
     User,
@@ -65,5 +83,7 @@ module.exports = {
     StudentGroup,
     GroupMember,
     Question,
-    Answer
+    Answer,
+    Submission,
+    Task
 };
