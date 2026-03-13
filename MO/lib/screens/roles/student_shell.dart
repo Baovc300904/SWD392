@@ -96,7 +96,7 @@ class _StudentDashboardPageState extends State<_StudentDashboardPage> {
 
     try {
       final result = await Future.wait<dynamic>([
-        TopicService.instance.getAll(),
+        TopicService.instance.getAll(status: 'APPROVED'),
         QuestionService.instance.getAll(),
         AnswerService.instance.getPublicAnswers(),
       ]);
@@ -107,7 +107,7 @@ class _StudentDashboardPageState extends State<_StudentDashboardPage> {
 
       if (!mounted) return;
       setState(() {
-        _openTopics = topics.where((t) => t.status.toUpperCase() == 'APPROVED').length;
+        _openTopics = topics.length;
         _waitingQuestions = questions.where((q) => q.status == 'WAITING_LECTURER').length;
         _resolvedQuestions = questions.where((q) => q.status == 'RESOLVED').length;
       });
@@ -163,20 +163,11 @@ class _StudentTopicSelectionPageState extends State<_StudentTopicSelectionPage> 
   bool _loading = true;
   String? _error;
   List<TopicItem> _topics = const [];
-  String? _statusFilter;
   String? _searchQuery;
-
-  static const List<String> _statusOptions = <String>[
-    'APPROVED',
-    'PENDING',
-    'REJECTED',
-    'ALL',
-  ];
 
   @override
   void initState() {
     super.initState();
-    _statusFilter ??= 'APPROVED';
     _searchQuery ??= '';
     _load();
   }
@@ -194,9 +185,8 @@ class _StudentTopicSelectionPageState extends State<_StudentTopicSelectionPage> 
     });
 
     try {
-      final status = (_statusFilter ?? 'APPROVED') == 'ALL' ? null : _statusFilter;
       final topics = await TopicService.instance.getAll(
-        status: status,
+        status: 'APPROVED',
         search: (_searchQuery ?? '').trim().isEmpty ? null : (_searchQuery ?? '').trim(),
       );
       if (!mounted) return;
@@ -291,29 +281,12 @@ class _StudentTopicSelectionPageState extends State<_StudentTopicSelectionPage> 
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: DropdownButton<String>(
-              value: _statusFilter ?? 'APPROVED',
-              items: _statusOptions
-                  .map((value) => DropdownMenuItem(value: value, child: Text(value)))
-                  .toList(growable: false),
-              onChanged: (value) {
-                setState(() => _statusFilter = value ?? 'APPROVED');
-                _load();
-              },
-            ),
-          ),
-        ),
         const Padding(
           padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Topic Repository (View Only)',
+              'Approved Topic Repository (View Only)',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),

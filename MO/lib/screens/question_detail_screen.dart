@@ -138,6 +138,125 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     }
   }
 
+  int _answerId(Map<String, dynamic> answer) {
+    return int.tryParse(answer['id']?.toString() ?? '') ?? 0;
+  }
+
+  Future<void> _editAnswer(Map<String, dynamic> answer) async {
+    final id = _answerId(answer);
+    if (id == 0) return;
+
+    final contentController = TextEditingController(
+      text: answer['content']?.toString() ?? '',
+    );
+    bool isPublic = answer['isPublic'] == true;
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Answer'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: contentController,
+                      minLines: 3,
+                      maxLines: 8,
+                      decoration: const InputDecoration(
+                        hintText: 'Nhap noi dung tra loi...',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Public answer'),
+                      value: isPublic,
+                      onChanged: (value) => setDialogState(() => isPublic = value),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (shouldSave != true) return;
+
+    try {
+      await AnswerService.instance.update(
+        id,
+        content: contentController.text.trim(),
+        isPublic: isPublic,
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _toggleAnswerVisibility(Map<String, dynamic> answer) async {
+    final id = _answerId(answer);
+    if (id == 0) return;
+
+    try {
+      await AnswerService.instance.toggleVisibility(id);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _deleteAnswer(Map<String, dynamic> answer) async {
+    final id = _answerId(answer);
+    if (id == 0) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Answer'),
+        content: const Text('Ban co chac muon xoa cau tra loi nay?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await AnswerService.instance.deleteAnswer(id);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -207,6 +326,28 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                                 subtitle: Text(
                                   'Visibility: ${answer['isPublic'] == true ? 'Public' : 'Private'}',
                                 ),
+                                trailing: _canModerate
+                                    ? PopupMenuButton<String>(
+                                        tooltip: 'Answer Actions',
+                                        onSelected: (value) {
+                                          if (value == 'edit') _editAnswer(answer);
+                                          if (value == 'toggle') _toggleAnswerVisibility(answer);
+                                          if (value == 'delete') _deleteAnswer(answer);
+                                        },
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                          PopupMenuItem(
+                                            value: 'toggle',
+                                            child: Text(
+                                              answer['isPublic'] == true
+                                                  ? 'Make Private'
+                                                  : 'Make Public',
+                                            ),
+                                          ),
+                                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                        ],
+                                      )
+                                    : null,
                               ),
                             ),
                           ),

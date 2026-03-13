@@ -51,10 +51,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final session = await AuthService.instance.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final session = _loginRole == _LoginRole.student
+          ? await AuthService.instance.login(
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+            )
+          : await AuthService.instance.adminLecturerLogin(
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+              role: 'lecturer',
+            );
 
       final roleLower = session.normalizedRole;
       if (_loginRole == _LoginRole.student && roleLower != 'student') {
