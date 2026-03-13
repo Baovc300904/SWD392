@@ -65,12 +65,12 @@ export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId }) {
         <div className="flex items-center gap-2 mb-1">
           <div className="w-8 h-8 bg-[#F27125] rounded flex items-center justify-center">
             <span className="text-white font-bold text-sm">
-              {groupInfo?.group_name?.slice(0, 2)?.toUpperCase() || 'G?'}
+              {groupInfo?.groupName?.slice(0, 2)?.toUpperCase() || 'G?'}
             </span>
           </div>
           <div className="flex-1">
-            <div className="font-bold text-sm">{groupInfo?.group_name || 'Loading...'}</div>
-            <div className="text-xs text-gray-400">{groupInfo?.topic_title || 'No topic'}</div>
+            <div className="font-bold text-sm">{groupInfo?.groupName || 'Loading...'}</div>
+            <div className="text-xs text-gray-400">{groupInfo?.topic?.title || 'No topic'}</div>
           </div>
         </div>
       </div>
@@ -117,19 +117,20 @@ export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId }) {
                 <div className="text-xs text-gray-500 px-2 py-2">No members yet</div>
               )}
               {!loading && members.map((member) => {
-                const displayName = member.full_name || member.name || 'Unknown';
+                const student = member.student || member;
+                const displayName = student.fullName || student.name || 'Unknown';
                 const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-                const isOnline = member.is_online !== undefined ? member.is_online : (member.online || false);
+                const isOnline = student.isOnline !== undefined ? student.isOnline : (student.online || false);
                 
                 return (
                   <div
-                    key={member.id || member.student_id}
+                    key={member.studentId || student.id}
                     className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 cursor-pointer transition"
                   >
                     <div className="relative">
-                      {member.avatar ? (
+                      {student.avatarURL ? (
                         <img
-                          src={member.avatar}
+                          src={student.avatarURL}
                           alt={displayName}
                           className="w-6 h-6 rounded object-cover"
                         />
@@ -146,7 +147,7 @@ export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-gray-300 truncate">{displayName}</div>
-                      <div className="text-xs text-gray-500">{member.role || 'Member'}</div>
+                      <div className="text-xs text-gray-500">{student.email || 'Member'}</div>
                     </div>
                   </div>
                 );
