@@ -5,6 +5,7 @@ import '../services/ai_draft_service.dart';
 import '../services/answer_service.dart';
 import '../services/question_service.dart';
 import '../state/app_session.dart';
+import '../widgets/ui_kit.dart';
 
 class QuestionDetailScreen extends StatefulWidget {
   const QuestionDetailScreen({super.key, required this.questionId});
@@ -139,6 +140,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text('Question #${widget.questionId}')),
       body: _loading
@@ -150,40 +152,53 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        Text(
-                          _question!.title,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w900,
+                        SectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _question!.title,
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
                               ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(_question!.content),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Chip(label: Text(_question!.status)),
-                            const Spacer(),
-                            if (_canModerate)
-                              TextButton.icon(
-                                onPressed: _escalate,
-                                icon: const Icon(Icons.north_outlined),
-                                label: const Text('Escalate'),
+                              const SizedBox(height: 10),
+                              Text(_question!.content, style: TextStyle(color: colorScheme.onSurface, height: 1.35)),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Chip(
+                                    label: Text(_question!.status),
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  if (_canModerate)
+                                    OutlinedButton.icon(
+                                      onPressed: _escalate,
+                                      icon: const Icon(Icons.north_outlined),
+                                      label: const Text('Escalate'),
+                                    ),
+                                  if (_canModerate)
+                                    FilledButton(
+                                      onPressed: _resolve,
+                                      child: const Text('Resolve'),
+                                    ),
+                                ],
                               ),
-                            if (_canModerate)
-                              FilledButton(
-                                onPressed: _resolve,
-                                child: const Text('Resolve'),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'Answer Thread',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 8),
                         if (_answers.isEmpty)
-                          const Text('Chua co answer nao.')
+                          Text('Chua co answer nao.', style: TextStyle(color: colorScheme.onSurfaceVariant))
                         else
                           ..._answers.map(
                             (answer) => Card(
@@ -197,38 +212,46 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                           ),
                         if (_canModerate) ...[
                           const SizedBox(height: 14),
-                          TextField(
-                            controller: _answerController,
-                            minLines: 4,
-                            maxLines: 8,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              hintText: 'Nhap noi dung tra loi...',
+                          SectionCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: _answerController,
+                                  minLines: 3,
+                                  maxLines: 8,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Nhap noi dung tra loi...',
+                                    isDense: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Public answer to Knowledge Library'),
+                                  subtitle: const Text('Tat: Private cho nhom hoi'),
+                                  value: _isPublic,
+                                  onChanged: (value) => setState(() => _isPublic = value),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _generateAiDraft,
+                                      icon: const Icon(Icons.auto_awesome_outlined),
+                                      label: const Text('Smart Draft'),
+                                    ),
+                                    FilledButton.icon(
+                                      onPressed: _sending ? null : _addAnswer,
+                                      icon: const Icon(Icons.send_outlined),
+                                      label: const Text('Send Answer'),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Public answer to Knowledge Library'),
-                            subtitle: const Text('Tat: Private cho nhom hoi'),
-                            value: _isPublic,
-                            onChanged: (value) => setState(() => _isPublic = value),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: _generateAiDraft,
-                                icon: const Icon(Icons.auto_awesome_outlined),
-                                label: const Text('Smart Draft'),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton.icon(
-                                onPressed: _sending ? null : _addAnswer,
-                                icon: const Icon(Icons.send_outlined),
-                                label: const Text('Send Answer'),
-                              ),
-                            ],
                           ),
                         ],
                       ],

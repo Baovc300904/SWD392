@@ -16,11 +16,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static const _bg = Color(0xFFF6F7FB);
-  static const _cardBorder = Color(0xFFE6E8EF);
-  static const _muted = Color(0xFF6B7280);
-  static const _accent = Color(0xFFF27125);
-
   bool _loading = true;
   String? _error;
   Map<String, dynamic> _profile = <String, dynamic>{};
@@ -322,11 +317,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isDark = AppSettings.themeMode.value == ThemeMode.dark;
     final roleDisplay = _role.toUpperCase();
 
     return Scaffold(
-      backgroundColor: _bg,
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -358,21 +353,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.fromBorderSide(
-                        BorderSide(color: _accent, width: 2),
+                        BorderSide(color: colorScheme.primary, width: 2),
                       ),
                     ),
                     child: CircleAvatar(
                       radius: 36,
-                      backgroundColor: const Color(0xFFFFEDD5),
+                      backgroundColor: colorScheme.primaryContainer,
                       child: Text(
                         _avatarInitial,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF111827),
+                          color: colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -404,8 +399,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Center(
               child: Text(
                 'User ID: $_userId  |  Role: $roleDisplay',
-                style: const TextStyle(
-                  color: _muted,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -415,8 +410,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Center(
               child: Text(
                 _email,
-                style: const TextStyle(
-                  color: _muted,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -426,8 +421,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Center(
               child: Text(
                 'Student Code: $_studentCode  |  Status: $_status',
-                style: const TextStyle(
-                  color: _muted,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -513,8 +508,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               height: 52,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFEF4444),
-                  side: const BorderSide(color: Color(0xFFEF4444)),
+                  foregroundColor: colorScheme.error,
+                  side: BorderSide(color: colorScheme.error),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -532,7 +527,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text(
                 'SWP Hub v1.0.0',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: _muted,
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -550,10 +545,11 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Text(
       text,
-      style: const TextStyle(
-        color: _ProfileScreenState._muted,
+      style: TextStyle(
+        color: colorScheme.onSurfaceVariant,
         fontWeight: FontWeight.w900,
         fontSize: 11,
         letterSpacing: 0.8,
@@ -569,20 +565,14 @@ class _GroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: const Border.fromBorderSide(
-          BorderSide(color: _ProfileScreenState._cardBorder),
+        border: Border.fromBorderSide(
+          BorderSide(color: colorScheme.outlineVariant),
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 14,
-            offset: Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(children: children),
     );
@@ -594,10 +584,11 @@ class _GroupDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Divider(
       height: 1,
       thickness: 1,
-      color: _ProfileScreenState._cardBorder,
+      color: colorScheme.outlineVariant,
     );
   }
 }
@@ -619,30 +610,31 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return ListTile(
       onTap: onTap,
       leading: Container(
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: const Color(0xFF374151)),
+        child: Icon(icon, color: colorScheme.onPrimaryContainer),
       ),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: colorScheme.onSurface),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: _ProfileScreenState._muted,
+        style: TextStyle(
+          color: colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
       ),
-      trailing: trailing ?? const Icon(Icons.chevron_right, color: _ProfileScreenState._muted),
+      trailing: trailing ?? Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
     );
   }
 }

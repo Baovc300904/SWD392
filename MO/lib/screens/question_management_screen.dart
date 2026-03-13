@@ -88,6 +88,7 @@ class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _load,
@@ -95,15 +96,16 @@ class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 10,
               children: [
-                Expanded(
-                  child: Text(
-                    'Management Flow',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
+                Text(
+                  'Q&A Tickets',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
                 OutlinedButton.icon(
                   onPressed: _load,
@@ -113,9 +115,9 @@ class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'List -> Detail -> Delete cho resource Question.',
-              style: TextStyle(color: Color(0xFF6B7280)),
+            Text(
+              'Open a ticket, view details, and manage your questions in one place.',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             if (_loading)

@@ -19,6 +19,21 @@ class StudentShell extends StatefulWidget {
 class _StudentShellState extends State<StudentShell> {
   int _index = 0;
 
+  Widget _buildBottomNav(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final labelBehavior = width < 420
+        ? NavigationDestinationLabelBehavior.alwaysHide
+        : NavigationDestinationLabelBehavior.onlyShowSelected;
+
+    return NavigationBar(
+      height: width < 420 ? 60 : null,
+      labelBehavior: labelBehavior,
+      selectedIndex: _index,
+      destinations: _tabs,
+      onDestinationSelected: (v) => setState(() => _index = v),
+    );
+  }
+
   static const _tabs = <NavigationDestination>[
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
     NavigationDestination(icon: Icon(Icons.add_box_outlined), label: 'Ask'),
@@ -48,11 +63,7 @@ class _StudentShellState extends State<StudentShell> {
     return Scaffold(
       appBar: _index == 4 ? null : AppBar(title: Text(_titles[_index])),
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        destinations: _tabs,
-        onDestinationSelected: (v) => setState(() => _index = v),
-      ),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 }

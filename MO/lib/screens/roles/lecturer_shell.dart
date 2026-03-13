@@ -18,6 +18,21 @@ class LecturerShell extends StatefulWidget {
 class _LecturerShellState extends State<LecturerShell> {
   int _index = 0;
 
+  Widget _buildBottomNav(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final labelBehavior = width < 420
+        ? NavigationDestinationLabelBehavior.alwaysHide
+        : NavigationDestinationLabelBehavior.onlyShowSelected;
+
+    return NavigationBar(
+      height: width < 420 ? 60 : null,
+      labelBehavior: labelBehavior,
+      selectedIndex: _index,
+      destinations: _tabs,
+      onDestinationSelected: (v) => setState(() => _index = v),
+    );
+  }
+
   static const _tabs = <NavigationDestination>[
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
     NavigationDestination(icon: Icon(Icons.lightbulb_outline), label: 'Proposals'),
@@ -44,11 +59,7 @@ class _LecturerShellState extends State<LecturerShell> {
     return Scaffold(
       appBar: _index == 3 ? null : AppBar(title: Text(_titles[_index])),
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        destinations: _tabs,
-        onDestinationSelected: (v) => setState(() => _index = v),
-      ),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 }
@@ -362,19 +373,60 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            _error!,
+            style: TextStyle(color: colorScheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
-        itemCount: _questions.length,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        itemCount: _questions.isEmpty ? 1 : _questions.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, i) {
+          if (_questions.isEmpty) {
+            return SectionCard(
+              child: Text(
+                'Chua co Q&A ticket nao.',
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            );
+          }
+
           final question = _questions[i];
+          final statusText = question.status?.toString() ?? '';
+
           return Card(
             child: ListTile(
-              title: Text(question.title),
-              subtitle: Text(question.status),
+              visualDensity: VisualDensity.compact,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              title: Text(
+                question.title?.toString() ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  statusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
                 await Navigator.of(context).push(

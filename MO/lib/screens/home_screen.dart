@@ -18,42 +18,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> _buildAppBarActions(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
 
-    void onMenuSelected(String value) {
-      switch (value) {
-        case 'about':
-          _showSoon('About');
-          break;
-        case 'docs':
-          _showSoon('Docs');
-          break;
-        case 'faq':
-          _showSoon('FAQ');
-          break;
-        case 'signIn':
-          _goToLogin();
-          break;
-      }
-    }
-
-    PopupMenuButton<String> buildMenu({bool includeSignIn = false}) {
-      return PopupMenuButton<String>(
-        tooltip: 'Menu',
-        onSelected: onMenuSelected,
-        icon: const Icon(Icons.menu, color: Color(0xFF111827)),
-        itemBuilder: (context) => [
-          const PopupMenuItem(value: 'about', child: Text('About')),
-          const PopupMenuItem(value: 'docs', child: Text('Docs')),
-          const PopupMenuItem(value: 'faq', child: Text('FAQ')),
-          if (includeSignIn) const PopupMenuDivider(),
-          if (includeSignIn) const PopupMenuItem(value: 'signIn', child: Text('Sign In')),
-        ],
-      );
-    }
-
-    // Mobile: avoid overflow by collapsing items into a menu.
+    // Mobile: keep only the primary CTA.
     if (width < 520) {
       return [
-        buildMenu(includeSignIn: true),
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: FilledButton(
@@ -68,11 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
 
-    // Tablet-ish: keep primary CTAs, collapse secondary links.
+    // Tablet-ish: keep primary CTAs.
     if (width < 820) {
       return [
-        buildMenu(),
-        const SizedBox(width: 6),
         TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
         const SizedBox(width: 4),
         Padding(

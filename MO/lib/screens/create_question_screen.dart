@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/question_service.dart';
 import '../state/app_session.dart';
+import '../widgets/ui_kit.dart';
 
 class CreateQuestionScreen extends StatefulWidget {
   const CreateQuestionScreen({super.key});
@@ -67,6 +68,7 @@ class _CreateQuestionScreenState extends State<CreateQuestionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -76,67 +78,75 @@ class _CreateQuestionScreenState extends State<CreateQuestionScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Booking / Create Main Entity',
+                'Ask a Question',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Main entity hien tai: Question. Form nay goi API POST /questions.',
-                style: TextStyle(color: Color(0xFF6B7280)),
+              Text(
+                'Create a new ticket for your lecturer to review.',
+                style: TextStyle(color: colorScheme.onSurfaceVariant, height: 1.35),
               ),
-              const SizedBox(height: 16),
-              _FieldLabel('Title'),
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Nhap tieu de question',
-                ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) return 'Title bat buoc';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              _FieldLabel('Content'),
-              TextFormField(
-                controller: _contentController,
-                minLines: 4,
-                maxLines: 6,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Mo ta chi tiet question',
-                ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) return 'Content bat buoc';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              _FieldLabel('Group ID'),
-              TextFormField(
-                controller: _groupController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Vi du: 1',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Create Question'),
+              const SizedBox(height: 14),
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _FieldLabel('Title'),
+                    TextFormField(
+                      controller: _titleController,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        hintText: 'Enter a short title',
+                        isDense: true,
+                      ),
+                      validator: (value) {
+                        if ((value ?? '').trim().isEmpty) return 'Title is required';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const _FieldLabel('Details'),
+                    TextFormField(
+                      controller: _contentController,
+                      minLines: 3,
+                      maxLines: 6,
+                      decoration: const InputDecoration(
+                        hintText: 'Describe your question clearly',
+                        isDense: true,
+                      ),
+                      validator: (value) {
+                        if ((value ?? '').trim().isEmpty) return 'Details are required';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const _FieldLabel('Group ID'),
+                    TextFormField(
+                      controller: _groupController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. 1',
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: _submitting ? null : _submit,
+                        child: _submitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Submit Question'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -158,7 +168,7 @@ class _FieldLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: const TextStyle(fontWeight: FontWeight.w700),
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.2),
       ),
     );
   }
