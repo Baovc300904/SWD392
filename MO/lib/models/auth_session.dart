@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class AuthSession {
   const AuthSession({
     required this.accessToken,
@@ -30,9 +32,9 @@ class AuthSession {
       accessToken: data['accessToken']?.toString() ?? '',
       refreshToken: data['refreshToken']?.toString() ?? '',
       userId: int.tryParse(user['id']?.toString() ?? '') ?? 0,
-      fullName: user['fullName']?.toString() ?? 'Unknown',
+      fullName: _repairMojibake(user['fullName']?.toString() ?? 'Unknown'),
       email: user['email']?.toString() ?? '',
-      role: user['role']?.toString() ?? '',
+      role: _repairMojibake(user['role']?.toString() ?? ''),
     );
   }
 
@@ -52,9 +54,23 @@ class AuthSession {
       accessToken: json['accessToken']?.toString() ?? '',
       refreshToken: json['refreshToken']?.toString() ?? '',
       userId: int.tryParse(json['userId']?.toString() ?? '') ?? 0,
-      fullName: json['fullName']?.toString() ?? '',
+      fullName: _repairMojibake(json['fullName']?.toString() ?? ''),
       email: json['email']?.toString() ?? '',
-      role: json['role']?.toString() ?? '',
+      role: _repairMojibake(json['role']?.toString() ?? ''),
     );
+  }
+
+  static String _repairMojibake(String value) {
+    if (value.isEmpty) return value;
+
+    const suspiciousMarkers = ['Ã', 'Â', 'Ä', 'áº', 'á»', 'Æ', 'Ð', 'Ñ'];
+    final looksBroken = suspiciousMarkers.any(value.contains);
+    if (!looksBroken) return value;
+
+    try {
+      return utf8.decode(latin1.encode(value));
+    } catch (_) {
+      return value;
+    }
   }
 }

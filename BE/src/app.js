@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger.config');
-const { sequelize, testConnection, User } = require('./models');
+const { sequelize, testConnection, User, Topic, Question, Answer } = require('./models');
 const { Op } = require('sequelize');
 
 // Import routes
@@ -12,6 +12,190 @@ const apiRoutes = require('./routes/api.routes');
 
 // Create Express app
 const app = express();
+app.set('etag', false);
+
+function looksCorrupted(text) {
+    if (!text || typeof text !== 'string') return false;
+    const markers = ['�', 'Ã', 'Â', 'Ä', 'áº', 'á»', 'Æ', 'Ð', 'Ñ'];
+    return markers.some((m) => text.includes(m));
+}
+
+function repairMojibakeText(text) {
+    if (!looksCorrupted(text)) return text;
+    try {
+        const repaired = Buffer.from(text, 'latin1').toString('utf8');
+        return repaired || text;
+    } catch (_) {
+        return text;
+    }
+}
+
+async function repairDemoVietnameseData() {
+    // 1) Generic repair for all rows that look mojibake (best effort).
+    const users = await User.findAll({ attributes: ['id', 'fullName'] });
+    for (const user of users) {
+        const repairedName = repairMojibakeText(user.fullName);
+        if (repairedName !== user.fullName) {
+            await user.update({ fullName: repairedName });
+            console.log(`✅ Auto-repaired user fullName: #${user.id}`);
+        }
+    }
+
+    const topics = await Topic.findAll({ attributes: ['id', 'title', 'description'] });
+    for (const topic of topics) {
+        const nextTitle = repairMojibakeText(topic.title);
+        const nextDescription = repairMojibakeText(topic.description);
+        if (nextTitle !== topic.title || nextDescription !== topic.description) {
+            await topic.update({ title: nextTitle, description: nextDescription });
+            console.log(`✅ Auto-repaired topic text: #${topic.id}`);
+        }
+    }
+
+    const questions = await Question.findAll({ attributes: ['id', 'title', 'content'] });
+    for (const question of questions) {
+        const nextTitle = repairMojibakeText(question.title);
+        const nextContent = repairMojibakeText(question.content);
+        if (nextTitle !== question.title || nextContent !== question.content) {
+            await question.update({ title: nextTitle, content: nextContent });
+            console.log(`✅ Auto-repaired question text: #${question.id}`);
+        }
+    }
+
+    const answers = await Answer.findAll({ attributes: ['id', 'content'] });
+    for (const answer of answers) {
+        const nextContent = repairMojibakeText(answer.content);
+        if (nextContent !== answer.content) {
+            await answer.update({ content: nextContent });
+            console.log(`✅ Auto-repaired answer content: #${answer.id}`);
+        }
+    }
+
+    // 2) Canonical overrides for known demo rows that may contain replacement-char loss.
+    const usersToRepair = [
+        { email: 'gva@fpt.edu.vn', fullName: 'Giảng Viên Nguyễn Văn A' },
+        { email: 'gvb@fpt.edu.vn', fullName: 'Giảng Viên Trần Thị B' },
+        { email: 'manager@fpt.edu.vn', fullName: 'Trưởng Bộ Môn (Manager)' },
+        { email: 'sv1@fpt.edu.vn', fullName: 'Sinh Viên Lê Văn C' },
+        { email: 'sv2@fpt.edu.vn', fullName: 'Sinh Viên Phạm Thị D' },
+        { email: 'sv3@fpt.edu.vn', fullName: 'Sinh Viên Hoàng Văn E' },
+        { email: 'sv4@fpt.edu.vn', fullName: 'Sinh Viên Vũ Thị F' }
+    ];
+
+    for (const item of usersToRepair) {
+        const user = await User.findOne({ where: { email: item.email } });
+        if (user && looksCorrupted(user.fullName)) {
+            await user.update({ fullName: item.fullName });
+            console.log(`✅ Repaired user fullName: ${item.email}`);
+        }
+    }
+
+    const topicsToRepair = [
+        {
+            id: 1,
+            keyword: 'SWD392',
+            title: 'Hệ thống Quản lý Đồ án SWD392',
+            description: 'Xây dựng hệ thống quản lý có tích hợp AI Q&A.'
+        },
+        {
+            id: 2,
+            keyword: 'Mobile',
+            title: 'Ứng dụng Đặt Đồ Ăn Mobile',
+            description: 'App Flutter kết nối Firebase.'
+        },
+        {
+            id: 3,
+            keyword: 'Tiếng Anh AI',
+            title: 'Nền tảng học Tiếng Anh AI',
+            description: 'Dùng OpenAI để luyện giao tiếp.'
+        }
+    ];
+
+    for (const item of topicsToRepair) {
+        let topic = await Topic.findByPk(item.id);
+        if (!topic) {
+            topic = await Topic.findOne({
+                where: {
+                    [Op.or]: [
+                        { title: { [Op.like]: `%${item.keyword}%` } },
+                        { description: { [Op.like]: `%${item.keyword}%` } }
+                    ]
+                }
+            });
+        }
+        if (!topic) continue;
+
+        const needRepair = looksCorrupted(topic.title) || looksCorrupted(topic.description);
+        if (needRepair) {
+            await topic.update({ title: item.title, description: item.description });
+            console.log(`✅ Repaired topic text: #${item.id}`);
+        }
+    }
+
+    const questionsToRepair = [
+        {
+            id: 1,
+            keyword: 'Database',
+            title: 'Lỗi kết nối Database',
+            content: 'Thầy ơi em không connect được MySQL với Node.js, nó báo lỗi Access Denied ạ.'
+        },
+        {
+            id: 2,
+            keyword: 'OpenAI',
+            title: 'Xin cấp API Key OpenAI',
+            content: 'Cho em hỏi bộ môn có hỗ trợ cấp API Key của OpenAI cho đề tài này không ạ?'
+        },
+        {
+            id: 3,
+            keyword: 'Firebase',
+            title: 'Cách cấu hình Firebase Auth',
+            content: 'Em chưa hiểu luồng đăng nhập Firebase trên Flutter, thầy hướng dẫn giúp em với.'
+        }
+    ];
+
+    for (const item of questionsToRepair) {
+        let question = await Question.findByPk(item.id);
+        if (!question) {
+            question = await Question.findOne({
+                where: {
+                    [Op.or]: [
+                        { title: { [Op.like]: `%${item.keyword}%` } },
+                        { content: { [Op.like]: `%${item.keyword}%` } }
+                    ]
+                }
+            });
+        }
+
+        if (question && (looksCorrupted(question.title) || looksCorrupted(question.content))) {
+            await question.update({ title: item.title, content: item.content });
+            console.log(`✅ Repaired question text: #${question.id}`);
+        }
+    }
+
+    const answersToRepair = [
+        {
+            id: 1,
+            keyword: 'password',
+            content: 'Chào em, lỗi này thường do sai password trong file .env. Em check lại file config nhé.'
+        },
+        {
+            id: 2,
+            keyword: 'API Key',
+            content: 'Chào em, hiện tại bộ môn không cấp sẵn API Key. Các nhóm tự dùng tài khoản free limit để làm demo Checkpoint nhé.'
+        }
+    ];
+
+    for (const item of answersToRepair) {
+        let answer = await Answer.findByPk(item.id);
+        if (!answer) {
+            answer = await Answer.findOne({ where: { content: { [Op.like]: `%${item.keyword}%` } } });
+        }
+
+        if (answer && looksCorrupted(answer.content)) {
+            await answer.update({ content: item.content });
+            console.log(`✅ Repaired answer content: #${answer.id}`);
+        }
+    }
+}
 
 // Connect to MySQL and create default admin
 testConnection().then(async () => {
@@ -91,6 +275,12 @@ testConnection().then(async () => {
             console.error(`❌ Failed to seed/repair lecturer (${lecturer.email}):`, err.message);
         }
     }
+
+    try {
+        await repairDemoVietnameseData();
+    } catch (err) {
+        console.error('❌ Failed to repair Vietnamese demo text:', err.message);
+    }
 }).catch(err => {
     console.error('❌ Database connection failed:', err);
 });
@@ -134,7 +324,14 @@ app.get('/', (req, res) => {
     });
 });
 
-app.use('/api', apiRoutes);
+app.use('/api', (req, res, next) => {
+    res.type('application/json; charset=utf-8');
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    next();
+}, apiRoutes);
 
 // Auto-offline cron job: mỗi 60s, ai lastSeenAt > 3 phút → Offline
 setInterval(async () => {

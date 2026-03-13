@@ -80,25 +80,39 @@ class ApiClient {
 
     switch (method) {
       case 'GET':
-        response = await http.get(uri, headers: headers).timeout(AppConfig.requestTimeout);
+        response = await http
+            .get(uri, headers: headers)
+            .timeout(AppConfig.requestTimeout);
       case 'POST':
-        response = await http.post(uri, headers: headers, body: payload).timeout(AppConfig.requestTimeout);
+        response = await http
+            .post(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
       case 'PUT':
-        response = await http.put(uri, headers: headers, body: payload).timeout(AppConfig.requestTimeout);
+        response = await http
+            .put(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
       case 'PATCH':
-        response = await http.patch(uri, headers: headers, body: payload).timeout(AppConfig.requestTimeout);
+        response = await http
+            .patch(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
       case 'DELETE':
-        response = await http.delete(uri, headers: headers, body: payload).timeout(AppConfig.requestTimeout);
+        response = await http
+            .delete(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
       default:
         throw Exception('Unsupported HTTP method: $method');
     }
 
-    final text = response.body;
+    final text = utf8.decode(response.bodyBytes);
     final map = text.isEmpty
         ? <String, dynamic>{}
         : (jsonDecode(text) as Map<String, dynamic>);
+    final normalizedMap = _normalizeResponseMap(map);
 
-    if (response.statusCode == 401 && auth && retryOnAuthError && !path.contains('/auth/refresh')) {
+    if (response.statusCode == 401 &&
+        auth &&
+        retryOnAuthError &&
+        !path.contains('/auth/refresh')) {
       final refreshed = await _tryRefreshToken();
       if (refreshed) {
         return _request(
@@ -113,10 +127,13 @@ class ApiClient {
     }
 
     if (response.statusCode >= 400) {
-      throw Exception(map['message']?.toString() ?? 'API error ${response.statusCode}');
+      throw Exception(
+        normalizedMap['message']?.toString() ??
+            'API error ${response.statusCode}',
+      );
     }
 
-    return map;
+    return normalizedMap;
   }
 
   Future<bool> _tryRefreshToken() async {
@@ -144,11 +161,13 @@ class ApiClient {
 
       if (response.statusCode >= 400) return false;
 
-      final text = response.body;
+      final text = utf8.decode(response.bodyBytes);
       final map = text.isEmpty
           ? <String, dynamic>{}
           : (jsonDecode(text) as Map<String, dynamic>);
-      final data = map['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final normalizedMap = _normalizeResponseMap(map);
+      final data =
+          normalizedMap['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
       final nextAccessToken = data['accessToken']?.toString() ?? '';
       if (nextAccessToken.isEmpty) return false;
@@ -167,6 +186,41 @@ class ApiClient {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  Map<String, dynamic> _normalizeResponseMap(Map<String, dynamic> map) {
+    final normalized = _normalizeDynamic(map);
+    return normalized is Map<String, dynamic> ? normalized : map;
+  }
+
+  dynamic _normalizeDynamic(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value.map((key, dynamic v) => MapEntry(key, _normalizeDynamic(v)));
+    }
+
+    if (value is List<dynamic>) {
+      return value.map(_normalizeDynamic).toList(growable: false);
+    }
+
+    if (value is String) {
+      return _repairMojibake(value);
+    }
+
+    return value;
+  }
+
+  String _repairMojibake(String value) {
+    if (value.isEmpty) return value;
+
+    const suspiciousMarkers = ['Ã', 'Â', 'Ä', 'áº', 'á»', 'Æ', 'Ð', 'Ñ'];
+    final looksBroken = suspiciousMarkers.any(value.contains);
+    if (!looksBroken) return value;
+
+    try {
+      return utf8.decode(latin1.encode(value));
+    } catch (_) {
+      return value;
     }
   }
 }
