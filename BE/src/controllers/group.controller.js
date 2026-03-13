@@ -6,6 +6,15 @@
 const { StudentGroup, Class, Topic, GroupMember, User } = require('../models');
 const { Op } = require('sequelize');
 
+const memberInclude = {
+    model: User,
+    as: 'members',
+    attributes: ['id', 'fullName', 'email', 'isOnline'],
+    through: {
+        attributes: ['joinedAt']
+    }
+};
+
 /**
  * @desc    Get all groups
  * @route   GET /api/groups
@@ -13,18 +22,14 @@ const { Op } = require('sequelize');
  */
 const getAllGroups = async (req, res) => {
     try {
-        const { classId, topicId, status, search } = req.query;
+        const { classId, topicId, search } = req.query;
 
         let whereClause = {};
 
         if (classId) whereClause.classId = classId;
         if (topicId) whereClause.topicId = topicId;
-        if (status) whereClause.status = status;
         if (search) {
-            whereClause[Op.or] = [
-                { groupName: { [Op.like]: `%${search}%` } },
-                { description: { [Op.like]: `%${search}%` } }
-            ];
+            whereClause.groupName = { [Op.like]: `%${search}%` };
         }
 
         const groups = await StudentGroup.findAll({
@@ -40,15 +45,7 @@ const getAllGroups = async (req, res) => {
                     as: 'topic',
                     attributes: ['id', 'title', 'status']
                 },
-                {
-                    model: GroupMember,
-                    as: 'members',
-                    include: [{
-                        model: User,
-                        as: 'student',
-                        attributes: ['id', 'fullName', 'email']
-                    }]
-                }
+                memberInclude
             ],
             order: [['createdAt', 'DESC']]
         });
@@ -87,15 +84,7 @@ const getGroupById = async (req, res) => {
                     model: Topic,
                     as: 'topic'
                 },
-                {
-                    model: GroupMember,
-                    as: 'members',
-                    include: [{
-                        model: User,
-                        as: 'student',
-                        attributes: ['userId', 'fullName', 'email', 'avatarURL', 'isOnline']
-                    }]
-                }
+                memberInclude
             ]
         });
 
@@ -127,7 +116,7 @@ const getGroupById = async (req, res) => {
  */
 const createGroup = async (req, res) => {
     try {
-        const { classId, topicId, groupName, description, maxMembers } = req.body;
+        const { classId, topicId, groupName } = req.body;
 
         if (!classId || !topicId || !groupName) {
             return res.status(400).json({
@@ -154,7 +143,7 @@ const createGroup = async (req, res) => {
             });
         }
 
-        if (topic.status !== 'Approved') {
+        if (topic.status !== 'APPROVED') {
             return res.status(400).json({
                 success: false,
                 message: 'Topic must be approved before creating a group'
@@ -164,10 +153,7 @@ const createGroup = async (req, res) => {
         const group = await StudentGroup.create({
             classId,
             topicId,
-            groupName,
-            description,
-            maxMembers: maxMembers || 5,
-            status: 'Forming'
+            groupName
         });
 
         res.status(201).json({
@@ -195,7 +181,7 @@ const updateGroup = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
-        const group = await Group.findByPk(id);
+        const group = await StudentGroup.findByPk(id);
 
         if (!group) {
             return res.status(404).json({
@@ -230,7 +216,7 @@ const deleteGroup = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const group = await Group.findByPk(id);
+        const group = await StudentGroup.findByPk(id);
 
         if (!group) {
             return res.status(404).json({
@@ -263,7 +249,7 @@ const deleteGroup = async (req, res) => {
 const addGroupMember = async (req, res) => {
     try {
         const { id } = req.params;
-        const { userId, role } = req.body;
+        const { userId } = req.body;
 
         if (!userId) {
             return res.status(400).json({
@@ -273,9 +259,7 @@ const addGroupMember = async (req, res) => {
         }
 
         // Check if group exists
-        const group = await Group.findByPk(id, {
-            include: [{ model: GroupMember, as: 'members' }]
-        });
+        const group = await StudentGroup.findByPk(id);
 
         if (!group) {
             return res.status(404).json({
@@ -284,17 +268,9 @@ const addGroupMember = async (req, res) => {
             });
         }
 
-        // Check if group is full
-        if (group.members && group.members.length >= group.maxMembers) {
-            return res.status(400).json({
-                success: false,
-                message: 'Group is full'
-            });
-        }
-
         // Check if user is a student
         const user = await User.findByPk(userId);
-        if (!user || user.role !== 'Student') {
+        if (!user || user.role !== 'student') {
             return res.status(404).json({
                 success: false,
                 message: 'User not found or invalid role'
@@ -315,9 +291,7 @@ const addGroupMember = async (req, res) => {
 
         const member = await GroupMember.create({
             groupId: id,
-            studentId: userId,
-            role: role || 'Member',
-            status: 'Active'
+            studentId: userId
         });
 
         res.status(201).json({
@@ -345,7 +319,7 @@ const removeGroupMember = async (req, res) => {
         const { id, memberId } = req.params;
 
         const member = await GroupMember.findOne({
-            where: { id: memberId, groupId: id }
+            where: { groupId: id, studentId: memberId }
         });
 
         if (!member) {
@@ -385,9 +359,9 @@ const getGroupMembers = async (req, res) => {
             include: [{
                 model: User,
                 as: 'student',
-                attributes: ['userId', 'fullName', 'email', 'avatarURL', 'isOnline', 'status']
+                attributes: ['id', 'fullName', 'email', 'isOnline', 'status']
             }],
-            order: [['role', 'DESC'], ['joinedAt', 'ASC']]
+            order: [['joinedAt', 'ASC']]
         });
 
         res.status(200).json({

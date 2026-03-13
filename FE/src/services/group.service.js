@@ -7,11 +7,14 @@ import api from '../config/api.config';
 const groupService = {
     /**
      * Get all groups
+     * @param {Object} filters - Optional query params
      * @returns {Promise<Array>} List of all groups
      */
-    getAllGroups: async () => {
+    getAllGroups: async (filters = {}) => {
         try {
-            const response = await api.get('/groups');
+            const params = new URLSearchParams(filters);
+            const url = params.toString() ? `/groups?${params.toString()}` : '/groups';
+            const response = await api.get(url);
             return response.data || [];
         } catch (error) {
             console.error('Get all groups error:', error);
@@ -103,7 +106,7 @@ const groupService = {
      */
     addGroupMember: async (groupId, studentId) => {
         try {
-            const response = await api.post(`/groups/${groupId}/members`, { studentId });
+            const response = await api.post(`/groups/${groupId}/members`, { userId: studentId });
             return response.data;
         } catch (error) {
             console.error('Add group member error:', error);

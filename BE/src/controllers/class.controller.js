@@ -117,7 +117,7 @@ const createClass = async (req, res) => {
 
         // Verify lecturer exists and is a lecturer
         const lecturer = await User.findByPk(lecturerId);
-        if (!lecturer || lecturer.role !== 'LECTURER') {
+        if (!lecturer || lecturer.role !== 'lecturer') {
             return res.status(404).json({
                 success: false,
                 message: 'Lecturer not found or invalid role'

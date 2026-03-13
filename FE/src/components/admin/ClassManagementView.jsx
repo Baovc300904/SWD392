@@ -1,29 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
   Plus, Search, Edit, Trash2, X, Save, Loader2,
-  School, Users, RefreshCw, ChevronDown, BookOpen
+  School, Users, RefreshCw, BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { classService, semesterService } from '../../services/app.service';
+import { classService } from '../../services/app.service';
+import userService from '../../services/user.service';
 
-function StatusBadge({ status }) {
-  const active = status === 'Active';
-  return (
-    <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-      {status}
-    </span>
-  );
-}
-
-const emptyForm = { className: '', semesterId: '', lecturerId: '', maxMembers: 30, status: 'Active' };
+const emptyForm = { className: '', lecturerId: '' };
 
 export function ClassManagementView() {
   const [classes, setClasses] = useState([]);
-  const [semesters, setSemesters] = useState([]);
+  const [lecturers, setLecturers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [semesterFilter, setSemesterFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [lecturerFilter, setLecturerFilter] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -32,30 +23,32 @@ export function ClassManagementView() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const [membersClass, setMembersClass] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [membersLoading, setMembersLoading] = useState(false);
+  const [groupsClass, setGroupsClass] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
 
   useEffect(() => {
     fetchClasses();
-    fetchSemesters();
-  }, []);
+    fetchLecturers();
+  }, [lecturerFilter]);
 
   const fetchClasses = async () => {
     try {
       setLoading(true);
       const params = {};
-      if (semesterFilter) params.semesterId = semesterFilter;
+      if (lecturerFilter) params.lecturerId = lecturerFilter;
+      if (searchTerm.trim()) params.search = searchTerm.trim();
       const res = await classService.getAllClasses(params);
-      setClasses(res?.data?.data || res?.data || []);
+      setClasses(Array.isArray(res?.data) ? res.data : []);
     } catch { toast.error('Failed to load classes'); }
     finally { setLoading(false); }
   };
 
-  const fetchSemesters = async () => {
+  const fetchLecturers = async () => {
     try {
-      const res = await semesterService.getAllSemesters();
-      setSemesters(res?.data?.data || res?.data || []);
+      const users = await userService.getAllUsers();
+      const list = Array.isArray(users) ? users : [];
+      setLecturers(list.filter((u) => (u.role || '').toLowerCase() === 'lecturer'));
     } catch { /* ignore */ }
   };
 
@@ -64,10 +57,7 @@ export function ClassManagementView() {
     setEditing(cls);
     setForm({
       className: cls.className,
-      semesterId: cls.semesterId || '',
-      lecturerId: cls.lecturerId || '',
-      maxMembers: cls.maxMembers || 30,
-      status: cls.status || 'Active',
+      lecturerId: cls.lecturerId || cls.lecturer?.id || '',
     });
     setModalOpen(true);
   };
@@ -76,13 +66,19 @@ export function ClassManagementView() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.className.trim()) { toast.error('Class name is required'); return; }
+    if (!form.lecturerId) { toast.error('Lecturer is required'); return; }
     setSaving(true);
     try {
+      const payload = {
+        className: form.className.trim(),
+        lecturerId: Number(form.lecturerId)
+      };
+
       if (editing) {
-        await classService.updateClass(editing.classId || editing.id, form);
+        await classService.updateClass(editing.classId || editing.id, payload);
         toast.success('Class updated');
       } else {
-        await classService.createClass(form);
+        await classService.createClass(payload);
         toast.success('Class created');
       }
       closeModal();
@@ -105,20 +101,22 @@ export function ClassManagementView() {
     } finally { setDeleting(false); }
   };
 
-  const openMembers = async (cls) => {
-    setMembersClass(cls);
-    setMembersLoading(true);
+  const openGroups = async (cls) => {
+    setGroupsClass(cls);
+    setGroupsLoading(true);
     try {
-      const res = await classService.getClassMembers(cls.classId || cls.id);
-      setMembers(res?.data?.data || res?.data || []);
-    } catch { toast.error('Failed to load members'); }
-    finally { setMembersLoading(false); }
+      const res = await classService.getClassById(cls.classId || cls.id);
+      setGroups(Array.isArray(res?.data?.groups) ? res.data.groups : []);
+    } catch { toast.error('Failed to load class groups'); }
+    finally { setGroupsLoading(false); }
   };
 
   const filtered = classes.filter(c => {
-    const matchSearch = c.className?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = statusFilter === 'all' || c.status === statusFilter;
-    return matchSearch && matchStatus;
+    const keyword = searchTerm.toLowerCase();
+    const matchSearch = (c.className || '').toLowerCase().includes(keyword)
+      || (c.lecturer?.fullName || '').toLowerCase().includes(keyword);
+    const matchLecturer = !lecturerFilter || String(c.lecturerId || c.lecturer?.id || '') === String(lecturerFilter);
+    return matchSearch && matchLecturer;
   });
 
   return (
@@ -146,16 +144,10 @@ export function ClassManagementView() {
           <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search classes..."
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30" />
         </div>
-        <select value={semesterFilter} onChange={e => { setSemesterFilter(e.target.value); setTimeout(fetchClasses, 50); }}
+        <select value={lecturerFilter} onChange={e => setLecturerFilter(e.target.value)}
           className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F27125]/30">
-          <option value="">All Semesters</option>
-          {semesters.map(s => <option key={s.semesterId || s.id} value={s.semesterId || s.id}>{s.name}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F27125]/30">
-          <option value="all">All Status</option>
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
+          <option value="">All Lecturers</option>
+          {lecturers.map(l => <option key={l.userId || l.id} value={l.userId || l.id}>{l.fullName}</option>)}
         </select>
       </div>
 
@@ -173,10 +165,8 @@ export function ClassManagementView() {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
                 <th className="px-6 py-3.5 font-semibold text-gray-600">Class</th>
-                <th className="px-6 py-3.5 font-semibold text-gray-600">Semester</th>
                 <th className="px-6 py-3.5 font-semibold text-gray-600">Lecturer</th>
-                <th className="px-6 py-3.5 font-semibold text-gray-600">Members</th>
-                <th className="px-6 py-3.5 font-semibold text-gray-600">Status</th>
+                <th className="px-6 py-3.5 font-semibold text-gray-600">Groups</th>
                 <th className="px-6 py-3.5 font-semibold text-gray-600 text-right">Actions</th>
               </tr>
             </thead>
@@ -184,15 +174,13 @@ export function ClassManagementView() {
               {filtered.map(cls => (
                 <tr key={cls.classId || cls.id} className="hover:bg-gray-50/60 transition">
                   <td className="px-6 py-4 font-semibold text-gray-900">{cls.className}</td>
-                  <td className="px-6 py-4 text-gray-600">{cls.semester?.name || '—'}</td>
                   <td className="px-6 py-4 text-gray-600">{cls.lecturer?.fullName || '—'}</td>
                   <td className="px-6 py-4">
-                    <button onClick={() => openMembers(cls)} className="flex items-center gap-1.5 text-[#F27125] hover:underline font-medium">
+                    <button onClick={() => openGroups(cls)} className="flex items-center gap-1.5 text-[#F27125] hover:underline font-medium">
                       <Users className="w-4 h-4" />
-                      {cls.members?.length ?? '—'} / {cls.maxMembers}
+                      {(cls.groups?.length ?? 0)} groups
                     </button>
                   </td>
-                  <td className="px-6 py-4"><StatusBadge status={cls.status} /></td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openEdit(cls)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-[#F27125] transition">
@@ -228,27 +216,12 @@ export function ClassManagementView() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Semester</label>
-                <select value={form.semesterId} onChange={e => setForm(f => ({ ...f, semesterId: e.target.value }))}
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Lecturer <span className="text-red-500">*</span></label>
+                <select value={form.lecturerId} onChange={e => setForm(f => ({ ...f, lecturerId: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30">
-                  <option value="">Select semester</option>
-                  {semesters.map(s => <option key={s.semesterId || s.id} value={s.semesterId || s.id}>{s.name}</option>)}
+                  <option value="">Select lecturer</option>
+                  {lecturers.map(l => <option key={l.userId || l.id} value={l.userId || l.id}>{l.fullName}</option>)}
                 </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Max Members</label>
-                  <input type="number" min={1} value={form.maxMembers} onChange={e => setForm(f => ({ ...f, maxMembers: +e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
-                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition">Cancel</button>
@@ -289,35 +262,35 @@ export function ClassManagementView() {
         </div>
       )}
 
-      {/* ── Members Drawer ── */}
-      {membersClass && (
+      {/* ── Groups Drawer ── */}
+      {groupsClass && (
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">{membersClass.className} — Members</h2>
-                <p className="text-sm text-gray-500">{members.length} enrolled students</p>
+                <h2 className="text-lg font-bold text-gray-900">{groupsClass.className} — Groups</h2>
+                <p className="text-sm text-gray-500">{groups.length} group(s)</p>
               </div>
-              <button onClick={() => { setMembersClass(null); setMembers([]); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
+              <button onClick={() => { setGroupsClass(null); setGroups([]); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {membersLoading ? (
+              {groupsLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-[#F27125] animate-spin" /></div>
-              ) : members.length === 0 ? (
+              ) : groups.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p>No members enrolled</p>
+                  <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p>No groups found for this class</p>
                 </div>
-              ) : members.map((m, i) => (
-                <div key={m.userId || i} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition">
+              ) : groups.map((g, i) => (
+                <div key={g.id || i} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition">
                   <div className="w-8 h-8 bg-[#F27125]/10 rounded-full flex items-center justify-center text-[#F27125] font-bold text-sm">
-                    {(m.student?.fullName || m.fullName || '?')[0]}
+                    {(g.groupName || '?')[0]}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{m.student?.fullName || m.fullName}</p>
-                    <p className="text-xs text-gray-500">{m.student?.email || m.email}</p>
+                    <p className="text-sm font-medium text-gray-900">{g.groupName}</p>
+                    <p className="text-xs text-gray-500">Topic: {g.topicId || 'N/A'}</p>
                   </div>
                 </div>
               ))}
