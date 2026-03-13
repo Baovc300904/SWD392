@@ -5,6 +5,8 @@ import api from '../config/api.config';
  * Manages Q&A questions and answers
  */
 const questionService = {
+    extractPayload: (response) => response?.data ?? response,
+
     /**
      * Get all questions
      * @param {Object} filters - Optional filters (status, groupId, etc.)
@@ -13,7 +15,7 @@ const questionService = {
     getAllQuestions: async (filters = {}) => {
         try {
             const response = await api.get('/questions', { params: filters });
-            return response.data || [];
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Get all questions error:', error);
             throw error;
@@ -28,7 +30,7 @@ const questionService = {
     getQuestionById: async (id) => {
         try {
             const response = await api.get(`/questions/${id}`);
-            return response.data;
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Get question by ID error:', error);
             throw error;
@@ -43,7 +45,7 @@ const questionService = {
     createQuestion: async (questionData) => {
         try {
             const response = await api.post('/questions', questionData);
-            return response.data;
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Create question error:', error);
             throw error;
@@ -58,7 +60,7 @@ const questionService = {
     escalateQuestion: async (id) => {
         try {
             const response = await api.put(`/questions/${id}/escalate`);
-            return response.data;
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Escalate question error:', error);
             throw error;
@@ -73,9 +75,18 @@ const questionService = {
     resolveQuestion: async (id) => {
         try {
             const response = await api.put(`/questions/${id}/resolve`);
-            return response.data;
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Resolve question error:', error);
+            throw error;
+        }
+    },
+
+    askAI: async (id) => {
+        try {
+            const response = await api.post(`/questions/${id}/ask-ai`);
+            return questionService.extractPayload(response);
+        } catch (error) {
             throw error;
         }
     },
@@ -88,7 +99,7 @@ const questionService = {
     getAnswers: async (questionId) => {
         try {
             const response = await api.get(`/questions/${questionId}/answers`);
-            return response.data || [];
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Get answers error:', error);
             throw error;
@@ -104,7 +115,17 @@ const questionService = {
     createAnswer: async (questionId, answerData) => {
         try {
             const response = await api.post(`/questions/${questionId}/answers`, answerData);
-            return response.data;
+            return questionService.extractPayload(response);
+        } catch (error) {
+            console.error('Create answer error:', error);
+            throw error;
+        }
+    },
+
+    answerQuestion: async (questionId, answerData) => {
+        try {
+            const response = await api.post(`/questions/${questionId}/answers`, answerData);
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Create answer error:', error);
             throw error;
@@ -120,7 +141,7 @@ const questionService = {
     updateAnswer: async (answerId, answerData) => {
         try {
             const response = await api.put(`/answers/${answerId}`, answerData);
-            return response.data;
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Update answer error:', error);
             throw error;
@@ -135,7 +156,17 @@ const questionService = {
     deleteAnswer: async (answerId) => {
         try {
             const response = await api.delete(`/answers/${answerId}`);
-            return response.data;
+            return questionService.extractPayload(response);
+        } catch (error) {
+            console.error('Delete answer error:', error);
+            throw error;
+        }
+    },
+
+    toggleAnswerVisibility: async (answerId) => {
+        try {
+            const response = await api.put(`/answers/${answerId}/toggle-visibility`);
+            return questionService.extractPayload(response);
         } catch (error) {
             console.error('Delete answer error:', error);
             throw error;

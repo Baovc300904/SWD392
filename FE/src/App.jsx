@@ -67,7 +67,7 @@ class ErrorBoundary extends Component {
 }
 
 /* ─── Student group workspace (top-level to avoid re-mount on App re-render) ─── */
-function StudentGroupWorkspace({ currentGroupId, onLogout }) {
+function StudentGroupWorkspace({ currentGroupId, onLogout, onNavigate }) {
   const [activeTool, setActiveTool] = useState('dashboard');
   const [activeChannel, setActiveChannel] = useState('general-chat');
   const [activeChannelId, setActiveChannelId] = useState(null);
@@ -125,6 +125,7 @@ function StudentGroupWorkspace({ currentGroupId, onLogout }) {
           onToolChange={setActiveTool}
           onLogout={onLogout}
           groupId={currentGroupId}
+          onNavigate={onNavigate}
         />
         <div className="flex-1 overflow-auto bg-gray-50">
           {renderContent()}
@@ -236,6 +237,34 @@ export default function App() {
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [groupLoading, setGroupLoading] = useState(true);
 
+  const syncStudentGroup = async (userInput = null) => {
+    const user = userInput || authService.getCurrentUser();
+
+    if (!user?.token || user.role?.toLowerCase() !== 'student') {
+      setCurrentGroupId(null);
+      setGroupLoading(false);
+      return;
+    }
+
+    try {
+      setGroupLoading(true);
+      const groups = await groupService.getAllGroups();
+      const matchedGroup = groups.find((group) =>
+        Array.isArray(group.members) && group.members.some((member) => {
+          const memberId = member.id || member.userId || member.studentId || member.GroupMember?.studentId;
+          return Number(memberId) === Number(user.userId);
+        })
+      );
+
+      setCurrentGroupId(matchedGroup?.id || null);
+    } catch (error) {
+      console.error('Failed to resolve current user group:', error);
+      setCurrentGroupId(null);
+    } finally {
+      setGroupLoading(false);
+    }
+  };
+
   /* ─── Derive role from localStorage on mount ─── */
   useEffect(() => {
     const bootstrapUserContext = async () => {
@@ -256,23 +285,7 @@ export default function App() {
         return;
       }
 
-      try {
-        setGroupLoading(true);
-        const groups = await groupService.getAllGroups();
-        const matchedGroup = groups.find((group) =>
-          Array.isArray(group.members) && group.members.some((member) => {
-            const memberId = member.id || member.userId || member.studentId || member.GroupMember?.studentId;
-            return Number(memberId) === Number(user.userId);
-          })
-        );
-
-        setCurrentGroupId(matchedGroup?.id || null);
-      } catch (error) {
-        console.error('Failed to resolve current user group:', error);
-        setCurrentGroupId(null);
-      } finally {
-        setGroupLoading(false);
-      }
+      await syncStudentGroup(user);
     };
 
     bootstrapUserContext();
@@ -315,11 +328,19 @@ export default function App() {
   const handleBack = (pageName) => handleNavigate(pageName, { replace: true });
 
   const handleLogin = (role) => {
-    setUserRole(role?.toLowerCase());
-    setGroupLoading(role?.toLowerCase() === 'student');
+    const normalizedRole = role?.toLowerCase();
+    setUserRole(normalizedRole);
+
+    if (normalizedRole === 'student') {
+      syncStudentGroup();
+    } else {
+      setGroupLoading(false);
+      setCurrentGroupId(null);
+    }
+
     const dest =
-      role?.toLowerCase() === 'manager' ? '/admin' :
-        role?.toLowerCase() === 'lecturer' ? '/lecturer' : '/group';
+      normalizedRole === 'manager' ? '/admin' :
+        normalizedRole === 'lecturer' ? '/lecturer' : '/group';
     navigate(dest, { replace: true });
   };
 
@@ -342,7 +363,7 @@ export default function App() {
           </div>
         </div>
       ) : currentGroupId ? (
-        <StudentGroupWorkspace currentGroupId={currentGroupId} onLogout={handleLogout} />
+        <StudentGroupWorkspace currentGroupId={currentGroupId} onLogout={handleLogout} onNavigate={handleNavigate} />
       ) : (
         <StudentGroupJoinFlow onGroupJoined={setCurrentGroupId} onLogout={handleLogout} />
       )}

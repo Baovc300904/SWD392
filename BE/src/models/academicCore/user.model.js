@@ -37,6 +37,11 @@ const User = sequelize.define('User', {
             isEmail: { msg: 'Please provide a valid email' }
         }
     },
+    avatarURL: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'avatar_url'
+    },
     passwordHash: {
         type: DataTypes.STRING(255),
         allowNull: false,

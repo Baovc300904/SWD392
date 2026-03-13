@@ -21,7 +21,7 @@ export function GroupSubmissionView() {
     try {
       setLoading(true);
       const response = await groupService.getAllGroups();
-      setGroups(response.data || []);
+      setGroups(Array.isArray(response) ? response : (response?.data || []));
     } catch (error) {
       console.error('Failed to load groups:', error);
     } finally {
@@ -238,35 +238,37 @@ export function GroupSubmissionView() {
                 </h3>
                 {selectedGroup.members && selectedGroup.members.length > 0 ? (
                   <div className="space-y-2">
-                    {selectedGroup.members.map((member, index) => (
+                    {selectedGroup.members.map((member, index) => {
+                      const student = member.student || member;
+                      return (
                       <div 
-                        key={index} 
+                        key={student.id || index} 
                         className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                       >
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                           <span className="text-white font-bold text-sm">
-                            {member.student?.fullName?.charAt(0) || 'S'}
+                            {student?.fullName?.charAt(0) || 'S'}
                           </span>
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold text-gray-900">
-                            {member.student?.fullName || 'Unknown Student'}
+                            {student?.fullName || 'Unknown Student'}
                           </div>
-                          {member.student?.email && (
+                          {student?.email && (
                             <div className="flex items-center gap-1 text-xs text-gray-500">
                               <Mail className="w-3 h-3" />
-                              {member.student.email}
+                              {student.email}
                             </div>
                           )}
                         </div>
-                        {member.student?.isOnline && (
+                        {student?.isOnline && (
                           <div className="flex items-center gap-1 text-xs text-green-600">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                             Online
                           </div>
                         )}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">

@@ -27,6 +27,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  /* Inputs on light-background portal pages need dark text.
+     Auth page inputs override this with Tailwind text-white utility. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select,
+  button {
+    color: #111827;
+  }
+  ::placeholder {
+    color: #9ca3af;
+  }
 }
 
 /* ── Animations ── */

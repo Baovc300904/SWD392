@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import aiService from '../services/ai.service';
+import userSettingsService from '../services/user-settings.service';
 
 /* ─────────────────────────────── Mock Responses ─────────────────────────── */
 const MOCK_RESPONSES = [
@@ -181,7 +183,7 @@ export function useAIChat() {
     const [isLoading, setIsLoading] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
 
-    const sendMessage = useCallback(async (text) => {
+    const sendMessage = useCallback(async (text, options = {}) => {
         if (!text.trim() || isLoading) return;
 
         const userMessage = {
@@ -195,14 +197,31 @@ export function useAIChat() {
         setIsLoading(true);
         setIsTyping(true);
 
-        // Simulate network delay (1.2s – 2.4s)
-        const delay = 1200 + Math.random() * 1200;
-        await new Promise(r => setTimeout(r, delay));
+        const settings = userSettingsService.getSettings();
+
+        let replyContent = '';
+        const shouldUseRealAI = settings.enableAIAssistant && aiService.isConfigured();
+
+        if (shouldUseRealAI) {
+            try {
+                replyContent = await aiService.generateReply({
+                    prompt: text,
+                    context: options.context || '',
+                    model: settings.aiModel,
+                });
+            } catch (error) {
+                replyContent = `${getMockResponse(text)}\n\n(Using fallback response because AI API failed: ${error.message})`;
+            }
+        } else {
+            const delay = 900 + Math.random() * 600;
+            await new Promise(r => setTimeout(r, delay));
+            replyContent = getMockResponse(text);
+        }
 
         const aiMessage = {
             id: Date.now() + 1,
             role: 'assistant',
-            content: getMockResponse(text),
+            content: replyContent,
             timestamp: new Date(),
         };
 

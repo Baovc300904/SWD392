@@ -104,6 +104,14 @@ export function GroupManagementView() {
       topicId: Number(form.topicId)
     };
 
+    const isApprovedTopic = topics.some(
+      (topic) => Number(topic.id) === payload.topicId && String(topic.status || '').toUpperCase() === 'APPROVED'
+    );
+    if (!isApprovedTopic) {
+      toast.error('Please select an approved topic');
+      return;
+    }
+
     setSaving(true);
     try {
       if (editing) {
@@ -193,6 +201,10 @@ export function GroupManagementView() {
       || (group.class?.className || '').toLowerCase().includes(keyword)
       || (group.topic?.title || '').toLowerCase().includes(keyword);
   });
+
+  const approvedTopics = topics.filter(
+    (topic) => String(topic.status || '').toUpperCase() === 'APPROVED'
+  );
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50 p-8">
@@ -314,10 +326,13 @@ export function GroupManagementView() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30"
                 >
                   <option value="">Select topic</option>
-                  {topics.map((topic) => (
+                  {approvedTopics.map((topic) => (
                     <option key={topic.id} value={topic.id}>{topic.title}</option>
                   ))}
                 </select>
+                {approvedTopics.length === 0 && (
+                  <p className="mt-1.5 text-xs text-amber-600">No approved topics available. Please approve a topic first.</p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
