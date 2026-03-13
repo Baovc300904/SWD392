@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Bot, Send, Sparkles, RotateCcw } from 'lucide-react';
 import { useAIChat } from '../../hooks/useAIChat';
+import userSettingsService from '../../services/user-settings.service';
 
 /* ── Mini Quick Prompts ── */
 const QUICK_PROMPTS = [
@@ -72,6 +73,7 @@ function MiniTyping() {
 /* ══════════════════════════════════════════════════════════════ */
 export function AIAssistantPanel({ isOpen, onClose }) {
     const { messages, isLoading, isTyping, sendMessage, clearMessages } = useAIChat();
+    const settings = userSettingsService.getSettings();
     const [input, setInput] = useState('');
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
@@ -133,7 +135,7 @@ export function AIAssistantPanel({ isOpen, onClose }) {
                         <div>
                             <div className="font-semibold text-gray-900 text-sm">AI Assistant</div>
                             <div className="text-xs text-gray-400 flex items-center gap-1">
-                                <Sparkles className="w-2.5 h-2.5 text-[#F27125]" />GPT-4o
+                                <Sparkles className="w-2.5 h-2.5 text-[#F27125]" />{settings.aiModel || 'AI Model'}
                             </div>
                         </div>
                     </div>

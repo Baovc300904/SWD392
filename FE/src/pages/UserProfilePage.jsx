@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     ArrowLeft, User, Mail, IdCard, Phone, MapPin, Calendar,
     Edit3, Save, X, Camera, Shield, BookOpen, Users, Star,
@@ -8,6 +8,8 @@ import {
 import { toast } from 'sonner';
 import authService from '../services/auth.service';
 import userService from '../services/user.service';
+import userSettingsService from '../services/user-settings.service';
+import firebaseStorageService from '../services/firebase-storage.service';
 
 /* ── Token ── */
 const ORANGE = '#F27125';
@@ -44,7 +46,7 @@ function InfoRow({ icon: Icon, label, value }) {
 }
 
 /* ── Avatar section ── */
-function AvatarSection({ user }) {
+function AvatarSection({ user, onChangeAvatar, changingAvatar }) {
     const initials = (user?.fullName || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     return (
         <div className="relative w-24 h-24 mx-auto">
@@ -57,6 +59,15 @@ function AvatarSection({ user }) {
                     {initials}
                 </div>
             )}
+            <button
+                type="button"
+                disabled={changingAvatar}
+                onClick={onChangeAvatar}
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#F27125] text-white flex items-center justify-center shadow-md hover:bg-[#d96420] disabled:opacity-60"
+                title="Change avatar"
+            >
+                {changingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+            </button>
         </div>
     );
 }
@@ -75,6 +86,10 @@ export function UserProfilePage({ onNavigate, onLogout }) {
         bio: currentUser?.bio ?? '',
     });
     const [savingProfile, setSavingProfile] = useState(false);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const [profileUser, setProfileUser] = useState(currentUser);
+    const [userSettings, setUserSettings] = useState(userSettingsService.getSettings());
+    const avatarInputRef = useRef(null);
 
     // Change password
     const [showPwSection, setShowPwSection] = useState(false);
@@ -105,9 +120,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                 bio: formData.bio,
             };
             // Lưu vào đúng storage (remember me hay không)
-            const isRemembered = localStorage.getItem('rememberMe') === 'true';
-            const storage = isRemembered ? localStorage : sessionStorage;
-            storage.setItem('user', JSON.stringify(updated));
+            updateStoredUser(updated);
             setEditing(false);
             toast.success('Profile updated successfully!');
         } catch (err) {
@@ -143,6 +156,49 @@ export function UserProfilePage({ onNavigate, onLogout }) {
             toast.error(err?.message || 'Failed to change password. Please check your current password.');
         } finally {
             setPwLoading(false);
+        }
+    };
+
+    const handleSettingChange = (key, value) => {
+        const next = userSettingsService.updateSettings({ [key]: value });
+        setUserSettings(next);
+        toast.success('Settings updated');
+    };
+
+    const updateStoredUser = (partial) => {
+        const remembered = localStorage.getItem('rememberMe') === 'true';
+        const storage = remembered ? localStorage : sessionStorage;
+        const raw = storage.getItem('user');
+        const existing = raw ? JSON.parse(raw) : {};
+        const next = { ...existing, ...partial };
+        storage.setItem('user', JSON.stringify(next));
+        setProfileUser(next);
+    };
+
+    const handlePickAvatar = () => {
+        if (!firebaseStorageService.isEnabled()) {
+            toast.error('Firebase storage is not configured');
+            return;
+        }
+        avatarInputRef.current?.click();
+    };
+
+    const handleAvatarChange = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file || !currentUser?.userId) return;
+
+        setAvatarUploading(true);
+        try {
+            const uploaded = await firebaseStorageService.uploadFile(file, 'avatars');
+            await userService.updateUser(currentUser.userId, { avatarURL: uploaded.url });
+            updateStoredUser({ avatarURL: uploaded.url, avatarUrl: uploaded.url, avatar_url: uploaded.url });
+            toast.success('Avatar updated successfully');
+        } catch (err) {
+            console.error(err);
+            toast.error(err?.message || 'Failed to update avatar');
+        } finally {
+            setAvatarUploading(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = '';
         }
     };
 
@@ -219,11 +275,11 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                             {/* Avatar */}
                             <div className="px-6 pb-6">
                                 <div className="-mt-12 mb-4">
-                                    <AvatarSection user={currentUser} />
+                                    <AvatarSection user={profileUser} onChangeAvatar={handlePickAvatar} changingAvatar={avatarUploading} />
                                 </div>
                                 <div className="text-center">
-                                    <h2 className="text-lg font-bold text-gray-900">{currentUser?.fullName}</h2>
-                                    <p className="text-sm text-gray-500 mt-0.5">{currentUser?.email}</p>
+                                    <h2 className="text-lg font-bold text-gray-900">{profileUser?.fullName}</h2>
+                                    <p className="text-sm text-gray-500 mt-0.5">{profileUser?.email}</p>
                                     {/* Role badge */}
                                     <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full text-xs font-semibold"
                                         style={{ background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
@@ -233,16 +289,18 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                 </div>
 
                                 <div className="mt-5 space-y-0.5">
-                                    <InfoRow icon={IdCard} label="Student Code" value={currentUser?.studentCode} />
-                                    <InfoRow icon={Mail} label="Email" value={currentUser?.email} />
+                                    <InfoRow icon={IdCard} label={role === 'lecturer' ? 'Lecturer Code' : 'Student Code'} value={profileUser?.studentCode} />
+                                    <InfoRow icon={Mail} label="Email" value={profileUser?.email} />
                                     <InfoRow icon={Calendar} label="Member Since" value={
-                                        currentUser?.createdAt
-                                            ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+                                        profileUser?.createdAt
+                                            ? new Date(profileUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
                                             : 'N/A'
                                     } />
                                 </div>
                             </div>
                         </div>
+
+                        <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
 
                         {/* Quick actions */}
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -435,6 +493,51 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                 </form>
                             </div>
                         )}
+
+                        {/* User Settings */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="px-6 py-5 border-b border-gray-50">
+                                <h3 className="font-bold text-gray-900">User Settings</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">Configure AI assistant and upload behavior</p>
+                            </div>
+                            <div className="px-6 py-5 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-800">Enable Firebase Upload</p>
+                                        <p className="text-xs text-gray-500">Upload images/files directly to Firebase if configured</p>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={userSettings.enableFirebaseUpload}
+                                        onChange={(e) => handleSettingChange('enableFirebaseUpload', e.target.checked)}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-800">Enable AI Assistant</p>
+                                        <p className="text-xs text-gray-500">Use real AI API when key is available</p>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={userSettings.enableAIAssistant}
+                                        onChange={(e) => handleSettingChange('enableAIAssistant', e.target.checked)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">AI Model</label>
+                                    <select
+                                        value={userSettings.aiModel}
+                                        onChange={(e) => handleSettingChange('aiModel', e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F27125] text-sm"
+                                    >
+                                        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                                        <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

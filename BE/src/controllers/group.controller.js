@@ -143,7 +143,8 @@ const createGroup = async (req, res) => {
             });
         }
 
-        if (topic.status !== 'APPROVED') {
+        const normalizedTopicStatus = String(topic.status || '').toUpperCase();
+        if (normalizedTopicStatus !== 'APPROVED') {
             return res.status(400).json({
                 success: false,
                 message: 'Topic must be approved before creating a group'

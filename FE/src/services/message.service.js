@@ -1,4 +1,6 @@
 import api from '../config/api.config';
+import firebaseStorageService from './firebase-storage.service';
+import userSettingsService from './user-settings.service';
 
 /**
  * Message Service - Manages chat messages, reactions, and attachments
@@ -120,6 +122,32 @@ export const messageService = {
    * @returns {Promise<Object>} Uploaded file info
    */
   uploadAttachment: async (file, onProgress) => {
+    const settings = userSettingsService.getSettings();
+
+    if (settings.enableFirebaseUpload && firebaseStorageService.isEnabled()) {
+      try {
+        onProgress?.(10);
+        const uploaded = await firebaseStorageService.uploadFile(file, 'chat/attachments');
+        onProgress?.(100);
+
+        return {
+          success: true,
+          data: {
+            id: uploaded.filePath,
+            fileName: file.name,
+            filePath: uploaded.filePath,
+            fileUrl: uploaded.url,
+            url: uploaded.url,
+            mimeType: file.type,
+            size: file.size,
+            provider: 'firebase',
+          }
+        };
+      } catch (error) {
+        console.warn('Firebase upload failed, falling back to API upload:', error.message);
+      }
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 

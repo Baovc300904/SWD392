@@ -6,13 +6,14 @@ import {
   Bot, 
   FolderOpen,
   ChevronDown,
+  UserCircle,
   Settings,
   LogOut,
   Circle
 } from 'lucide-react';
 import groupService from '../../services/group.service';
 
-export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId }) {
+export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId, onNavigate }) {
   const [showMembers, setShowMembers] = useState(true);
   const [members, setMembers] = useState([]);
   const [groupInfo, setGroupInfo] = useState(null);
@@ -159,6 +160,15 @@ export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId }) {
 
       {/* Footer */}
       <div className="p-3 border-t border-white/10 space-y-1">
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('profile')}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-white/5 rounded transition"
+          >
+            <UserCircle className="w-4 h-4" />
+            My Profile
+          </button>
+        )}
         <button className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-white/5 rounded transition">
           <Settings className="w-4 h-4" />
           Settings

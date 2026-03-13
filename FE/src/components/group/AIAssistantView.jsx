@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Send, Sparkles } from 'lucide-react';
+import { useAIChat } from '../../hooks/useAIChat';
 
 export function AIAssistantView() {
-  const [messages, setMessages] = useState([]);
+  const { messages, sendMessage, isLoading, isTyping } = useAIChat();
   const [input, setInput] = useState('');
 
   const suggestions = [
@@ -14,23 +15,13 @@ export function AIAssistantView() {
     { icon: '🔒', text: 'Security checklist', category: 'Security' },
   ];
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = input;
-    setMessages([...messages, { role: 'user', content: userMessage }]);
+    const userMessage = input.trim();
     setInput('');
 
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `I understand you're asking about "${userMessage}". Based on your course syllabus and best practices, here's what I recommend...`,
-        },
-      ]);
-    }, 1000);
+    await sendMessage(userMessage);
   };
 
   const handleSuggestionClick = (suggestion) => {
@@ -87,7 +78,7 @@ export function AIAssistantView() {
           <div className="max-w-3xl mx-auto p-6 space-y-6">
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={message.id || index}
                 className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
                 <div
@@ -114,6 +105,14 @@ export function AIAssistantView() {
                 </div>
               </div>
             ))}
+            {isTyping && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-[#F27125] to-[#d96420]">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div className="px-4 py-3 rounded-lg bg-gray-100 text-gray-600 text-sm">AI đang trả lời...</div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -125,13 +124,13 @@ export function AIAssistantView() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             placeholder="Ask anything about your project..."
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent"
           />
           <button
             onClick={handleSendMessage}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isLoading}
             className="flex items-center gap-2 bg-[#F27125] hover:bg-[#d96420] text-white px-6 py-3 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-4 h-4" />
