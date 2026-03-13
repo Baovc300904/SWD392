@@ -46,6 +46,51 @@ testConnection().then(async () => {
     } catch (err) {
         console.error('❌ Failed to create default admin:', err.message);
     }
+
+    // Seed/repair demo lecturers for local development
+    // If these emails already exist but were created as students (common when someone registered them),
+    // convert them back to lecturer + mark verified so login works without OTP.
+    const demoLecturers = [
+        {
+            fullName: process.env.LECTURER1_FULL_NAME || 'Giảng Viên Nguyễn Văn A',
+            email: process.env.LECTURER1_EMAIL || 'gva@fpt.edu.vn',
+            password: process.env.LECTURER1_PASSWORD || '123456'
+        },
+        {
+            fullName: process.env.LECTURER2_FULL_NAME || 'Giảng Viên Trần Thị B',
+            email: process.env.LECTURER2_EMAIL || 'gvb@fpt.edu.vn',
+            password: process.env.LECTURER2_PASSWORD || '123456'
+        }
+    ];
+
+    for (const lecturer of demoLecturers) {
+        try {
+            const existing = await User.findOne({ where: { email: lecturer.email } });
+            if (!existing) {
+                await User.create({
+                    fullName: lecturer.fullName,
+                    email: lecturer.email,
+                    passwordHash: lecturer.password,
+                    role: 'lecturer',
+                    isEmailVerified: true,
+                    isOnline: false,
+                    status: 'Offline'
+                });
+                console.log(`✅ Default lecturer created: ${lecturer.email}`);
+            } else {
+                // Repair role/verification + reset password to the configured demo password.
+                await existing.update({
+                    fullName: existing.fullName || lecturer.fullName,
+                    role: 'lecturer',
+                    isEmailVerified: true,
+                    passwordHash: lecturer.password
+                });
+                console.log(`✅ Default lecturer repaired: ${lecturer.email}`);
+            }
+        } catch (err) {
+            console.error(`❌ Failed to seed/repair lecturer (${lecturer.email}):`, err.message);
+        }
+    }
 }).catch(err => {
     console.error('❌ Database connection failed:', err);
 });
