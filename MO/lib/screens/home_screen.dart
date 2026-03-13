@@ -12,6 +12,104 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showBackToTop = false;
+  final PageController _previewController = PageController(viewportFraction: 0.92);
+  int _previewIndex = 0;
+
+  List<Widget> _buildAppBarActions(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    void onMenuSelected(String value) {
+      switch (value) {
+        case 'about':
+          _showSoon('About');
+          break;
+        case 'docs':
+          _showSoon('Docs');
+          break;
+        case 'faq':
+          _showSoon('FAQ');
+          break;
+        case 'signIn':
+          _goToLogin();
+          break;
+      }
+    }
+
+    PopupMenuButton<String> buildMenu({bool includeSignIn = false}) {
+      return PopupMenuButton<String>(
+        tooltip: 'Menu',
+        onSelected: onMenuSelected,
+        icon: const Icon(Icons.menu, color: Color(0xFF111827)),
+        itemBuilder: (context) => [
+          const PopupMenuItem(value: 'about', child: Text('About')),
+          const PopupMenuItem(value: 'docs', child: Text('Docs')),
+          const PopupMenuItem(value: 'faq', child: Text('FAQ')),
+          if (includeSignIn) const PopupMenuDivider(),
+          if (includeSignIn) const PopupMenuItem(value: 'signIn', child: Text('Sign In')),
+        ],
+      );
+    }
+
+    // Mobile: avoid overflow by collapsing items into a menu.
+    if (width < 520) {
+      return [
+        buildMenu(includeSignIn: true),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: FilledButton(
+            onPressed: _goToLogin,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFF27125),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Get Started'),
+          ),
+        ),
+      ];
+    }
+
+    // Tablet-ish: keep primary CTAs, collapse secondary links.
+    if (width < 820) {
+      return [
+        buildMenu(),
+        const SizedBox(width: 6),
+        TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
+        const SizedBox(width: 4),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: FilledButton(
+            onPressed: _goToLogin,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFF27125),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Get Started'),
+          ),
+        ),
+      ];
+    }
+
+    // Desktop: show full nav.
+    return [
+      TextButton(onPressed: () => _showSoon('About'), child: const Text('About')),
+      TextButton(onPressed: () => _showSoon('Docs'), child: const Text('Docs')),
+      TextButton(onPressed: () => _showSoon('FAQ'), child: const Text('FAQ')),
+      const SizedBox(width: 6),
+      TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
+      const SizedBox(width: 4),
+      Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: FilledButton(
+          onPressed: _goToLogin,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFF27125),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Get Started'),
+        ),
+      ),
+    ];
+  }
 
   @override
   void initState() {
@@ -24,7 +122,149 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
+    _previewController.dispose();
     super.dispose();
+  }
+
+  Widget _dot(bool active) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: active ? 18 : 8,
+      height: 8,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFF27125) : const Color(0x55FFFFFF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+    );
+  }
+
+  Widget _previewCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<String> bullets,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: const Color(0x0DFFFFFF),
+        border: Border.all(color: const Color(0x33FFFFFF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0x22F27125),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0x55F27125)),
+                ),
+                child: Icon(icon, color: const Color(0xFFF27125)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: const Color(0x1A000000),
+                border: Border.all(color: const Color(0x22FFFFFF)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0x22FFFFFF))),
+                    ),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Color(0xFFF27125),
+                          child: Text('S', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'SWP Hub',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Icon(Icons.more_horiz, color: Colors.white.withValues(alpha: 0.7)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(12),
+                      itemCount: bullets.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0x0FFFFFFF),
+                            border: Border.all(color: const Color(0x1AFFFFFF)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFFF27125)),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  bullets[i],
+                                  style: const TextStyle(color: Color(0xFFE5E7EB), fontSize: 13, height: 1.2),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onScroll() {
@@ -48,6 +288,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isSmall = width < 420;
+
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: AnimatedSlide(
@@ -100,30 +343,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            actions: [
-              TextButton(onPressed: () => _showSoon('About'), child: const Text('About')),
-              TextButton(onPressed: () => _showSoon('Docs'), child: const Text('Docs')),
-              TextButton(onPressed: () => _showSoon('FAQ'), child: const Text('FAQ')),
-              const SizedBox(width: 6),
-              TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: FilledButton(
-                  onPressed: _goToLogin,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFF27125),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Get Started'),
-                ),
-              ),
-            ],
+            actions: _buildAppBarActions(context),
           ),
 
           SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 80, 24, 80),
+              padding: EdgeInsets.fromLTRB(24, isSmall ? 62 : 80, 24, isSmall ? 62 : 80),
               decoration: const BoxDecoration(
                 color: Color(0xFF1A1D21),
               ),
@@ -143,10 +368,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'The all-in-one platform for FPT students to manage topics, form groups, and get instant answers.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 20, height: 1.5),
+                        style: TextStyle(
+                          color: const Color(0xFFD1D5DB),
+                          fontSize: isSmall ? 16 : 20,
+                          height: 1.5,
+                        ),
                       ),
                       const SizedBox(height: 30),
                       Wrap(
@@ -178,18 +407,83 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 34),
                       Container(
-                        height: 340,
+                        height: isSmall ? 360 : 380,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           color: const Color(0x0DFFFFFF),
                           border: Border.all(color: const Color(0x33FFFFFF)),
                         ),
-                        child: const Center(
-                          child: Text(
-                            'Product Preview',
-                            style: TextStyle(color: Color(0x99FFFFFF), fontSize: 22, fontWeight: FontWeight.w700),
-                          ),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    'Product Preview',
+                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                                  ),
+                                  const Spacer(),
+                                  Icon(Icons.swipe, color: Colors.white.withValues(alpha: 0.7), size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Swipe',
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: PageView(
+                                controller: _previewController,
+                                onPageChanged: (i) => setState(() => _previewIndex = i),
+                                children: [
+                                  _previewCard(
+                                    title: 'Dashboard',
+                                    subtitle: 'Track topics, classes, and queues at a glance.',
+                                    icon: Icons.dashboard_outlined,
+                                    bullets: const [
+                                      'Pending topics & approvals',
+                                      'Waiting Q&A tickets',
+                                      'Quick status overview',
+                                    ],
+                                  ),
+                                  _previewCard(
+                                    title: 'Topic Proposals',
+                                    subtitle: 'Propose, review, and manage topics quickly.',
+                                    icon: Icons.lightbulb_outline,
+                                    bullets: const [
+                                      'Create proposal in seconds',
+                                      'Approval status tracking',
+                                      'Syllabus link attached',
+                                    ],
+                                  ),
+                                  _previewCard(
+                                    title: 'Hierarchical Q&A',
+                                    subtitle: 'Answer, escalate, and resolve questions fast.',
+                                    icon: Icons.quiz_outlined,
+                                    bullets: const [
+                                      'Prioritized ticket view',
+                                      'Escalate edge cases',
+                                      'Keep answers consistent',
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _dot(_previewIndex == 0),
+                                  _dot(_previewIndex == 1),
+                                  _dot(_previewIndex == 2),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

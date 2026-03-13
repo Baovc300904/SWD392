@@ -4,6 +4,7 @@
  */
 
 const { Answer, Question, User } = require('../models');
+const firebaseService = require('../services/firebase.service');
 
 /**
  * @desc    Get all answers for a question
@@ -72,6 +73,38 @@ exports.createAnswer = async (req, res) => {
         if (req.body.markAsResolved) {
             question.status = 'RESOLVED';
             await question.save();
+        }
+
+        // Push notification (best-effort): notify the asker when a lecturer answers.
+        try {
+            const askerId = question.askedBy;
+            if (askerId) {
+                const asker = await User.findByPk(askerId);
+                const token = asker?.fcmToken;
+
+                if (token) {
+                    const answerer = await User.findByPk(answeredBy).catch(() => null);
+                    const answererName = answerer?.fullName || 'Lecturer';
+                    const trimmed = (content || '').toString().trim();
+                    const snippet = trimmed.length > 80 ? `${trimmed.substring(0, 80)}...` : trimmed;
+
+                    await firebaseService.sendToToken({
+                        token,
+                        title: 'New answer received',
+                        body: `${answererName}: ${snippet}`,
+                        data: {
+                            type: 'question',
+                            questionId: questionId,
+                            answerId: answer.id
+                        }
+                    });
+                }
+            }
+        } catch (pushError) {
+            // Do not block core answer flow when push fails.
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('FCM push failed:', pushError?.message || pushError);
+            }
         }
 
         res.status(201).json({

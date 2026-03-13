@@ -68,6 +68,10 @@ router.get('/', authenticate, authorize('manager'), userController.getAllUsers);
  */
 router.get('/me', authenticate, userController.getCurrentUser);
 
+// FCM token registration (Mobile Push Notifications)
+router.post('/me/fcm-token', authenticate, userController.updateMyFcmToken);
+router.delete('/me/fcm-token', authenticate, userController.clearMyFcmToken);
+
 /**
  * @swagger
  * /api/users/{id}:

@@ -18,6 +18,23 @@ class ManagerShell extends StatefulWidget {
 class _ManagerShellState extends State<ManagerShell> {
   int _index = 0;
 
+  Widget _buildBottomNav(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final labelBehavior = width < 420
+        ? NavigationDestinationLabelBehavior.alwaysHide
+        : (width < 520
+            ? NavigationDestinationLabelBehavior.onlyShowSelected
+            : NavigationDestinationLabelBehavior.onlyShowSelected);
+
+    return NavigationBar(
+      height: width < 420 ? 60 : null,
+      labelBehavior: labelBehavior,
+      selectedIndex: _index,
+      destinations: _tabs,
+      onDestinationSelected: (value) => setState(() => _index = value),
+    );
+  }
+
   static const _tabs = <NavigationDestination>[
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
     NavigationDestination(icon: Icon(Icons.groups_outlined), label: 'Users'),
@@ -50,11 +67,7 @@ class _ManagerShellState extends State<ManagerShell> {
     return Scaffold(
       appBar: _index == 5 ? null : AppBar(title: Text(_titles[_index])),
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        destinations: _tabs,
-        onDestinationSelected: (value) => setState(() => _index = value),
-      ),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 }
@@ -329,10 +342,74 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
     }).toList(growable: false);
   }
 
+  Widget _smallChip(String text) {
+    return Chip(
+      label: Text(text, style: const TextStyle(fontSize: 12)),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
+  Widget _buildUserCard(Map<String, dynamic> user) {
+    final id = int.tryParse(user['id']?.toString() ?? '') ?? 0;
+    final role = user['role']?.toString() ?? '-';
+    final status = user['status']?.toString() ?? ((user['isOnline'] == true) ? 'Online' : 'Offline');
+    final studentCode = user['studentCode']?.toString() ?? '-';
+    final fullName = user['fullName']?.toString() ?? 'Unknown';
+    final email = user['email']?.toString() ?? '-';
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(email, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _smallChip('Code: $studentCode'),
+                      _smallChip('Role: $role'),
+                      _smallChip('Status: $status'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Actions',
+              enabled: id != 0,
+              onSelected: (value) {
+                if (id == 0) return;
+                if (value == 'edit') _editUser(user);
+                if (value == 'delete') _delete(id);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final isNarrow = MediaQuery.sizeOf(context).width < 700;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -342,7 +419,7 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: const Text(
-              'Users Table: User Info | Student Code | Role | Status | Actions',
+              'Users',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -368,63 +445,71 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
             ),
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('User Info')),
-                DataColumn(label: Text('Student Code')),
-                DataColumn(label: Text('Role')),
-                DataColumn(label: Text('Status')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: _filteredUsers.map((user) {
-                final id = int.tryParse(user['id']?.toString() ?? '') ?? 0;
-                final role = user['role']?.toString() ?? '-';
-                final status = user['status']?.toString() ??
-                    ((user['isOnline'] == true) ? 'Online' : 'Offline');
-                final studentCode = user['studentCode']?.toString() ?? '-';
-                final fullName = user['fullName']?.toString() ?? 'Unknown';
-                final email = user['email']?.toString() ?? '-';
+          if (isNarrow)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _filteredUsers.length,
+              itemBuilder: (_, i) => _buildUserCard(_filteredUsers[i]),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('User Info')),
+                  DataColumn(label: Text('Student Code')),
+                  DataColumn(label: Text('Role')),
+                  DataColumn(label: Text('Status')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: _filteredUsers.map((user) {
+                  final id = int.tryParse(user['id']?.toString() ?? '') ?? 0;
+                  final role = user['role']?.toString() ?? '-';
+                  final status = user['status']?.toString() ??
+                      ((user['isOnline'] == true) ? 'Online' : 'Offline');
+                  final studentCode = user['studentCode']?.toString() ?? '-';
+                  final fullName = user['fullName']?.toString() ?? 'Unknown';
+                  final email = user['email']?.toString() ?? '-';
 
-                return DataRow(cells: [
-                  DataCell(
-                    SizedBox(
-                      width: 220,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
+                  return DataRow(cells: [
+                    DataCell(
+                      SizedBox(
+                        width: 220,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            Text(email, style: const TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(studentCode)),
+                    DataCell(Text(role)),
+                    DataCell(Text(status)),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(email, style: const TextStyle(fontSize: 12)),
+                          IconButton(
+                            tooltip: 'Edit',
+                            onPressed: id == 0 ? null : () => _editUser(user),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            tooltip: 'Delete',
+                            onPressed: id == 0 ? null : () => _delete(id),
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                  DataCell(Text(studentCode)),
-                  DataCell(Text(role)),
-                  DataCell(Text(status)),
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'Edit',
-                          onPressed: id == 0 ? null : () => _editUser(user),
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Delete',
-                          onPressed: id == 0 ? null : () => _delete(id),
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        ),
-                      ],
-                    ),
-                  ),
-                ]);
-              }).toList(growable: false),
+                  ]);
+                }).toList(growable: false),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -680,18 +765,68 @@ class _ManagerSemestersPageState extends State<_ManagerSemestersPage> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
 
+    final isNarrow = MediaQuery.sizeOf(context).width < 700;
+
+    Widget buildSemesterCard(Map<String, dynamic> semester) {
+      final id = int.tryParse(semester['id']?.toString() ?? '') ?? 0;
+      final name = semester['name']?.toString() ?? '-';
+      final startDate = (semester['startDate']?.toString() ?? '-').split('T').first;
+      final endDate = (semester['endDate']?.toString() ?? '-').split('T').first;
+      final status = semester['status']?.toString() ?? '-';
+
+      return Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: ListTile(
+          title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Chip(
+                  label: Text('$startDate → $endDate', style: const TextStyle(fontSize: 12)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                Chip(
+                  label: Text('Status: $status', style: const TextStyle(fontSize: 12)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ),
+          trailing: PopupMenuButton<String>(
+            tooltip: 'Actions',
+            enabled: id != 0,
+            onSelected: (value) {
+              if (id == 0) return;
+              if (value == 'edit') _editSemester(semester);
+              if (value == 'delete') _delete(id);
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit')),
+              PopupMenuItem(value: 'delete', child: Text('Delete')),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: Row(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Refresh'),
               ),
-              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: _create,
                 icon: const Icon(Icons.add),
@@ -743,53 +878,58 @@ class _ManagerSemestersPageState extends State<_ManagerSemestersPage> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _load,
-            child: ListView(
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Semester')),
-                      DataColumn(label: Text('Start Date')),
-                      DataColumn(label: Text('End Date')),
-                      DataColumn(label: Text('Status')),
-                      DataColumn(label: Text('Actions')),
-                    ],
-                    rows: _items.map((semester) {
-                      final id = int.tryParse(semester['id']?.toString() ?? '') ?? 0;
-                      final name = semester['name']?.toString() ?? '-';
-                      final startDate = (semester['startDate']?.toString() ?? '-').split('T').first;
-                      final endDate = (semester['endDate']?.toString() ?? '-').split('T').first;
-                      final status = semester['status']?.toString() ?? '-';
+            child: isNarrow
+                ? ListView.builder(
+                    itemCount: _items.length,
+                    itemBuilder: (_, i) => buildSemesterCard(_items[i]),
+                  )
+                : ListView(
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('Semester')),
+                            DataColumn(label: Text('Start Date')),
+                            DataColumn(label: Text('End Date')),
+                            DataColumn(label: Text('Status')),
+                            DataColumn(label: Text('Actions')),
+                          ],
+                          rows: _items.map((semester) {
+                            final id = int.tryParse(semester['id']?.toString() ?? '') ?? 0;
+                            final name = semester['name']?.toString() ?? '-';
+                            final startDate = (semester['startDate']?.toString() ?? '-').split('T').first;
+                            final endDate = (semester['endDate']?.toString() ?? '-').split('T').first;
+                            final status = semester['status']?.toString() ?? '-';
 
-                      return DataRow(cells: [
-                        DataCell(Text(name)),
-                        DataCell(Text(startDate)),
-                        DataCell(Text(endDate)),
-                        DataCell(Text(status)),
-                        DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Edit',
-                                onPressed: id == 0 ? null : () => _editSemester(semester),
-                                icon: const Icon(Icons.edit_outlined),
+                            return DataRow(cells: [
+                              DataCell(Text(name)),
+                              DataCell(Text(startDate)),
+                              DataCell(Text(endDate)),
+                              DataCell(Text(status)),
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Edit',
+                                      onPressed: id == 0 ? null : () => _editSemester(semester),
+                                      icon: const Icon(Icons.edit_outlined),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Delete',
+                                      onPressed: id == 0 ? null : () => _delete(id),
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              IconButton(
-                                tooltip: 'Delete',
-                                onPressed: id == 0 ? null : () => _delete(id),
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                              ),
-                            ],
-                          ),
+                            ]);
+                          }).toList(growable: false),
                         ),
-                      ]);
-                    }).toList(growable: false),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
         ),
       ],
@@ -1152,20 +1292,85 @@ class _ManagerClassesPageState extends State<_ManagerClassesPage> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
 
+    final isNarrow = MediaQuery.sizeOf(context).width < 700;
+
+    Widget buildClassCard(Map<String, dynamic> item) {
+      final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
+      final className = item['className']?.toString() ?? 'Unknown Class';
+      final semesterName = _resolveSemesterName(item);
+      final lecturerName = _resolveLecturerName(item);
+      final members = _resolveMemberCount(item);
+      final status = _resolveStatus(item);
+
+      return Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(className, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text('Semester: $semesterName', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    Text('Lecturer: $lecturerName', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Chip(
+                          label: Text('Members: $members', style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        Chip(
+                          label: Text('Status: $status', style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Actions',
+                enabled: id != 0,
+                onSelected: (value) {
+                  if (id == 0) return;
+                  if (value == 'edit') _editClass(item);
+                  if (value == 'delete') _deleteClass(id);
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 OutlinedButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
                   label: const Text('Refresh'),
                 ),
-                const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: _createClass,
                   icon: const Icon(Icons.add),
@@ -1222,52 +1427,60 @@ class _ManagerClassesPageState extends State<_ManagerClassesPage> {
             ),
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('Class')),
-                DataColumn(label: Text('Semester')),
-                DataColumn(label: Text('Lecturer')),
-                DataColumn(label: Text('Members')),
-                DataColumn(label: Text('Status')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: _filteredClasses.map((item) {
-                final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
-                final className = item['className']?.toString() ?? 'Unknown Class';
-                final semesterName = _resolveSemesterName(item);
-                final lecturerName = _resolveLecturerName(item);
-                final members = _resolveMemberCount(item);
-                final status = _resolveStatus(item);
+          if (isNarrow)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _filteredClasses.length,
+              itemBuilder: (_, i) => buildClassCard(_filteredClasses[i]),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('Class')),
+                  DataColumn(label: Text('Semester')),
+                  DataColumn(label: Text('Lecturer')),
+                  DataColumn(label: Text('Members')),
+                  DataColumn(label: Text('Status')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: _filteredClasses.map((item) {
+                  final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
+                  final className = item['className']?.toString() ?? 'Unknown Class';
+                  final semesterName = _resolveSemesterName(item);
+                  final lecturerName = _resolveLecturerName(item);
+                  final members = _resolveMemberCount(item);
+                  final status = _resolveStatus(item);
 
-                return DataRow(cells: [
-                  DataCell(Text(className)),
-                  DataCell(Text(semesterName)),
-                  DataCell(Text(lecturerName)),
-                  DataCell(Text('$members')),
-                  DataCell(Text(status)),
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'Edit',
-                          onPressed: id == 0 ? null : () => _editClass(item),
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Delete',
-                          onPressed: id == 0 ? null : () => _deleteClass(id),
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        ),
-                      ],
+                  return DataRow(cells: [
+                    DataCell(Text(className)),
+                    DataCell(Text(semesterName)),
+                    DataCell(Text(lecturerName)),
+                    DataCell(Text('$members')),
+                    DataCell(Text(status)),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Edit',
+                            onPressed: id == 0 ? null : () => _editClass(item),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            tooltip: 'Delete',
+                            onPressed: id == 0 ? null : () => _deleteClass(id),
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ]);
-              }).toList(growable: false),
+                  ]);
+                }).toList(growable: false),
+              ),
             ),
-          ),
         ],
       ),
     );

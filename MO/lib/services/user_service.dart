@@ -55,4 +55,15 @@ class UserService {
   Future<Map<String, dynamic>> deleteUser(int id) {
     return ApiClient.instance.delete('/users/$id');
   }
+
+  Future<Map<String, dynamic>> updateMyFcmToken(String token) {
+    return ApiClient.instance.post(
+      '/users/me/fcm-token',
+      body: <String, dynamic>{'token': token},
+    );
+  }
+
+  Future<Map<String, dynamic>> clearMyFcmToken() {
+    return ApiClient.instance.delete('/users/me/fcm-token');
+  }
 }

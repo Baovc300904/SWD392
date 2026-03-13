@@ -248,6 +248,62 @@ class UserController {
             });
         }
     }
+
+    // Register/update current user's FCM token
+    async updateMyFcmToken(req, res) {
+        try {
+            const token = (req.body?.token ?? '').toString().trim();
+            if (!token) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Token is required'
+                });
+            }
+
+            await userService.setFcmToken(req.user.userId, token);
+            return res.json({
+                success: true,
+                message: 'FCM token updated'
+            });
+        } catch (error) {
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            return res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
+
+    // Clear current user's FCM token (on logout)
+    async clearMyFcmToken(req, res) {
+        try {
+            await userService.setFcmToken(req.user.userId, null);
+            return res.json({
+                success: true,
+                message: 'FCM token cleared'
+            });
+        } catch (error) {
+            if (error.statusCode) {
+                return res.status(error.statusCode).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            return res.status(500).json({
+                success: false,
+                message: MSG.GENERAL.SERVER_ERROR,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }
 }
 
 module.exports = new UserController();

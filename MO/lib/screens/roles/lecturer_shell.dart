@@ -231,6 +231,15 @@ class _LecturerProposalPageState extends State<_LecturerProposalPage> {
     }
   }
 
+  InputDecoration _compactDecoration(String labelText) {
+    return InputDecoration(
+      border: const OutlineInputBorder(),
+      labelText: labelText,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -245,34 +254,32 @@ class _LecturerProposalPageState extends State<_LecturerProposalPage> {
             children: [
               TextField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Ten de tai',
-                ),
+                style: const TextStyle(fontSize: 14),
+                decoration: _compactDecoration('Ten de tai'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               TextField(
                 controller: _descController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Mo ta chi tiet (Cong nghe, muc tieu)',
-                ),
-                minLines: 3,
-                maxLines: 5,
+                style: const TextStyle(fontSize: 14),
+                decoration: _compactDecoration('Mo ta chi tiet (Cong nghe, muc tieu)'),
+                minLines: 2,
+                maxLines: 4,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               TextField(
                 controller: _syllabusController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Syllabus file link',
-                ),
+                style: const TextStyle(fontSize: 14),
+                decoration: _compactDecoration('Syllabus file link'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
                   onPressed: _createTopicProposal,
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
                   icon: const Icon(Icons.send_outlined),
                   label: const Text('Gui de xuat moi'),
                 ),

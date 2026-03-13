@@ -309,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Keep local logout resilient when network logout fails.
       }
     }
-    await NotificationService.instance.stop();
+    await NotificationService.instance.onLogout();
     await AppSession.instance.clear();
     if (!mounted) return;
 

@@ -69,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       await AppSession.instance.setSession(session);
-      await NotificationService.instance.startQuestionPolling();
+      await NotificationService.instance.onLogin();
 
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
@@ -417,7 +417,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   TextButton.icon(
                     onPressed: () {
-                      Navigator.of(context).pushReplacement(
+                      final nav = Navigator.of(context);
+                      if (nav.canPop()) {
+                        nav.pop();
+                        return;
+                      }
+                      nav.pushReplacement(
                         MaterialPageRoute(builder: (_) => const HomeScreen()),
                       );
                     },
