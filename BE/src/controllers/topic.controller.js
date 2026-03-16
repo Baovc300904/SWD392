@@ -324,6 +324,11 @@ const registerTopicForGroup = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Only group members can register topic for this group' });
         }
 
+        // Kiểm tra trạng thái đề tài phải là APPROVED
+        if (topic.status !== 'APPROVED') {
+            return res.status(400).json({ success: false, message: 'Topic is not approved for registration' });
+        }
+
         // Kiểm tra nhóm đã đăng ký đề tài chưa
         if (group.topicId) {
             return res.status(400).json({ success: false, message: 'Group already registered a topic' });
