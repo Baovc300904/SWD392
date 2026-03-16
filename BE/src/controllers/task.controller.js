@@ -5,6 +5,7 @@
 
 const { Task, StudentGroup, User } = require('../models');
 const { Op } = require('sequelize');
+const MSG = require('../constants/messages');
 
 const parseTags = (tags) => {
     if (!tags) return [];
@@ -82,6 +83,7 @@ const getAllTasks = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count: tasks.length,
             data: tasks.map(formatTask)
         });
@@ -89,8 +91,10 @@ const getAllTasks = async (req, res) => {
         console.error('Error fetching tasks:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching tasks',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -103,20 +107,24 @@ const getTaskById = async (req, res) => {
         if (!task) {
             return res.status(404).json({
                 success: false,
-                message: 'Task not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Task not found'
             });
         }
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             data: formatTask(task)
         });
     } catch (error) {
         console.error('Error fetching task:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching task',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -129,7 +137,8 @@ const createTask = async (req, res) => {
         if (!groupId || !title) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide groupId and title'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing groupId or title'
             });
         }
 
@@ -137,7 +146,8 @@ const createTask = async (req, res) => {
         if (!group) {
             return res.status(404).json({
                 success: false,
-                message: 'Group not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Group not found'
             });
         }
 
@@ -157,15 +167,17 @@ const createTask = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Task created successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: formatTask(created)
         });
     } catch (error) {
         console.error('Error creating task:', error);
         res.status(500).json({
             success: false,
-            message: 'Error creating task',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -181,14 +193,16 @@ const updateTask = async (req, res) => {
         if (!task) {
             return res.status(404).json({
                 success: false,
-                message: 'Task not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Task not found'
             });
         }
 
         if (requesterRole === 'student' && Number(task.createdBy) !== Number(requesterId)) {
             return res.status(403).json({
                 success: false,
-                message: 'You can only update tasks created by you'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'You can only update tasks created by you'
             });
         }
 
@@ -206,15 +220,17 @@ const updateTask = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Task updated successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: formatTask(updated)
         });
     } catch (error) {
         console.error('Error updating task:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating task',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -229,14 +245,16 @@ const deleteTask = async (req, res) => {
         if (!task) {
             return res.status(404).json({
                 success: false,
-                message: 'Task not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Task not found'
             });
         }
 
         if (requesterRole === 'student' && Number(task.createdBy) !== Number(requesterId)) {
             return res.status(403).json({
                 success: false,
-                message: 'You can only delete tasks created by you'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'You can only delete tasks created by you'
             });
         }
 
@@ -244,14 +262,16 @@ const deleteTask = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Task deleted successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         console.error('Error deleting task:', error);
         res.status(500).json({
             success: false,
-            message: 'Error deleting task',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
