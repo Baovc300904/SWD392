@@ -4,6 +4,7 @@
  */
 
 const { Question, User, StudentGroup, Answer } = require('../models');
+const MSG = require('../constants/messages');
 
 /**
  * @desc    Get all questions (with filters)
@@ -34,14 +35,17 @@ exports.getAllQuestions = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count: questions.length,
             data: questions
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error fetching questions',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -68,19 +72,23 @@ exports.getQuestionById = async (req, res) => {
         if (!question) {
             return res.status(404).json({
                 success: false,
-                message: 'Question not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Question not found'
             });
         }
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             data: question
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error fetching question',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -104,14 +112,16 @@ exports.createQuestion = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Question created successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: question
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error creating question',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -128,14 +138,16 @@ exports.escalateQuestion = async (req, res) => {
         if (!question) {
             return res.status(404).json({
                 success: false,
-                message: 'Question not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Question not found'
             });
         }
 
         if (question.status === 'RESOLVED') {
             return res.status(400).json({
                 success: false,
-                message: 'Cannot escalate a resolved question'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Cannot escalate a resolved question'
             });
         }
 
@@ -144,14 +156,16 @@ exports.escalateQuestion = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Question escalated to Manager',
+            message: MSG.GENERAL.SUCCESS,
             data: question
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error escalating question',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -168,7 +182,8 @@ exports.resolveQuestion = async (req, res) => {
         if (!question) {
             return res.status(404).json({
                 success: false,
-                message: 'Question not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Question not found'
             });
         }
 
@@ -177,14 +192,16 @@ exports.resolveQuestion = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Question marked as resolved',
+            message: MSG.GENERAL.SUCCESS,
             data: question
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error resolving question',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -201,7 +218,8 @@ exports.deleteQuestion = async (req, res) => {
         if (!question) {
             return res.status(404).json({
                 success: false,
-                message: 'Question not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Question not found'
             });
         }
 
@@ -209,13 +227,15 @@ exports.deleteQuestion = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Question deleted successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error deleting question',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };

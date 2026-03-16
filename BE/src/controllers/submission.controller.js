@@ -5,6 +5,7 @@
 
 const { Submission, StudentGroup, User } = require('../models');
 const { Op } = require('sequelize');
+const MSG = require('../constants/messages');
 
 const includeConfig = [
     {
@@ -55,6 +56,7 @@ const getAllSubmissions = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count,
             page: parsedPage,
             limit: parsedLimit,
@@ -64,8 +66,10 @@ const getAllSubmissions = async (req, res) => {
         console.error('Error fetching submissions:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching submissions',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -78,20 +82,24 @@ const getSubmissionById = async (req, res) => {
         if (!submission) {
             return res.status(404).json({
                 success: false,
-                message: 'Submission not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Submission not found'
             });
         }
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             data: submission
         });
     } catch (error) {
         console.error('Error fetching submission:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching submission',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -104,14 +112,16 @@ const createSubmission = async (req, res) => {
         if (!groupId) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide groupId'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing groupId'
             });
         }
 
         if (!fileUrl && !filePath) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide fileUrl or filePath'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing fileUrl or filePath'
             });
         }
 
@@ -119,7 +129,8 @@ const createSubmission = async (req, res) => {
         if (!group) {
             return res.status(404).json({
                 success: false,
-                message: 'Group not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Group not found'
             });
         }
 
@@ -137,15 +148,17 @@ const createSubmission = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Submission created successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: created
         });
     } catch (error) {
         console.error('Error creating submission:', error);
         res.status(500).json({
             success: false,
-            message: 'Error creating submission',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -161,14 +174,16 @@ const updateSubmission = async (req, res) => {
         if (!submission) {
             return res.status(404).json({
                 success: false,
-                message: 'Submission not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Submission not found'
             });
         }
 
         if (requesterRole === 'student' && Number(submission.submittedBy) !== Number(requesterId)) {
             return res.status(403).json({
                 success: false,
-                message: 'You can only update your own submission'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'You can only update your own submission'
             });
         }
 
@@ -183,15 +198,17 @@ const updateSubmission = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Submission updated successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: updated
         });
     } catch (error) {
         console.error('Error updating submission:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating submission',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -206,14 +223,16 @@ const deleteSubmission = async (req, res) => {
         if (!submission) {
             return res.status(404).json({
                 success: false,
-                message: 'Submission not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Submission not found'
             });
         }
 
         if (requesterRole === 'student' && Number(submission.submittedBy) !== Number(requesterId)) {
             return res.status(403).json({
                 success: false,
-                message: 'You can only delete your own submission'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'You can only delete your own submission'
             });
         }
 
@@ -221,14 +240,16 @@ const deleteSubmission = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Submission deleted successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         console.error('Error deleting submission:', error);
         res.status(500).json({
             success: false,
-            message: 'Error deleting submission',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -242,7 +263,8 @@ const gradeSubmission = async (req, res) => {
         if (grade === undefined || grade === null || Number.isNaN(Number(grade))) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide a valid grade'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing or invalid grade'
             });
         }
 
@@ -250,7 +272,8 @@ const gradeSubmission = async (req, res) => {
         if (normalizedGrade < 0 || normalizedGrade > 10) {
             return res.status(400).json({
                 success: false,
-                message: 'Grade must be between 0 and 10'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Grade must be between 0 and 10'
             });
         }
 
@@ -258,7 +281,8 @@ const gradeSubmission = async (req, res) => {
         if (!submission) {
             return res.status(404).json({
                 success: false,
-                message: 'Submission not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Submission not found'
             });
         }
 
@@ -274,15 +298,17 @@ const gradeSubmission = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Submission graded successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: graded
         });
     } catch (error) {
         console.error('Error grading submission:', error);
         res.status(500).json({
             success: false,
-            message: 'Error grading submission',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
