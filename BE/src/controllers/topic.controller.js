@@ -299,6 +299,50 @@ const rejectTopic = async (req, res) => {
     }
 };
 
+
+/**
+ * @desc    Group register a topic (chỉ thành viên trong nhóm mới được đăng ký)
+ * @route   POST /api/topics/:id/register
+ * @access  Student
+ */
+const registerTopicForGroup = async (req, res) => {
+    try {
+        const topicId = req.params.id;
+        const { groupId } = req.body;
+        const userId = req.user.userId || req.user.id;
+
+        // Kiểm tra tồn tại group và topic
+        const group = await StudentGroup.findByPk(groupId);
+        if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
+
+        const topic = await Topic.findByPk(topicId);
+        if (!topic) return res.status(404).json({ success: false, message: 'Topic not found' });
+
+        // Kiểm tra user có phải thành viên của group không
+        const isMember = await GroupMember.findOne({ where: { groupId: group.id, studentId: userId } });
+        if (!isMember) {
+            return res.status(403).json({ success: false, message: 'Only group members can register topic for this group' });
+        }
+
+        // Kiểm tra nhóm đã đăng ký đề tài chưa
+        if (group.topicId) {
+            return res.status(400).json({ success: false, message: 'Group already registered a topic' });
+        }
+
+        // Gán topic cho group
+        group.topicId = topicId;
+        await group.save();
+
+        res.json({
+            success: true,
+            message: 'Group registered topic successfully',
+            data: { groupId: group.id, topicId }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    }
+};
+
 module.exports = {
     getAllTopics,
     getTopicById,
@@ -306,5 +350,6 @@ module.exports = {
     updateTopic,
     deleteTopic,
     approveTopic,
-    rejectTopic
+    rejectTopic,
+    registerTopicForGroup
 };
