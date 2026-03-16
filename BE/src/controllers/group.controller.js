@@ -7,6 +7,9 @@ const { StudentGroup, Class, Topic, GroupMember, User } = require('../models');
 const { Op } = require('sequelize');
 const MSG = require('../constants/messages');
 
+const getRequesterId = (req) => req.user?.userId || req.user?.id;
+const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+
 const memberInclude = {
     model: User,
     as: 'members',
@@ -23,14 +26,31 @@ const memberInclude = {
  */
 const getAllGroups = async (req, res) => {
     try {
-        const { classId, topicId, search } = req.query;
+        const { classId, topicId, lecturerId, search } = req.query;
+        const requesterRole = getRequesterRole(req);
+        const requesterId = getRequesterId(req);
 
         let whereClause = {};
+        const classWhere = {};
 
         if (classId) whereClause.classId = classId;
         if (topicId) whereClause.topicId = topicId;
+        if (lecturerId) classWhere.lecturerId = lecturerId;
+        if (requesterRole === 'lecturer' && !lecturerId) {
+            classWhere.lecturerId = requesterId;
+        }
         if (search) {
             whereClause.groupName = { [Op.like]: `%${search}%` };
+        }
+
+        if (requesterRole === 'student') {
+            const memberships = await GroupMember.findAll({
+                where: { studentId: requesterId },
+                attributes: ['groupId']
+            });
+
+            const groupIds = memberships.map((item) => item.groupId);
+            whereClause.id = groupIds.length > 0 ? { [Op.in]: groupIds } : -1;
         }
 
         const groups = await StudentGroup.findAll({
@@ -39,6 +59,7 @@ const getAllGroups = async (req, res) => {
                 {
                     model: Class,
                     as: 'class',
+                    where: Object.keys(classWhere).length > 0 ? classWhere : undefined,
                     attributes: ['id', 'className']
                 },
                 {
@@ -124,7 +145,7 @@ const getGroupById = async (req, res) => {
 const createGroup = async (req, res) => {
     try {
         const { classId, topicId, groupName } = req.body;
-        const creatorId = req.user.id;
+        const creatorId = getRequesterId(req);
 
         if (!classId || !topicId || !groupName) {
             return res.status(400).json({
@@ -165,10 +186,9 @@ const createGroup = async (req, res) => {
 
         // Kiểm tra sinh viên đã thuộc nhóm nào trong lớp này chưa
         const existingGroupMember = await GroupMember.findOne({
-            where: {},
             include: [{
                 model: StudentGroup,
-                as: 'student_group',
+                as: 'group',
                 where: { classId }
             }],
             where: { studentId: creatorId }
@@ -338,7 +358,7 @@ const addGroupMember = async (req, res) => {
             where: { studentId: userId },
             include: [{
                 model: StudentGroup,
-                as: 'student_group',
+                as: 'group',
                 where: { classId: groupClass }
             }]
         });

@@ -3,7 +3,7 @@
  * Handles CRUD operations for task board items
  */
 
-const { Task, StudentGroup, User } = require('../models');
+const { Task, StudentGroup, User, GroupMember, Class } = require('../models');
 const { Op } = require('sequelize');
 const MSG = require('../constants/messages');
 
@@ -59,9 +59,22 @@ const includeConfig = [
     }
 ];
 
+const getRequesterId = (req) => req.user?.userId || req.user?.id;
+const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+
+const getStudentGroupIds = async (studentId) => {
+    const memberships = await GroupMember.findAll({
+        where: { studentId },
+        attributes: ['groupId']
+    });
+    return memberships.map((item) => item.groupId);
+};
+
 const getAllTasks = async (req, res) => {
     try {
         const { groupId, status, priority, assigneeId, search } = req.query;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const whereClause = {};
 
         if (groupId) whereClause.groupId = groupId;
@@ -75,9 +88,40 @@ const getAllTasks = async (req, res) => {
             ];
         }
 
+        const include = includeConfig.map((item) => ({ ...item }));
+
+        if (requesterRole === 'student') {
+            const groupIds = await getStudentGroupIds(requesterId);
+            if (groupId) {
+                if (!groupIds.includes(Number(groupId))) {
+                    return res.status(403).json({
+                        success: false,
+                        message: MSG.AUTHORIZATION.FORBIDDEN,
+                        detail: 'You can only view tasks of groups you belong to'
+                    });
+                }
+            } else {
+                whereClause.groupId = groupIds.length > 0 ? { [Op.in]: groupIds } : -1;
+            }
+        }
+
+        if (requesterRole === 'lecturer') {
+            include[0] = {
+                ...include[0],
+                required: true,
+                include: [{
+                    model: Class,
+                    as: 'class',
+                    attributes: ['id', 'className', 'lecturerId'],
+                    where: { lecturerId: requesterId },
+                    required: true
+                }]
+            };
+        }
+
         const tasks = await Task.findAll({
             where: whereClause,
-            include: includeConfig,
+            include,
             order: [['createdAt', 'DESC']]
         });
 
@@ -132,7 +176,7 @@ const getTaskById = async (req, res) => {
 const createTask = async (req, res) => {
     try {
         const { groupId, assigneeId, title, description, priority, status, tags, dueDate } = req.body;
-        const createdBy = req.user?.userId;
+        const createdBy = getRequesterId(req);
 
         if (!groupId || !title) {
             return res.status(400).json({
@@ -148,6 +192,15 @@ const createTask = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND,
                 detail: 'Group not found'
+            });
+        }
+
+        const isMember = await GroupMember.findOne({ where: { groupId: group.id, studentId: createdBy } });
+        if (!isMember) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'Only group members can create tasks for this group'
             });
         }
 
@@ -186,8 +239,7 @@ const updateTask = async (req, res) => {
     try {
         const { id } = req.params;
         const { assigneeId, title, description, priority, status, tags, dueDate } = req.body;
-        const requesterId = req.user?.userId;
-        const requesterRole = String(req.user?.role || '').toLowerCase();
+        const requesterId = getRequesterId(req);
 
         const task = await Task.findByPk(id);
         if (!task) {
@@ -198,11 +250,12 @@ const updateTask = async (req, res) => {
             });
         }
 
-        if (requesterRole === 'student' && Number(task.createdBy) !== Number(requesterId)) {
+        const isMember = await GroupMember.findOne({ where: { groupId: task.groupId, studentId: requesterId } });
+        if (!isMember) {
             return res.status(403).json({
                 success: false,
-                message: MSG.GENERAL.BAD_REQUEST,
-                detail: 'You can only update tasks created by you'
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'Only group members can update tasks'
             });
         }
 
@@ -238,8 +291,7 @@ const updateTask = async (req, res) => {
 const deleteTask = async (req, res) => {
     try {
         const { id } = req.params;
-        const requesterId = req.user?.userId;
-        const requesterRole = String(req.user?.role || '').toLowerCase();
+        const requesterId = getRequesterId(req);
 
         const task = await Task.findByPk(id);
         if (!task) {
@@ -250,11 +302,12 @@ const deleteTask = async (req, res) => {
             });
         }
 
-        if (requesterRole === 'student' && Number(task.createdBy) !== Number(requesterId)) {
+        const isMember = await GroupMember.findOne({ where: { groupId: task.groupId, studentId: requesterId } });
+        if (!isMember) {
             return res.status(403).json({
                 success: false,
-                message: MSG.GENERAL.BAD_REQUEST,
-                detail: 'You can only delete tasks created by you'
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'Only group members can delete tasks'
             });
         }
 

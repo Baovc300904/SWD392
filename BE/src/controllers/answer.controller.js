@@ -3,8 +3,11 @@
  * Handles answers to Q&A questions
  */
 
-const { Answer, Question, User } = require('../models');
+const { Answer, Question, User, GroupMember, StudentGroup, Class } = require('../models');
 const MSG = require('../constants/messages');
+
+const getRequesterId = (req) => req.user?.userId || req.user?.id;
+const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
 
 /**
  * @desc    Get all answers for a question
@@ -14,8 +17,8 @@ const MSG = require('../constants/messages');
 exports.getAnswersByQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
-        const userId = req.user?.id;
-        const userRole = req.user?.role;
+        const userId = getRequesterId(req);
+        const userRole = getRequesterRole(req);
 
         // Lấy thông tin câu hỏi để biết groupId và askedBy
         const question = await Question.findByPk(questionId);
@@ -33,6 +36,10 @@ exports.getAnswersByQuestion = async (req, res) => {
         });
 
         // Lọc answers theo quyền truy cập
+        const membership = question.groupId && userRole === 'student'
+            ? await GroupMember.findOne({ where: { groupId: question.groupId, studentId: userId } })
+            : null;
+
         const filteredAnswers = answers.filter(ans => {
             if (ans.isPublic) return true; // Public: ai cũng thấy
             // Private: chỉ thành viên nhóm, người hỏi, người trả lời, lecturer/manager
@@ -40,14 +47,7 @@ exports.getAnswersByQuestion = async (req, res) => {
             if (userId === question.askedBy) return true;
             if (userId === ans.answeredBy) return true;
             if (userRole === 'lecturer' || userRole === 'manager') return true;
-            // Kiểm tra thành viên nhóm
-            if (question.groupId) {
-                // Cần truy vấn GroupMember để kiểm tra
-                // (Đơn giản hóa: trả về cho student nếu groupId trùng với nhóm của user)
-                // Nếu cần chính xác, nên truy vấn GroupMember ở đây
-                // (Hoặc có thể bổ sung sau nếu cần)
-            }
-            return false;
+            return Boolean(membership);
         });
 
         res.status(200).json({
@@ -73,14 +73,30 @@ exports.getAnswersByQuestion = async (req, res) => {
 exports.createAnswer = async (req, res) => {
     try {
         const { questionId } = req.params;
-        const { content, answeredBy, isPublic = false } = req.body;
+        const { content, isPublic = false } = req.body;
+        const answeredBy = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         // Check if question exists
-        const question = await Question.findByPk(questionId);
+        const question = await Question.findByPk(questionId, {
+            include: [{
+                model: StudentGroup,
+                as: 'group',
+                include: [{ model: Class, as: 'class', attributes: ['lecturerId'] }]
+            }]
+        });
         if (!question) {
             return res.status(404).json({
                 success: false,
                 message: 'Question not found'
+            });
+        }
+
+        if (requesterRole === 'lecturer' && Number(question.group?.class?.lecturerId) !== Number(answeredBy)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You can only answer questions from your classes'
             });
         }
 
@@ -119,6 +135,8 @@ exports.createAnswer = async (req, res) => {
 exports.updateAnswer = async (req, res) => {
     try {
         const { content, isPublic } = req.body;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         const answer = await Answer.findByPk(req.params.id);
 
@@ -126,6 +144,13 @@ exports.updateAnswer = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Answer not found'
+            });
+        }
+
+        if (requesterRole !== 'manager' && Number(answer.answeredBy) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN
             });
         }
 
@@ -156,11 +181,20 @@ exports.updateAnswer = async (req, res) => {
 exports.toggleAnswerVisibility = async (req, res) => {
     try {
         const answer = await Answer.findByPk(req.params.id);
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         if (!answer) {
             return res.status(404).json({
                 success: false,
                 message: 'Answer not found'
+            });
+        }
+
+        if (requesterRole !== 'manager' && Number(answer.answeredBy) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN
             });
         }
 
@@ -189,11 +223,20 @@ exports.toggleAnswerVisibility = async (req, res) => {
 exports.deleteAnswer = async (req, res) => {
     try {
         const answer = await Answer.findByPk(req.params.id);
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         if (!answer) {
             return res.status(404).json({
                 success: false,
                 message: 'Answer not found'
+            });
+        }
+
+        if (requesterRole !== 'manager' && Number(answer.answeredBy) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN
             });
         }
 
