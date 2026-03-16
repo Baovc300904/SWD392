@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Users, FileCheck, Clock, Activity, TrendingUp, CheckCircle } from 'lucide-react';
-import { topicService, groupService } from '../../services/app.service';
+import { topicService, groupService, submissionService } from '../../services/app.service';
 import questionService from '../../services/question.service';
+import taskService from '../../services/task.service';
 import userService from '../../services/user.service';
 
 const toArray = (value) => {
@@ -29,35 +30,39 @@ export function DashboardView() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeTopics: 0,
-    pendingApprovals: 0,
-    systemHealth: 'OK'
+    escalatedQuestions: 0,
+    gradedSubmissions: 0
   });
   const [recentActivities, setRecentActivities] = useState([]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [usersRes, topicsRes, questionsRes, groupsRes] = await Promise.all([
+      const [usersRes, topicsRes, questionsRes, groupsRes, submissionsRes, tasksRes] = await Promise.all([
         userService.getAllUsers(),
         topicService.getAllTopics(),
         questionService.getAllQuestions(),
-        groupService.getAllGroups()
+        groupService.getAllGroups(),
+        submissionService.getAllSubmissions(),
+        taskService.getAllTasks()
       ]);
 
       const users = toArray(usersRes);
       const topics = toArray(topicsRes);
       const questions = toArray(questionsRes);
       const groups = toArray(groupsRes);
+      const submissions = toArray(submissionsRes);
+      const tasks = toArray(tasksRes);
 
-      const pendingTopics = topics.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
       const approvedTopics = topics.filter((item) => String(item.status || '').toUpperCase() === 'APPROVED').length;
-      const unresolvedQuestions = questions.filter((item) => String(item.status || '').toUpperCase() !== 'RESOLVED').length;
+      const escalatedQuestions = questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length;
+      const gradedSubmissions = submissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED').length;
 
       setStats({
         totalUsers: users.length,
         activeTopics: approvedTopics,
-        pendingApprovals: pendingTopics,
-        systemHealth: unresolvedQuestions < 20 ? 'Stable' : 'Attention'
+        escalatedQuestions,
+        gradedSubmissions
       });
 
       const activities = [
@@ -87,6 +92,24 @@ export function DashboardView() {
           action: `Created group: ${group.groupName || 'Unnamed group'}`,
           timestampRaw: group.createdAt,
           status: 'success'
+        })),
+        ...submissions.map((submission) => ({
+          id: `submission_${submission.id}`,
+          type: 'submission_review',
+          user: submission.submitter?.fullName || 'Unknown',
+          email: submission.submitter?.email || 'N/A',
+          action: `Submitted milestone: ${submission.milestoneName || `#${submission.id}`}`,
+          timestampRaw: submission.submittedAt || submission.createdAt,
+          status: String(submission.status || '').toUpperCase() === 'GRADED' ? 'success' : 'pending'
+        })),
+        ...tasks.map((task) => ({
+          id: `task_${task.id}`,
+          type: 'task',
+          user: task.creator?.fullName || 'Unknown',
+          email: task.creator?.email || 'N/A',
+          action: `Created task: ${task.title || 'Untitled task'}`,
+          timestampRaw: task.createdAt,
+          status: String(task.status || '').toUpperCase() === 'DONE' ? 'success' : 'pending'
         }))
       ]
         .sort((first, second) => new Date(second.timestampRaw || 0).getTime() - new Date(first.timestampRaw || 0).getTime())
@@ -124,17 +147,17 @@ export function DashboardView() {
       textColor: 'text-[#F27125]'
     },
     {
-      label: 'Pending Approvals',
-      value: stats.pendingApprovals,
-      change: 'Need manager review',
+      label: 'Escalated Q&A',
+      value: stats.escalatedQuestions,
+      change: 'Need manager attention',
       icon: Clock,
       lightBg: 'bg-[#F27125]/10',
       textColor: 'text-[#F27125]'
     },
     {
-      label: 'System Health',
-      value: stats.systemHealth,
-      change: 'Based on unresolved Q&A',
+      label: 'Graded Submissions',
+      value: stats.gradedSubmissions,
+      change: 'Across all classes',
       icon: Activity,
       lightBg: 'bg-[#F27125]/10',
       textColor: 'text-[#F27125]'
@@ -166,7 +189,7 @@ export function DashboardView() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
-          <p className="text-sm text-gray-500 mt-1 font-medium">Latest events from topics, Q&A, and groups</p>
+          <p className="text-sm text-gray-500 mt-1 font-medium">Latest events from topics, Q&A, groups, submissions, and tasks</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -191,9 +214,11 @@ export function DashboardView() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
                         activity.type === 'login' ? 'bg-blue-100 text-blue-700' :
-                        activity.type === 'submission' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
+                        activity.type === 'submission' ? 'bg-purple-100 text-purple-700' :
+                        activity.type === 'submission_review' ? 'bg-orange-100 text-orange-700' :
+                        activity.type === 'task' ? 'bg-sky-100 text-sky-700' : 'bg-green-100 text-green-700'
                       }`}>
-                        {activity.type === 'login' ? '🔐 Q&A' : activity.type === 'submission' ? '📝 Topic' : '✅ Group'}
+                        {activity.type === 'login' ? 'Q&A' : activity.type === 'submission' ? 'Topic' : activity.type === 'submission_review' ? 'Submission' : activity.type === 'task' ? 'Task' : 'Group'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900">{activity.user}</div></td>

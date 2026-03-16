@@ -56,8 +56,7 @@ export function QAForumView({ groupId }) {
       await questionService.createQuestion({
         title: content.slice(0, 80),
         content,
-        groupId,
-        askedBy: currentUser?.userId || currentUser?.id
+        groupId
       });
       setNewQuestion('');
       loadQuestions();

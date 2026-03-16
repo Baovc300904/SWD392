@@ -7,7 +7,7 @@ import authService from '../../services/auth.service';
  * Topic Management View - Task 19
  * List all topics with filtering and approval actions
  */
-export function TopicManagementView() {
+export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
   const currentUser = authService.getCurrentUser();
   const canApproveTopics = currentUser?.role?.toLowerCase() === 'manager';
   const [topics, setTopics] = useState([]);
@@ -24,10 +24,14 @@ export function TopicManagementView() {
     loadTopics();
   }, []);
 
+  useEffect(() => {
+    setStatusFilter(initialStatusFilter || 'ALL');
+  }, [initialStatusFilter]);
+
   const loadTopics = async () => {
     try {
       setLoading(true);
-      const response = await topicService.getAllTopics();
+      const response = await topicService.getAllTopics({ lecturerId: currentUser?.userId || currentUser?.id });
       setTopics(Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load topics:', error);

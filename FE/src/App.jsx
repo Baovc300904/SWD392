@@ -22,6 +22,7 @@ import { AIAssistantView } from './components/group/AIAssistantView';
 import { ResourcesView } from './components/group/ResourcesView';
 import { StudentTopicView } from './components/group/StudentTopicView';
 import { StudentGroupJoinFlow } from './components/group/StudentGroupJoinFlow';
+import { StudentSubmissionView } from './components/group/StudentSubmissionView';
 import authService from './services/auth.service';
 import groupService from './services/group.service';
 
@@ -87,6 +88,7 @@ function StudentGroupWorkspace({ currentGroupId, onLogout, onNavigate }) {
         case 'topic':        return <StudentTopicView groupId={currentGroupId} />;
         case 'task-board':   return <TaskBoardView groupId={currentGroupId} />;
         case 'qa-forum':     return <QAForumView groupId={currentGroupId} />;
+        case 'submissions':  return <StudentSubmissionView groupId={currentGroupId} />;
         case 'ai-assistant': return <AIAssistantView groupId={currentGroupId} />;
         case 'resources':    return <ResourcesView groupId={currentGroupId} />;
         case 'chat':         return <SlackChat channel={activeChannel} channelId={activeChannelId} groupId={currentGroupId} />;
@@ -291,6 +293,31 @@ export default function App() {
     bootstrapUserContext();
   }, []);
 
+  /* ─── Keep user online with heartbeat ─── */
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (!user?.token) return;
+
+    let stopped = false;
+    const sendHeartbeat = async () => {
+      try {
+        await authService.heartbeat();
+      } catch (error) {
+        if (!stopped) {
+          console.warn('Heartbeat failed:', error?.message || error);
+        }
+      }
+    };
+
+    sendHeartbeat();
+    const intervalId = setInterval(sendHeartbeat, 60_000);
+
+    return () => {
+      stopped = true;
+      clearInterval(intervalId);
+    };
+  }, [userRole]);
+
   /* ─── Scroll to top on route change ─── */
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -302,14 +329,14 @@ export default function App() {
       // Chỉ logout khi đóng tab nếu KHÔNG có Remember Me
       if (authService.isRemembered()) return;
       const user = authService.getCurrentUser();
-      if (user?.token) {
+      if (user?.token && user?.refreshToken) {
         const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
         try {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', `${API_BASE}/auth/logout`, false);
           xhr.setRequestHeader('Authorization', `Bearer ${user.token}`);
           xhr.setRequestHeader('Content-Type', 'application/json');
-          xhr.send(JSON.stringify({}));
+          xhr.send(JSON.stringify({ refreshToken: user.refreshToken }));
         } catch { /* ignore */ }
       }
     };

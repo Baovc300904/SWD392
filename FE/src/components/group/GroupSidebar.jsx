@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  ListTodo, 
-  MessageSquare, 
-  Bot, 
-  FolderOpen,
+import {
   ChevronDown,
   UserCircle,
   Settings,
-  LogOut,
-  Circle
+  LogOut
 } from 'lucide-react';
 import groupService from '../../services/group.service';
 
@@ -51,10 +45,10 @@ export function GroupSidebar({ activeTool, onToolChange, onLogout, groupId, onNa
 
   const tools = [
     { id: 'dashboard', name: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'topic', name: 'topic', icon: '📘', label: 'Topic' },
     { id: 'task-board', name: 'task-board', icon: '📋', label: 'Task Board' },
     { id: 'qa-forum', name: 'qa-forum', icon: '💬', label: 'Q&A Forum' },
-    { id: 'ai-assistant', name: 'ai-assistant', icon: '🤖', label: 'AI Assistant' },
-    { id: 'resources', name: 'resources', icon: '📂', label: 'Resources' },
+    { id: 'submissions', name: 'submissions', icon: '📤', label: 'Submissions' },
   ];
 
   // Members are now fetched from API via useEffect above

@@ -418,6 +418,39 @@ class AuthService {
         // Find user by email
         const user = await User.findOne({ where: { email } });
 
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        user.passwordHash = newPassword;
+        user.refreshToken = null;
+        await user.save();
+
+        return {
+            message: 'Password has been updated successfully.'
+        };
+    }
+
+    async changePassword(userId, currentPassword, newPassword) {
+        const user = await User.findByPk(userId);
+
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        const isPasswordValid = await user.comparePassword(currentPassword);
+        if (!isPasswordValid) {
+            throw { statusCode: 400, message: 'Current password is incorrect' };
+        }
+
+        user.passwordHash = newPassword;
+        user.refreshToken = null;
+        await user.save();
+
+        return {
+            message: 'Password changed successfully. Please login again.'
+        };
+
         // Don't reveal if user exists (security best practice)
         if (!user) {
             return;

@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import { Search, Filter, ChevronDown, AlertTriangle, MessageSquare, Send, Sparkles } from 'lucide-react';
 import questionService from '../../services/question.service';
 import authService from '../../services/auth.service';
-import aiService from '../../services/ai.service';
 
 /**
  * Q&A Tickets Management View
  * Display and manage student questions
  */
-export function QAManagementView() {
+export function QAManagementView({ initialStatusFilter = 'ALL' }) {
   const currentUser = authService.getCurrentUser();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,10 +25,14 @@ export function QAManagementView() {
     loadQuestions();
   }, []);
 
+  useEffect(() => {
+    setStatusFilter(initialStatusFilter || 'ALL');
+  }, [initialStatusFilter]);
+
   const loadQuestions = async () => {
     try {
       setLoading(true);
-      const response = await questionService.getAllQuestions();
+      const response = await questionService.getAllQuestions({ lecturerId: currentUser?.userId || currentUser?.id });
       setQuestions(Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load questions:', error);
@@ -48,7 +51,6 @@ export function QAManagementView() {
       setSubmitting(true);
       await questionService.answerQuestion(questionId, {
         content: answer,
-        answeredBy: currentUser?.userId || currentUser?.id,
         isPublic,
         markAsResolved: true
       });
@@ -79,25 +81,18 @@ export function QAManagementView() {
   const handleAskAI = async (questionId) => {
     const selected = questions.find((item) => item.id === questionId);
 
-    if (!aiService.isConfigured()) {
-      alert('AI chưa được cấu hình.\nVui lòng thêm VITE_GEMINI_API_KEY vào file .env.local\nLấy key miễn phí tại: https://aistudio.google.com/app/apikey');
-      return;
-    }
-
     try {
       setAiLoadingId(questionId);
-      const prompt = selected?.content || selected?.title || 'Help me answer this student question.';
-      const context = `Bạn là trợ lý giảng viên. Hãy viết câu trả lời ngắn gọn, chính xác bằng tiếng Việt phù hợp với sinh viên.\nTên câu hỏi: ${selected?.title || 'N/A'}\nNội dung: ${selected?.content || 'N/A'}`;
-      const aiText = await aiService.generateReply({ prompt, context });
+      const response = await questionService.askAI(questionId);
+      const aiText = response?.data?.draft || response?.draft || '';
+      if (!aiText) {
+        alert('AI không trả về nội dung gợi ý.');
+        return;
+      }
       setAnswer(aiText);
       setSelectedQuestion(selected || null);
     } catch (error) {
-      const msg = error.message || 'Unknown error';
-      if (msg.includes('quota') || msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-        alert('API key Gemini đã hết quota (limit = 0).\n\nCách fix:\n1. Vào https://aistudio.google.com/app/apikey\n2. Tạo project mới → lấy API key mới\n3. Thay VITE_GEMINI_API_KEY trong .env.local rồi restart FE');
-      } else {
-        alert('Không thể lấy gợi ý AI: ' + msg);
-      }
+      alert('Không thể lấy gợi ý AI: ' + (error?.message || 'Unknown error'));
     } finally {
       setAiLoadingId(null);
     }

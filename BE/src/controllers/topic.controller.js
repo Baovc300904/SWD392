@@ -7,6 +7,9 @@ const { Topic, User, StudentGroup, GroupMember } = require('../models');
 const { Op } = require('sequelize');
 const MSG = require('../constants/messages');
 
+const getRequesterId = (req) => req.user?.userId || req.user?.id;
+const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+
 /**
  * @desc    Get all topics
  * @route   GET /api/topics
@@ -14,12 +17,13 @@ const MSG = require('../constants/messages');
  */
 const getAllTopics = async (req, res) => {
     try {
-        const { status, proposedBy, search } = req.query;
+        const { status, proposedBy, lecturerId, search } = req.query;
 
         let whereClause = {};
 
         if (status) whereClause.status = status;
         if (proposedBy) whereClause.proposedBy = proposedBy;
+        if (lecturerId) whereClause.proposedBy = lecturerId;
         if (search) {
             whereClause[Op.or] = [
                 { title: { [Op.like]: `%${search}%` } },
@@ -183,6 +187,8 @@ const updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         const topic = await Topic.findByPk(id);
 
@@ -191,6 +197,14 @@ const updateTopic = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND,
                 detail: 'Topic not found'
+            });
+        }
+
+        if (requesterRole === 'lecturer' && Number(topic.proposedBy) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You can only update topics created by you'
             });
         }
 
@@ -221,6 +235,8 @@ const updateTopic = async (req, res) => {
 const deleteTopic = async (req, res) => {
     try {
         const { id } = req.params;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         const topic = await Topic.findByPk(id);
 
@@ -229,6 +245,14 @@ const deleteTopic = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND,
                 detail: 'Topic not found'
+            });
+        }
+
+        if (requesterRole === 'lecturer' && Number(topic.proposedBy) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You can only delete topics created by you'
             });
         }
 

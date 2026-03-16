@@ -256,7 +256,7 @@ export function GroupManagementView() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredGroups.map((group) => (
-                <tr key={group.id} className="hover:bg-gray-50/60 transition">
+                <tr key={group.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4 font-semibold text-gray-900">{group.groupName}</td>
                   <td className="px-6 py-4 text-gray-600">{group.class?.className || '—'}</td>
                   <td className="px-6 py-4 text-gray-600">{group.topic?.title || '—'}</td>

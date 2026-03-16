@@ -3,12 +3,16 @@ import {
   LayoutDashboard,
   Users,
   FileCheck,
+  Bell,
   Settings,
   LogOut,
   UserCircle,
   Calendar,
   School,
-  UsersRound
+  UsersRound,
+  ClipboardCheck,
+  MessageSquare,
+  ListTodo
 } from 'lucide-react';
 import { DashboardView } from '../components/admin/DashboardView';
 import { UserManagementView } from '../components/admin/UserManagementView';
@@ -17,10 +21,17 @@ import { SettingsView } from '../components/admin/SettingsView';
 import { SemesterManagementView } from '../components/admin/SemesterManagementView';
 import { ClassManagementView } from '../components/admin/ClassManagementView';
 import { GroupManagementView } from '../components/admin/GroupManagementView';
+import { SubmissionManagementView } from '../components/admin/SubmissionManagementView';
+import { QAMonitoringView } from '../components/admin/QAMonitoringView';
+import { TaskOverviewView } from '../components/admin/TaskOverviewView';
+import { NotificationBell } from '../components/ui/NotificationBell';
+import { usePortalNotifications } from '../hooks/usePortalNotifications';
 
 export function AdminDashboard({ onLogout, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
   const [adminUser, setAdminUser] = useState({ fullName: 'Admin', email: '' });
+  const [viewFilters, setViewFilters] = useState({ qa: 'ALL', topics: 'all', users: 'all' });
+  const { notifications, unreadCount, loading, refreshNotifications } = usePortalNotifications('manager');
 
   useEffect(() => {
     try {
@@ -35,6 +46,21 @@ export function AdminDashboard({ onLogout, onNavigate }) {
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+  const handleNotificationSelect = (item) => {
+    if (item?.targetView) {
+      setActiveView(item.targetView);
+    }
+    if (item?.targetView === 'qa' && item?.targetFilter) {
+      setViewFilters((previous) => ({ ...previous, qa: item.targetFilter }));
+    }
+    if (item?.targetView === 'topics' && item?.targetFilter) {
+      setViewFilters((previous) => ({ ...previous, topics: item.targetFilter }));
+    }
+    if (item?.targetView === 'users' && item?.targetFilter) {
+      setViewFilters((previous) => ({ ...previous, users: item.targetFilter }));
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -117,6 +143,36 @@ export function AdminDashboard({ onLogout, onNavigate }) {
               Groups
             </button>
             <button
+              onClick={() => setActiveView('submissions')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'submissions'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
+            >
+              <ClipboardCheck className="w-5 h-5" />
+              Submissions
+            </button>
+            <button
+              onClick={() => setActiveView('qa')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'qa'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              Q&A Oversight
+            </button>
+            <button
+              onClick={() => setActiveView('tasks')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'tasks'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
+            >
+              <ListTodo className="w-5 h-5" />
+              Task Overview
+            </button>
+            <button
               onClick={() => setActiveView('settings')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'settings'
                 ? 'bg-[#F27125] text-white shadow-lg'
@@ -160,7 +216,10 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 {activeView === 'topics' && 'Topic Approvals'}
                 {activeView === 'semesters' && 'Semester Management'}
                 {activeView === 'classes' && 'Class Management'}
-                {activeView === 'groups' && 'Group Management'}
+                {activeView === 'groups' && 'Group Oversight'}
+                {activeView === 'submissions' && 'Submission Review'}
+                {activeView === 'qa' && 'Q&A Oversight'}
+                {activeView === 'tasks' && 'Task Overview'}
                 {activeView === 'settings' && 'Settings'}
               </h1>
               <p className="text-gray-600 mt-1">
@@ -169,11 +228,21 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 {activeView === 'topics' && 'Review and approve project topics'}
                 {activeView === 'semesters' && 'Create and manage academic semesters'}
                 {activeView === 'classes' && 'Manage classes and student enrollment'}
-                {activeView === 'groups' && 'Manage groups and group members'}
+                {activeView === 'groups' && 'Monitor groups, members, and assigned topics'}
+                {activeView === 'submissions' && 'Review and grade submissions across all classes'}
+                {activeView === 'qa' && 'Handle escalated questions and resolve platform-wide Q&A'}
+                {activeView === 'tasks' && 'Track lecturer-created task progress per group'}
                 {activeView === 'settings' && 'Configure system settings'}
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationBell
+                notifications={notifications}
+                unreadCount={unreadCount}
+                loading={loading}
+                onRefresh={refreshNotifications}
+                onSelect={handleNotificationSelect}
+              />
               <div className="flex flex-col items-end mr-1">
                 <span className="text-sm font-semibold text-gray-900">{adminUser.fullName}</span>
                 <span className="text-xs text-gray-500">{adminUser.email}</span>
@@ -188,11 +257,14 @@ export function AdminDashboard({ onLogout, onNavigate }) {
         {/* Content */}
         <div className="p-8">
           {activeView === 'dashboard' && <DashboardView />}
-          {activeView === 'users' && <UserManagementView />}
-          {activeView === 'topics' && <TopicApprovalsView />}
+          {activeView === 'users' && <UserManagementView initialStatusFilter={viewFilters.users} />}
+          {activeView === 'topics' && <TopicApprovalsView initialStatusFilter={viewFilters.topics} />}
           {activeView === 'semesters' && <SemesterManagementView />}
           {activeView === 'classes' && <ClassManagementView />}
           {activeView === 'groups' && <GroupManagementView />}
+          {activeView === 'submissions' && <SubmissionManagementView />}
+          {activeView === 'qa' && <QAMonitoringView initialStatusFilter={viewFilters.qa} />}
+          {activeView === 'tasks' && <TaskOverviewView />}
           {activeView === 'settings' && <SettingsView />}
         </div>
       </div>

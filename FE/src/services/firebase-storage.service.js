@@ -1,5 +1,11 @@
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { isFirebaseEnabled, storage } from '../config/firebase.config';
+import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
+import {
+    alternateStorageBucket,
+    firebaseApp,
+    isFirebaseEnabled,
+    resolvedStorageBucket,
+    storage,
+} from '../config/firebase.config';
 
 const firebaseStorageService = {
     isEnabled: () => isFirebaseEnabled,
@@ -15,14 +21,31 @@ const firebaseStorageService = {
 
         const safeName = file.name.replace(/\s+/g, '_');
         const filePath = `${folder}/${Date.now()}_${safeName}`;
-        const fileRef = ref(storage, filePath);
+        const uploadWithStorage = async (targetStorage) => {
+            const fileRef = ref(targetStorage, filePath);
+            await uploadBytes(fileRef, file, {
+                contentType: file.type || 'application/octet-stream',
+            });
+            const url = await getDownloadURL(fileRef);
+            return { url, filePath, name: file.name };
+        };
 
-        await uploadBytes(fileRef, file, {
-            contentType: file.type || 'application/octet-stream',
-        });
+        try {
+            return await uploadWithStorage(storage);
+        } catch (error) {
+            if (firebaseApp && alternateStorageBucket && alternateStorageBucket !== resolvedStorageBucket) {
+                try {
+                    const fallbackStorage = getStorage(firebaseApp, `gs://${alternateStorageBucket}`);
+                    return await uploadWithStorage(fallbackStorage);
+                } catch (fallbackError) {
+                    const details = fallbackError?.message || fallbackError?.code || 'Unknown Firebase error';
+                    throw new Error(`Firebase upload failed: ${details}`);
+                }
+            }
 
-        const url = await getDownloadURL(fileRef);
-        return { url, filePath, name: file.name };
+            const details = error?.message || error?.code || 'Unknown Firebase error';
+            throw new Error(`Firebase upload failed: ${details}`);
+        }
     },
 };
 
