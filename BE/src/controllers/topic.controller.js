@@ -3,8 +3,9 @@
  * Handles CRUD operations for topics
  */
 
-const { Topic, User, StudentGroup } = require('../models');
+const { Topic, User, StudentGroup, GroupMember } = require('../models');
 const { Op } = require('sequelize');
+const MSG = require('../constants/messages');
 
 /**
  * @desc    Get all topics
@@ -50,6 +51,7 @@ const getAllTopics = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count: topics.length,
             data: topics
         });
@@ -57,8 +59,10 @@ const getAllTopics = async (req, res) => {
         console.error('Error fetching topics:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching topics',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -95,20 +99,24 @@ const getTopicById = async (req, res) => {
         if (!topic) {
             return res.status(404).json({
                 success: false,
-                message: 'Topic not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Topic not found'
             });
         }
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             data: topic
         });
     } catch (error) {
         console.error('Error fetching topic:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching topic',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -120,44 +128,48 @@ const getTopicById = async (req, res) => {
  */
 const createTopic = async (req, res) => {
     try {
-        const { createdBy, title, description, descriptionFile, maxGroups } = req.body;
+        const { title, description, descriptionFile } = req.body;
 
-        if (!createdBy || !title) {
+        // User is already authenticated via middleware; get id from JWT
+        const proposedById = req.user?.userId || req.user?.id;
+
+        if (!title) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide createdBy and title'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing topic title'
             });
         }
 
-        // Verify creator exists and is a lecturer
-        const creator = await User.findByPk(createdBy);
-        if (!creator || creator.role !== 'Lecturer') {
-            return res.status(404).json({
+        if (!proposedById) {
+            return res.status(401).json({
                 success: false,
-                message: 'Creator not found or invalid role'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Unauthorized: could not identify user'
             });
         }
 
         const topic = await Topic.create({
-            createdBy,
+            proposedBy: proposedById,
             title,
             description,
             descriptionFile,
-            maxGroups: maxGroups || 1,
-            status: 'Pending'
+            status: 'PENDING'
         });
 
         res.status(201).json({
             success: true,
-            message: 'Topic created successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: topic
         });
     } catch (error) {
         console.error('Error creating topic:', error);
         res.status(500).json({
             success: false,
-            message: 'Error creating topic',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -177,7 +189,8 @@ const updateTopic = async (req, res) => {
         if (!topic) {
             return res.status(404).json({
                 success: false,
-                message: 'Topic not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Topic not found'
             });
         }
 
@@ -185,15 +198,17 @@ const updateTopic = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Topic updated successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: topic
         });
     } catch (error) {
         console.error('Error updating topic:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating topic',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -212,7 +227,8 @@ const deleteTopic = async (req, res) => {
         if (!topic) {
             return res.status(404).json({
                 success: false,
-                message: 'Topic not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Topic not found'
             });
         }
 
@@ -220,14 +236,16 @@ const deleteTopic = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Topic deleted successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         console.error('Error deleting topic:', error);
         res.status(500).json({
             success: false,
-            message: 'Error deleting topic',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -246,24 +264,26 @@ const approveTopic = async (req, res) => {
         if (!topic) {
             return res.status(404).json({
                 success: false,
-                message: 'Topic not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Topic not found'
             });
         }
 
-        topic.status = 'Approved';
+        topic.status = 'APPROVED';
         await topic.save();
-
         res.status(200).json({
             success: true,
-            message: 'Topic approved successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: topic
         });
     } catch (error) {
         console.error('Error approving topic:', error);
         res.status(500).json({
             success: false,
-            message: 'Error approving topic',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -282,24 +302,81 @@ const rejectTopic = async (req, res) => {
         if (!topic) {
             return res.status(404).json({
                 success: false,
-                message: 'Topic not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Topic not found'
             });
         }
 
-        topic.status = 'Rejected';
+        topic.status = 'REJECTED';
         await topic.save();
-
         res.status(200).json({
             success: true,
-            message: 'Topic rejected successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: topic
         });
     } catch (error) {
         console.error('Error rejecting topic:', error);
         res.status(500).json({
             success: false,
-            message: 'Error rejecting topic',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+
+/**
+ * @desc    Group register a topic (chỉ thành viên trong nhóm mới được đăng ký)
+ * @route   POST /api/topics/:id/register
+ * @access  Student
+ */
+const registerTopicForGroup = async (req, res) => {
+    try {
+        const topicId = req.params.id;
+        const { groupId } = req.body;
+        const userId = req.user.userId || req.user.id;
+
+        // Kiểm tra tồn tại group và topic
+        const group = await StudentGroup.findByPk(groupId);
+        if (!group) return res.status(404).json({ success: false, message: MSG.GENERAL.NOT_FOUND, detail: 'Group not found' });
+
+        const topic = await Topic.findByPk(topicId);
+        if (!topic) return res.status(404).json({ success: false, message: MSG.GENERAL.NOT_FOUND, detail: 'Topic not found' });
+
+        // Kiểm tra user có phải thành viên của group không
+        const isMember = await GroupMember.findOne({ where: { groupId: group.id, studentId: userId } });
+        if (!isMember) {
+            return res.status(403).json({ success: false, message: MSG.GENERAL.BAD_REQUEST, detail: 'Only group members can register topic for this group' });
+        }
+
+        // Kiểm tra trạng thái đề tài phải là APPROVED
+        if (topic.status !== 'APPROVED') {
+            return res.status(400).json({ success: false, message: MSG.GENERAL.BAD_REQUEST, detail: 'Topic is not approved for registration' });
+        }
+
+        // Kiểm tra nhóm đã đăng ký đề tài chưa
+        if (group.topicId) {
+            return res.status(400).json({ success: false, message: MSG.GENERAL.BAD_REQUEST, detail: 'Group already registered a topic' });
+        }
+
+        // Gán topic cho group
+        group.topicId = topicId;
+        await group.save();
+
+        res.json({
+            success: true,
+            message: MSG.GENERAL.SUCCESS,
+            data: { groupId: group.id, topicId }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -311,5 +388,6 @@ module.exports = {
     updateTopic,
     deleteTopic,
     approveTopic,
-    rejectTopic
+    rejectTopic,
+    registerTopicForGroup
 };

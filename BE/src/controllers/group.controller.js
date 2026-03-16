@@ -5,6 +5,16 @@
 
 const { StudentGroup, Class, Topic, GroupMember, User } = require('../models');
 const { Op } = require('sequelize');
+const MSG = require('../constants/messages');
+
+const memberInclude = {
+    model: User,
+    as: 'members',
+    attributes: ['id', 'fullName', 'email', 'isOnline'],
+    through: {
+        attributes: ['joinedAt']
+    }
+};
 
 /**
  * @desc    Get all groups
@@ -13,16 +23,12 @@ const { Op } = require('sequelize');
  */
 const getAllGroups = async (req, res) => {
     try {
-        const { classId, topicId, status, search } = req.query;
+        const { classId, topicId, search } = req.query;
 
         let whereClause = {};
 
         if (classId) whereClause.classId = classId;
         if (topicId) whereClause.topicId = topicId;
-        // StudentGroup model does not have a status column yet.
-        if (status) {
-            // Keep API shape backward compatible but ignore until schema supports it.
-        }
         if (search) {
             whereClause.groupName = { [Op.like]: `%${search}%` };
         }
@@ -40,20 +46,14 @@ const getAllGroups = async (req, res) => {
                     as: 'topic',
                     attributes: ['id', 'title', 'status']
                 },
-                {
-                    model: User,
-                    as: 'members',
-                    attributes: ['id', 'fullName', 'email'],
-                    through: {
-                        attributes: ['joinedAt']
-                    }
-                }
+                memberInclude
             ],
             order: [['createdAt', 'DESC']]
         });
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count: groups.length,
             data: groups
         });
@@ -61,8 +61,10 @@ const getAllGroups = async (req, res) => {
         console.error('Error fetching groups:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching groups',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -86,34 +88,30 @@ const getGroupById = async (req, res) => {
                     model: Topic,
                     as: 'topic'
                 },
-                {
-                    model: User,
-                    as: 'members',
-                    attributes: ['id', 'fullName', 'email', 'isOnline', 'status', 'studentCode'],
-                    through: {
-                        attributes: ['joinedAt']
-                    }
-                }
+                memberInclude
             ]
         });
 
         if (!group) {
             return res.status(404).json({
                 success: false,
-                message: 'Group not found'
+                message: MSG.GENERAL.NOT_FOUND
             });
         }
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             data: group
         });
     } catch (error) {
         console.error('Error fetching group:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching group',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -126,11 +124,13 @@ const getGroupById = async (req, res) => {
 const createGroup = async (req, res) => {
     try {
         const { classId, topicId, groupName } = req.body;
+        const creatorId = req.user.id;
 
         if (!classId || !topicId || !groupName) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide classId, topicId, and groupName'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing classId, topicId, or groupName'
             });
         }
 
@@ -139,7 +139,8 @@ const createGroup = async (req, res) => {
         if (!classData) {
             return res.status(404).json({
                 success: false,
-                message: 'Class not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Class not found'
             });
         }
 
@@ -148,14 +149,35 @@ const createGroup = async (req, res) => {
         if (!topic) {
             return res.status(404).json({
                 success: false,
-                message: 'Topic not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Topic not found'
             });
         }
 
-        if (topic.status !== 'APPROVED') {
+        const normalizedTopicStatus = String(topic.status || '').toUpperCase();
+        if (normalizedTopicStatus !== 'APPROVED') {
             return res.status(400).json({
                 success: false,
-                message: 'Topic must be approved before creating a group'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Topic must be approved before creating a group'
+            });
+        }
+
+        // Kiểm tra sinh viên đã thuộc nhóm nào trong lớp này chưa
+        const existingGroupMember = await GroupMember.findOne({
+            where: {},
+            include: [{
+                model: StudentGroup,
+                as: 'student_group',
+                where: { classId }
+            }],
+            where: { studentId: creatorId }
+        });
+        if (existingGroupMember) {
+            return res.status(400).json({
+                success: false,
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'You already belong to a group in this class.'
             });
         }
 
@@ -165,17 +187,22 @@ const createGroup = async (req, res) => {
             groupName
         });
 
+        // Thêm creator vào nhóm luôn
+        await GroupMember.create({ groupId: group.id, studentId: creatorId });
+
         res.status(201).json({
             success: true,
-            message: 'Group created successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: group
         });
     } catch (error) {
         console.error('Error creating group:', error);
         res.status(500).json({
             success: false,
-            message: 'Error creating group',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -188,34 +215,32 @@ const createGroup = async (req, res) => {
 const updateGroup = async (req, res) => {
     try {
         const { id } = req.params;
-        const { groupName, classId, topicId } = req.body;
+        const updates = req.body;
 
         const group = await StudentGroup.findByPk(id);
 
         if (!group) {
             return res.status(404).json({
                 success: false,
-                message: 'Group not found'
+                message: MSG.GENERAL.NOT_FOUND
             });
         }
 
-        await group.update({
-            ...(groupName !== undefined ? { groupName } : {}),
-            ...(classId !== undefined ? { classId } : {}),
-            ...(topicId !== undefined ? { topicId } : {})
-        });
+        await group.update(updates);
 
         res.status(200).json({
             success: true,
-            message: 'Group updated successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: group
         });
     } catch (error) {
         console.error('Error updating group:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating group',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -234,7 +259,7 @@ const deleteGroup = async (req, res) => {
         if (!group) {
             return res.status(404).json({
                 success: false,
-                message: 'Group not found'
+                message: MSG.GENERAL.NOT_FOUND
             });
         }
 
@@ -242,14 +267,16 @@ const deleteGroup = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Group deleted successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         console.error('Error deleting group:', error);
         res.status(500).json({
             success: false,
-            message: 'Error deleting group',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -267,7 +294,8 @@ const addGroupMember = async (req, res) => {
         if (!userId) {
             return res.status(400).json({
                 success: false,
-                message: 'User ID is required'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'User ID is required'
             });
         }
 
@@ -277,7 +305,7 @@ const addGroupMember = async (req, res) => {
         if (!group) {
             return res.status(404).json({
                 success: false,
-                message: 'Group not found'
+                message: MSG.GENERAL.NOT_FOUND
             });
         }
 
@@ -286,19 +314,49 @@ const addGroupMember = async (req, res) => {
         if (!user || user.role !== 'student') {
             return res.status(404).json({
                 success: false,
-                message: 'User not found or invalid role'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'User not found or invalid role'
             });
         }
 
-        // Check if already a member
+        // Check if already a member of this group
         const existingMember = await GroupMember.findOne({
             where: { groupId: id, studentId: userId }
         });
-
         if (existingMember) {
             return res.status(409).json({
                 success: false,
-                message: 'User is already a member of this group'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'User is already a member of this group'
+            });
+        }
+
+        // Lấy classId của group
+        const groupClass = group.classId;
+        // Kiểm tra user đã thuộc nhóm nào trong lớp này chưa
+        const existingGroupInClass = await GroupMember.findOne({
+            where: { studentId: userId },
+            include: [{
+                model: StudentGroup,
+                as: 'student_group',
+                where: { classId: groupClass }
+            }]
+        });
+        if (existingGroupInClass) {
+            return res.status(400).json({
+                success: false,
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'User already belongs to a group in this class.'
+            });
+        }
+
+        // Kiểm tra số lượng thành viên tối đa
+        const memberCount = await GroupMember.count({ where: { groupId: id } });
+        if (memberCount >= 5) {
+            return res.status(400).json({
+                success: false,
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Group already has maximum 5 members.'
             });
         }
 
@@ -309,15 +367,17 @@ const addGroupMember = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Member added to group successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: member
         });
     } catch (error) {
         console.error('Error adding group member:', error);
         res.status(500).json({
             success: false,
-            message: 'Error adding group member',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -338,7 +398,8 @@ const removeGroupMember = async (req, res) => {
         if (!member) {
             return res.status(404).json({
                 success: false,
-                message: 'Group member not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Group member not found'
             });
         }
 
@@ -346,14 +407,16 @@ const removeGroupMember = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Member removed from group successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         console.error('Error removing group member:', error);
         res.status(500).json({
             success: false,
-            message: 'Error removing group member',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -372,13 +435,14 @@ const getGroupMembers = async (req, res) => {
             include: [{
                 model: User,
                 as: 'student',
-                attributes: ['id', 'fullName', 'email', 'isOnline', 'status', 'studentCode']
+                attributes: ['id', 'fullName', 'email', 'isOnline', 'status']
             }],
             order: [['joinedAt', 'ASC']]
         });
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count: members.length,
             data: members
         });
@@ -386,8 +450,10 @@ const getGroupMembers = async (req, res) => {
         console.error('Error fetching group members:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching group members',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };

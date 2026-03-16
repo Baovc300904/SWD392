@@ -7,7 +7,8 @@ import {
   LogOut,
   UserCircle,
   Calendar,
-  School
+  School,
+  UsersRound
 } from 'lucide-react';
 import { DashboardView } from '../components/admin/DashboardView';
 import { UserManagementView } from '../components/admin/UserManagementView';
@@ -15,6 +16,7 @@ import { TopicApprovalsView } from '../components/admin/TopicApprovalsView';
 import { SettingsView } from '../components/admin/SettingsView';
 import { SemesterManagementView } from '../components/admin/SemesterManagementView';
 import { ClassManagementView } from '../components/admin/ClassManagementView';
+import { GroupManagementView } from '../components/admin/GroupManagementView';
 
 export function AdminDashboard({ onLogout, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
@@ -105,6 +107,16 @@ export function AdminDashboard({ onLogout, onNavigate }) {
               Classes
             </button>
             <button
+              onClick={() => setActiveView('groups')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'groups'
+                ? 'bg-[#F27125] text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/10'
+                }`}
+            >
+              <UsersRound className="w-5 h-5" />
+              Groups
+            </button>
+            <button
               onClick={() => setActiveView('settings')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${activeView === 'settings'
                 ? 'bg-[#F27125] text-white shadow-lg'
@@ -148,6 +160,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 {activeView === 'topics' && 'Topic Approvals'}
                 {activeView === 'semesters' && 'Semester Management'}
                 {activeView === 'classes' && 'Class Management'}
+                {activeView === 'groups' && 'Group Management'}
                 {activeView === 'settings' && 'Settings'}
               </h1>
               <p className="text-gray-600 mt-1">
@@ -156,6 +169,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 {activeView === 'topics' && 'Review and approve project topics'}
                 {activeView === 'semesters' && 'Create and manage academic semesters'}
                 {activeView === 'classes' && 'Manage classes and student enrollment'}
+                {activeView === 'groups' && 'Manage groups and group members'}
                 {activeView === 'settings' && 'Configure system settings'}
               </p>
             </div>
@@ -178,6 +192,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
           {activeView === 'topics' && <TopicApprovalsView />}
           {activeView === 'semesters' && <SemesterManagementView />}
           {activeView === 'classes' && <ClassManagementView />}
+          {activeView === 'groups' && <GroupManagementView />}
           {activeView === 'settings' && <SettingsView />}
         </div>
       </div>

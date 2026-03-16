@@ -155,8 +155,14 @@ export const answerService = {
 // Semester Services
 export const semesterService = {
   // Get all semesters
-  getAllSemesters: async () => {
-    return await api.get('/semesters');
+  getAllSemesters: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    return await api.get(`/semesters?${params}`);
+  },
+
+  // Get active semester
+  getActiveSemester: async () => {
+    return await api.get('/semesters/active');
   },
 
   // Get semester by ID

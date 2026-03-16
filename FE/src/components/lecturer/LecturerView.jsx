@@ -10,7 +10,7 @@ import { GroupSubmissionView } from './GroupSubmissionView';
  * Main Lecturer View - New Design
  * 2-column layout: Sidebar + Main Content
  */
-export function LecturerView({ onLogout, currentUser }) {
+export function LecturerView({ onLogout, currentUser, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
 
   const renderContent = () => {
@@ -36,6 +36,7 @@ export function LecturerView({ onLogout, currentUser }) {
         onViewChange={setActiveView}
         onLogout={onLogout}
         currentUser={currentUser}
+        onNavigate={onNavigate}
       />
 
       {/* Main Content Area */}

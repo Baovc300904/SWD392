@@ -5,6 +5,7 @@
 
 const { Class, User, StudentGroup } = require('../models');
 const { Op } = require('sequelize');
+const MSG = require('../constants/messages');
 
 /**
  * @desc    Get all classes
@@ -41,6 +42,7 @@ const getAllClasses = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             count: classes.length,
             data: classes
         });
@@ -48,8 +50,10 @@ const getAllClasses = async (req, res) => {
         console.error('Error fetching classes:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching classes',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -81,20 +85,24 @@ const getClassById = async (req, res) => {
         if (!classData) {
             return res.status(404).json({
                 success: false,
-                message: 'Class not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Class not found'
             });
         }
 
         res.status(200).json({
             success: true,
+            message: MSG.GENERAL.SUCCESS,
             data: classData
         });
     } catch (error) {
         console.error('Error fetching class:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching class',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -111,16 +119,18 @@ const createClass = async (req, res) => {
         if (!lecturerId || !className) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide lecturerId and className'
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Missing lecturerId or className'
             });
         }
 
         // Verify lecturer exists and is a lecturer
         const lecturer = await User.findByPk(lecturerId);
-        if (!lecturer || lecturer.role !== 'LECTURER') {
+        if (!lecturer || lecturer.role !== 'lecturer') {
             return res.status(404).json({
                 success: false,
-                message: 'Lecturer not found or invalid role'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Lecturer not found or invalid role'
             });
         }
 
@@ -131,15 +141,17 @@ const createClass = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Class created successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: newClass
         });
     } catch (error) {
         console.error('Error creating class:', error);
         res.status(500).json({
             success: false,
-            message: 'Error creating class',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -159,7 +171,8 @@ const updateClass = async (req, res) => {
         if (!classData) {
             return res.status(404).json({
                 success: false,
-                message: 'Class not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Class not found'
             });
         }
 
@@ -170,15 +183,17 @@ const updateClass = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Class updated successfully',
+            message: MSG.GENERAL.SUCCESS,
             data: classData
         });
     } catch (error) {
         console.error('Error updating class:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating class',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -197,7 +212,8 @@ const deleteClass = async (req, res) => {
         if (!classData) {
             return res.status(404).json({
                 success: false,
-                message: 'Class not found'
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Class not found'
             });
         }
 
@@ -205,14 +221,16 @@ const deleteClass = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Class deleted successfully'
+            message: MSG.GENERAL.SUCCESS
         });
     } catch (error) {
         console.error('Error deleting class:', error);
         res.status(500).json({
             success: false,
-            message: 'Error deleting class',
-            error: error.message
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };

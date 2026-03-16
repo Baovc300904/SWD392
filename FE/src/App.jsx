@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Component } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -20,7 +21,9 @@ import { QAForumView } from './components/group/QAForumView';
 import { AIAssistantView } from './components/group/AIAssistantView';
 import { ResourcesView } from './components/group/ResourcesView';
 import { StudentTopicView } from './components/group/StudentTopicView';
+import { StudentGroupJoinFlow } from './components/group/StudentGroupJoinFlow';
 import authService from './services/auth.service';
+import groupService from './services/group.service';
 
 /* ─── Error Boundary for Student Workspace ─── */
 class ErrorBoundary extends Component {
@@ -64,7 +67,7 @@ class ErrorBoundary extends Component {
 }
 
 /* ─── Student group workspace (top-level to avoid re-mount on App re-render) ─── */
-function StudentGroupWorkspace({ currentGroupId, onLogout }) {
+function StudentGroupWorkspace({ currentGroupId, onLogout, onNavigate }) {
   const [activeTool, setActiveTool] = useState('dashboard');
   const [activeChannel, setActiveChannel] = useState('general-chat');
   const [activeChannelId, setActiveChannelId] = useState(null);
@@ -77,21 +80,7 @@ function StudentGroupWorkspace({ currentGroupId, onLogout }) {
       
       // Simple fallback first
       if (!activeTool || activeTool === 'dashboard') {
-        return (
-          <div className="p-8 bg-white">
-            <h1 className="text-3xl font-bold text-gray-800 mb-4">
-              🎉 Group Workspace Dashboard
-            </h1>
-            <p className="text-gray-600 mb-4">
-              Welcome to the Student Group Workspace! Active tool: {activeTool}
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800">
-                ✅ If you see this, the basic rendering works!
-              </p>
-            </div>
-          </div>
-        );
+        return <GroupDashboardView groupId={currentGroupId} />;
       }
       
       switch (activeTool) {
@@ -136,6 +125,7 @@ function StudentGroupWorkspace({ currentGroupId, onLogout }) {
           onToolChange={setActiveTool}
           onLogout={onLogout}
           groupId={currentGroupId}
+          onNavigate={onNavigate}
         />
         <div className="flex-1 overflow-auto bg-gray-50">
           {renderContent()}
@@ -214,7 +204,7 @@ function GuestOnlyRoute({ children }) {
   const user = authService.getCurrentUser();
   if (user?.token) {
     const role = user.role?.toLowerCase();
-    const dest = role === 'admin' ? '/admin' : role === 'lecturer' ? '/lecturer' : '/group';
+    const dest = role === 'manager' ? '/admin' : role === 'lecturer' ? '/lecturer' : '/group';
     return <Navigate to={dest} replace />;
   }
   return children;
@@ -245,16 +235,60 @@ export default function App() {
 
   const [userRole, setUserRole] = useState(null);
   const [currentGroupId, setCurrentGroupId] = useState(null);
+  const [groupLoading, setGroupLoading] = useState(true);
+
+  const syncStudentGroup = async (userInput = null) => {
+    const user = userInput || authService.getCurrentUser();
+
+    if (!user?.token || user.role?.toLowerCase() !== 'student') {
+      setCurrentGroupId(null);
+      setGroupLoading(false);
+      return;
+    }
+
+    try {
+      setGroupLoading(true);
+      const groups = await groupService.getAllGroups();
+      const matchedGroup = groups.find((group) =>
+        Array.isArray(group.members) && group.members.some((member) => {
+          const memberId = member.id || member.userId || member.studentId || member.GroupMember?.studentId;
+          return Number(memberId) === Number(user.userId);
+        })
+      );
+
+      setCurrentGroupId(matchedGroup?.id || null);
+    } catch (error) {
+      console.error('Failed to resolve current user group:', error);
+      setCurrentGroupId(null);
+    } finally {
+      setGroupLoading(false);
+    }
+  };
 
   /* ─── Derive role from localStorage on mount ─── */
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    if (user?.token) {
-      setUserRole(user.role?.toLowerCase() || null);
-      // TODO: Fetch user's current group from API
-      // For now, use null to enable offline mode with mock data
-      setCurrentGroupId(null);
-    }
+    const bootstrapUserContext = async () => {
+      const user = authService.getCurrentUser();
+
+      if (!user?.token) {
+        setUserRole(null);
+        setCurrentGroupId(null);
+        setGroupLoading(false);
+        return;
+      }
+
+      const normalizedRole = user.role?.toLowerCase() || null;
+      setUserRole(normalizedRole);
+
+      if (normalizedRole !== 'student') {
+        setGroupLoading(false);
+        return;
+      }
+
+      await syncStudentGroup(user);
+    };
+
+    bootstrapUserContext();
   }, []);
 
   /* ─── Scroll to top on route change ─── */
@@ -294,23 +328,45 @@ export default function App() {
   const handleBack = (pageName) => handleNavigate(pageName, { replace: true });
 
   const handleLogin = (role) => {
-    setUserRole(role?.toLowerCase());
+    const normalizedRole = role?.toLowerCase();
+    setUserRole(normalizedRole);
+
+    if (normalizedRole === 'student') {
+      syncStudentGroup();
+    } else {
+      setGroupLoading(false);
+      setCurrentGroupId(null);
+    }
+
     const dest =
-      role?.toLowerCase() === 'admin' ? '/admin' :
-        role?.toLowerCase() === 'lecturer' ? '/lecturer' : '/group';
+      normalizedRole === 'manager' ? '/admin' :
+        normalizedRole === 'lecturer' ? '/lecturer' : '/group';
     navigate(dest, { replace: true });
   };
 
   const handleLogout = async () => {
     try { await authService.logout(); } catch { /* ignore */ }
     setUserRole(null);
+    setCurrentGroupId(null);
+    setGroupLoading(false);
     navigate('/', { replace: true });
   };
 
   /* ─── Student group workspace ─── */
   const GroupView = (
     <ProtectedRoute allowedRoles={['student']}>
-      <StudentGroupWorkspace currentGroupId={currentGroupId} onLogout={handleLogout} />
+      {groupLoading ? (
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-center">
+            <Loader2 className="w-10 h-10 text-[#F27125] animate-spin mx-auto mb-4" />
+            <p className="text-sm text-gray-500">Đang đồng bộ nhóm của bạn...</p>
+          </div>
+        </div>
+      ) : currentGroupId ? (
+        <StudentGroupWorkspace currentGroupId={currentGroupId} onLogout={handleLogout} onNavigate={handleNavigate} />
+      ) : (
+        <StudentGroupJoinFlow onGroupJoined={setCurrentGroupId} onLogout={handleLogout} />
+      )}
     </ProtectedRoute>
   );
 

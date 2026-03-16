@@ -1,21 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronDown, AlertTriangle, MessageSquare, Send } from 'lucide-react';
+import { Search, Filter, ChevronDown, AlertTriangle, MessageSquare, Send, Sparkles } from 'lucide-react';
 import questionService from '../../services/question.service';
+import authService from '../../services/auth.service';
+import aiService from '../../services/ai.service';
 
 /**
  * Q&A Tickets Management View
  * Display and manage student questions
  */
 export function QAManagementView() {
+  const currentUser = authService.getCurrentUser();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [showFilterDropdown,
-
- setShowFilterDropdown] = useState(false);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [answer, setAnswer] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [escalatingId, setEscalatingId] = useState(null);
+  const [aiLoadingId, setAiLoadingId] = useState(null);
 
   useEffect(() => {
     loadQuestions();
@@ -25,7 +30,7 @@ export function QAManagementView() {
     try {
       setLoading(true);
       const response = await questionService.getAllQuestions();
-      setQuestions(response.data || []);
+      setQuestions(Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load questions:', error);
     } finally {
@@ -40,27 +45,77 @@ export function QAManagementView() {
     }
 
     try {
-      await questionService.answerQuestion(questionId, { answer });
+      setSubmitting(true);
+      await questionService.answerQuestion(questionId, {
+        content: answer,
+        answeredBy: currentUser?.userId || currentUser?.id,
+        isPublic,
+        markAsResolved: true
+      });
       setAnswer('');
+      setIsPublic(false);
       setSelectedQuestion(null);
       loadQuestions();
     } catch (error) {
       console.error('Failed to submit answer:', error);
       alert('Lỗi khi gửi câu trả lời: ' + (error.message || 'Unknown error'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEscalate = async (questionId) => {
+    try {
+      setEscalatingId(questionId);
+      await questionService.escalateQuestion(questionId);
+      loadQuestions();
+    } catch (error) {
+      alert('Lỗi khi chuyển cấp câu hỏi: ' + (error.message || 'Unknown error'));
+    } finally {
+      setEscalatingId(null);
+    }
+  };
+
+  const handleAskAI = async (questionId) => {
+    const selected = questions.find((item) => item.id === questionId);
+
+    if (!aiService.isConfigured()) {
+      alert('AI chưa được cấu hình.\nVui lòng thêm VITE_GEMINI_API_KEY vào file .env.local\nLấy key miễn phí tại: https://aistudio.google.com/app/apikey');
+      return;
+    }
+
+    try {
+      setAiLoadingId(questionId);
+      const prompt = selected?.content || selected?.title || 'Help me answer this student question.';
+      const context = `Bạn là trợ lý giảng viên. Hãy viết câu trả lời ngắn gọn, chính xác bằng tiếng Việt phù hợp với sinh viên.\nTên câu hỏi: ${selected?.title || 'N/A'}\nNội dung: ${selected?.content || 'N/A'}`;
+      const aiText = await aiService.generateReply({ prompt, context });
+      setAnswer(aiText);
+      setSelectedQuestion(selected || null);
+    } catch (error) {
+      const msg = error.message || 'Unknown error';
+      if (msg.includes('quota') || msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+        alert('API key Gemini đã hết quota (limit = 0).\n\nCách fix:\n1. Vào https://aistudio.google.com/app/apikey\n2. Tạo project mới → lấy API key mới\n3. Thay VITE_GEMINI_API_KEY trong .env.local rồi restart FE');
+      } else {
+        alert('Không thể lấy gợi ý AI: ' + msg);
+      }
+    } finally {
+      setAiLoadingId(null);
     }
   };
 
   const filteredQuestions = questions.filter(question => {
-    const matchesSearch = question.content?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      question.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      question.title?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || 
-                         (statusFilter === 'UNANSWERED' && (!question.answer || question.answer.length === 0)) ||
-                         (statusFilter === 'ANSWERED' && question.answer && question.answer.length > 0) ||
-                         (statusFilter === 'ESCALATED' && question.isEscalated);
+                         (statusFilter === 'UNANSWERED' && question.status === 'WAITING_LECTURER') ||
+                         (statusFilter === 'ANSWERED' && question.status === 'RESOLVED') ||
+                         (statusFilter === 'ESCALATED' && question.status === 'ESCALATED_TO_MANAGER');
     return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (question) => {
-    if (question.isEscalated) {
+    if (question.status === 'ESCALATED_TO_MANAGER') {
       return (
         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
           <AlertTriangle className="w-3 h-3" />
@@ -68,7 +123,7 @@ export function QAManagementView() {
         </span>
       );
     }
-    if (!question.answer || question.answer.length === 0) {
+    if (question.status === 'WAITING_LECTURER') {
       return (
         <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
           WAITING
@@ -191,13 +246,36 @@ export function QAManagementView() {
                         {getStatusBadge(question)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelectedQuestion(question)}
-                          className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-medium rounded-lg transition-colors shadow-md ml-auto"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          Trả lời
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleAskAI(question.id)}
+                            disabled={aiLoadingId === question.id}
+                            className="flex items-center gap-1 px-3 py-2 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-xs font-medium rounded-lg transition-colors"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            {aiLoadingId === question.id ? 'Đang hỏi AI' : 'Hỏi AI'}
+                          </button>
+                          {question.status === 'WAITING_LECTURER' && (
+                            <button
+                              onClick={() => handleEscalate(question.id)}
+                              disabled={escalatingId === question.id}
+                              className="flex items-center gap-1 px-3 py-2 border border-red-200 text-red-700 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              {escalatingId === question.id ? 'Đang chuyển' : 'Escalate'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedQuestion(question);
+                              setAnswer('');
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-medium rounded-lg transition-colors shadow-md"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            Trả lời
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -233,6 +311,14 @@ export function QAManagementView() {
                   rows="6"
                   className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                 />
+                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                  />
+                  Public (mọi sinh viên đều xem được)
+                </label>
               </div>
             </div>
 
@@ -248,10 +334,11 @@ export function QAManagementView() {
               </button>
               <button
                 onClick={() => handleAnswerSubmit(selectedQuestion.id)}
+                disabled={submitting}
                 className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg transition-colors shadow-md"
               >
                 <Send className="w-4 h-4" />
-                Gửi câu trả lời
+                {submitting ? 'Đang gửi...' : 'Gửi câu trả lời'}
               </button>
             </div>
           </div>

@@ -7,16 +7,30 @@ import { toast } from 'sonner';
 import userService from '../../services/user.service';
 
 /* ── Helpers ── */
+const ROLE_LABELS = {
+  student: 'Student',
+  lecturer: 'Lecturer',
+  manager: 'Admin',
+};
+
+const normalizeRole = (role) => {
+  if (!role) return '';
+
+  const normalizedRole = role.toLowerCase();
+  return normalizedRole === 'admin' ? 'manager' : normalizedRole;
+};
+
 function RoleBadge({ role }) {
   const config = {
-    Student: { bg: 'bg-blue-100', text: 'text-blue-700' },
-    Lecturer: { bg: 'bg-purple-100', text: 'text-purple-700' },
-    Admin: { bg: 'bg-orange-100', text: 'text-orange-700' },
+    student: { bg: 'bg-blue-100', text: 'text-blue-700' },
+    lecturer: { bg: 'bg-purple-100', text: 'text-purple-700' },
+    manager: { bg: 'bg-orange-100', text: 'text-orange-700' },
   };
-  const cfg = config[role] || config.Student;
+  const normalizedRole = normalizeRole(role);
+  const cfg = config[normalizedRole] || config.student;
   return (
     <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${cfg.bg} ${cfg.text}`}>
-      {role}
+      {ROLE_LABELS[normalizedRole] || role}
     </span>
   );
 }
@@ -60,7 +74,12 @@ export function UserManagementView() {
 
   const openEditModal = (user) => {
     setEditingUser(user);
-    setEditFormData({ fullName: user.fullName, email: user.email, role: user.role, studentCode: user.studentCode || '' });
+    setEditFormData({
+      fullName: user.fullName,
+      email: user.email,
+      role: normalizeRole(user.role),
+      studentCode: user.studentCode || ''
+    });
     setIsEditModalOpen(true);
   };
 
@@ -74,7 +93,9 @@ export function UserManagementView() {
     e.preventDefault();
     setUpdateLoading(true);
     try {
-      const roleChanged = editFormData.role !== editingUser.role;
+      const nextRole = normalizeRole(editFormData.role);
+      const currentRole = normalizeRole(editingUser.role);
+      const roleChanged = nextRole !== currentRole;
       
       // Update user details
       await userService.updateUser(editingUser.userId, {
@@ -85,7 +106,7 @@ export function UserManagementView() {
       
       // Update role if changed
       if (roleChanged) {
-        await userService.updateUserRole(editingUser.userId, editFormData.role);
+        await userService.updateUserRole(editingUser.userId, nextRole);
       }
       
       await fetchUsers();
@@ -129,7 +150,7 @@ export function UserManagementView() {
     const matchesSearch =
       (user.fullName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role?.toLowerCase() === roleFilter.toLowerCase();
+    const matchesRole = roleFilter === 'all' || normalizeRole(user.role) === roleFilter;
     const userStatus = getUserStatus(user).text.toLowerCase();
     const matchesStatus = statusFilter === 'all' || userStatus === statusFilter.toLowerCase();
     return matchesSearch && matchesRole && matchesStatus;
@@ -167,7 +188,7 @@ export function UserManagementView() {
               <option value="all">All Roles</option>
               <option value="student">Student</option>
               <option value="lecturer">Lecturer</option>
-              <option value="admin">Admin</option>
+              <option value="manager">Admin</option>
             </select>
             <select value={statusFilter} onChange={(e) => handleStatus(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] bg-white">
@@ -353,16 +374,16 @@ export function UserManagementView() {
                 <select value={editFormData.role}
                   onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] bg-white text-sm" required>
-                  <option value="Student">Student</option>
-                  <option value="Lecturer">Lecturer</option>
-                  <option value="Admin">Admin</option>
+                  <option value="student">Student</option>
+                  <option value="lecturer">Lecturer</option>
+                  <option value="manager">Admin</option>
                 </select>
               </div>
 
-              {editFormData.role !== editingUser?.role && (
+              {normalizeRole(editFormData.role) !== normalizeRole(editingUser?.role) && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs bg-amber-50 border border-amber-200 text-amber-700">
                   <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  Role will change: <strong className="mx-1">{editingUser?.role}</strong>→<strong className="ml-1">{editFormData.role}</strong>
+                  Role will change: <strong className="mx-1">{ROLE_LABELS[normalizeRole(editingUser?.role)] || editingUser?.role}</strong>→<strong className="ml-1">{ROLE_LABELS[normalizeRole(editFormData.role)] || editFormData.role}</strong>
                 </div>
               )}
 

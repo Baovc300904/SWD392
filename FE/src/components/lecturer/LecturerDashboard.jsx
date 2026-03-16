@@ -9,6 +9,27 @@ import {
 import topicService from '../../services/topic.service';
 import questionService from '../../services/question.service';
 import groupService from '../../services/group.service';
+import { submissionService } from '../../services/app.service';
+
+const toArray = (value) => {
+  if (Array.isArray(value?.data?.data)) return value.data.data;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value)) return value;
+  return [];
+};
+
+const formatAgo = (dateValue) => {
+  if (!dateValue) return 'N/A';
+  const now = Date.now();
+  const then = new Date(dateValue).getTime();
+  if (Number.isNaN(then)) return 'N/A';
+  const minutes = Math.max(1, Math.floor((now - then) / 60000));
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  return `${days} ngày trước`;
+};
 
 /**
  * Lecturer Dashboard - Statistics & Recent Activity
@@ -32,19 +53,22 @@ export function LecturerDashboard() {
     try {
       setLoading(true);
       
-      // Load topics (pending approval)
-      const topicsRes = await topicService.getAllTopics();
-      const pendingTopics = topicsRes.data?.filter(t => t.status === 'Pending')?.length || 0;
-      
-      // Load questions
-      const questionsRes = await questionService.getAllQuestions();
-      const questions = questionsRes.data || [];
-      const unanswered = questions.filter(q => !q.answer || q.answer.length === 0)?.length || 0;
-      const escalated = questions.filter(q => q.isEscalated)?.length || 0;
-      
-      // Load groups
-      const groupsRes = await groupService.getAllGroups();
-      const totalGroups = groupsRes.count || 0;
+      const [topicsRes, questionsRes, groupsRes, submissionsRes] = await Promise.all([
+        topicService.getAllTopics(),
+        questionService.getAllQuestions(),
+        groupService.getAllGroups(),
+        submissionService.getAllSubmissions()
+      ]);
+
+      const topics = toArray(topicsRes);
+      const questions = toArray(questionsRes);
+      const groups = toArray(groupsRes);
+      const submissions = toArray(submissionsRes);
+
+      const pendingTopics = topics.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
+      const unanswered = questions.filter((item) => !item.answers || item.answers.length === 0).length;
+      const escalated = questions.filter((item) => Boolean(item.escalatedTo || item.escalatedBy || item.status === 'ESCALATED')).length;
+      const totalGroups = groups.length;
       
       setStats({
         pendingTopics,
@@ -53,44 +77,18 @@ export function LecturerDashboard() {
         totalGroups
       });
       
-      // Mock recent submissions (replace with actual API)
-      setRecentSubmissions([
-        {
-          id: 1,
-          groupName: 'Group Alpha',
-          submissionType: 'Final Report',
-          submittedBy: 'Nguyễn Văn A',
-          submittedAt: '2 hours ago'
-        },
-        {
-          id: 2,
-          groupName: 'Group Beta',
-          submissionType: 'Milestone 3',
-          submittedBy: 'Trần Thị B',
-          submittedAt: '5 hours ago'
-        },
-        {
-          id: 3,
-          groupName: 'Group Gamma',
-          submissionType: 'Code Review',
-          submittedBy: 'Lê Văn C',
-          submittedAt: '1 day ago'
-        },
-        {
-          id: 4,
-          groupName: 'Group Delta',
-          submissionType: 'Progress Report',
-          submittedBy: 'Phạm Thị D',
-          submittedAt: '1 day ago'
-        },
-        {
-          id: 5,
-          groupName: 'Group Epsilon',
-          submissionType: 'Design Document',
-          submittedBy: 'Hoàng Văn E',
-          submittedAt: '2 days ago'
-        }
-      ]);
+      const latestSubmissions = submissions
+        .sort((first, second) => new Date(second.submittedAt || second.createdAt || 0).getTime() - new Date(first.submittedAt || first.createdAt || 0).getTime())
+        .slice(0, 5)
+        .map((submission) => ({
+          id: submission.id,
+          groupName: submission.group?.groupName || `Group #${submission.groupId || 'N/A'}`,
+          submissionType: submission.milestone?.name || submission.title || 'Submission',
+          submittedBy: submission.submitter?.fullName || submission.student?.fullName || 'N/A',
+          submittedAt: formatAgo(submission.submittedAt || submission.createdAt)
+        }));
+
+      setRecentSubmissions(latestSubmissions);
       
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
