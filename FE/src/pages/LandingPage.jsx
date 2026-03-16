@@ -31,9 +31,9 @@ export function LandingPage({ onNavigate }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { label: 'About', page: 'about' },
-    { label: 'Docs', page: 'docs' },
-    { label: 'Contact', page: 'contact' },
+    { label: 'Giới thiệu', page: 'about' },
+    { label: 'Tài liệu', page: 'docs' },
+    { label: 'Liên hệ', page: 'contact' },
     { label: 'FAQ', page: 'faq' },
   ];
 
@@ -68,12 +68,12 @@ export function LandingPage({ onNavigate }) {
             <button
               onClick={() => onNavigate('login')}
               className="text-gray-700 hover:text-gray-900 font-medium">
-              Sign In
+              Đăng nhập
             </button>
             <button
               onClick={() => onNavigate('register')}
               className="bg-[#F27125] hover:bg-[#d96420] text-white px-6 py-2 rounded-lg font-semibold transition">
-              Get Started
+              Bắt đầu
             </button>
           </div>
 
@@ -100,12 +100,12 @@ export function LandingPage({ onNavigate }) {
               <button
                 onClick={() => { onNavigate('login'); setMobileMenuOpen(false); }}
                 className="w-full py-2.5 text-gray-700 font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-                Sign In
+                Đăng nhập
               </button>
               <button
                 onClick={() => { onNavigate('register'); setMobileMenuOpen(false); }}
                 className="w-full py-2.5 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg font-semibold transition">
-                Get Started
+                Bắt đầu
               </button>
             </div>
           </div>
@@ -140,7 +140,7 @@ export function LandingPage({ onNavigate }) {
               onClick={() => onNavigate('docs')}
             >
               <PlayCircle className="w-5 h-5" />
-              View Documentation
+              Xem tài liệu hướng dẫn
             </button>
           </div>
 

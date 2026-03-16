@@ -24,7 +24,7 @@ function StatusBadge({ status }) {
   );
 }
 
-export function TopicApprovalsView() {
+export function TopicApprovalsView({ initialStatusFilter = 'all' }) {
   const [topics, setTopics]             = useState([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
@@ -36,6 +36,10 @@ export function TopicApprovalsView() {
   const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => { fetchTopics(); }, []);
+
+  useEffect(() => {
+    setStatusFilter(initialStatusFilter || 'all');
+  }, [initialStatusFilter]);
 
   const fetchTopics = async () => {
     try {
@@ -131,7 +135,7 @@ export function TopicApprovalsView() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Duyệt Topic</h2>
-          <p className="text-gray-500 text-sm mt-1">{counts.Pending} topic đang chờ duyệt</p>
+          <p className="text-gray-500 text-sm mt-1">{counts.PENDING} topic đang chờ duyệt</p>
         </div>
         <button onClick={fetchTopics} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">
           <RefreshCw className="w-4 h-4" /> Làm mới

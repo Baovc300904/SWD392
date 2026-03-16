@@ -53,6 +53,12 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
       description: 'Thống kê'
     },
     {
+      id: 'classes',
+      icon: Users,
+      label: 'Lớp & Nhóm',
+      description: 'Classes'
+    },
+    {
       id: 'topics',
       icon: FileText,
       label: 'Quản lý Đề tài',
@@ -65,10 +71,10 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
       description: 'Q&A Tickets'
     },
     {
-      id: 'groups',
+      id: 'submissions',
       icon: Users,
-      label: 'Quản lý Nhóm & Nộp bài',
-      description: 'Groups & Submissions'
+      label: 'Submission & Chấm điểm',
+      description: 'Submissions'
     }
   ];
 
