@@ -3,7 +3,7 @@
  * Handles CRUD and grading operations for submissions
  */
 
-const { Submission, StudentGroup, User } = require('../models');
+const { Submission, StudentGroup, User, Class } = require('../models');
 const { Op } = require('sequelize');
 const MSG = require('../constants/messages');
 
@@ -11,7 +11,12 @@ const includeConfig = [
     {
         model: StudentGroup,
         as: 'group',
-        attributes: ['id', 'groupName', 'classId', 'topicId']
+        attributes: ['id', 'groupName', 'classId', 'topicId'],
+        include: [{
+            model: Class,
+            as: 'class',
+            attributes: ['id', 'className', 'lecturerId']
+        }]
     },
     {
         model: User,
@@ -27,7 +32,7 @@ const includeConfig = [
 
 const getAllSubmissions = async (req, res) => {
     try {
-        const { groupId, submittedBy, status, gradedBy, search, page = 1, limit = 20 } = req.query;
+        const { groupId, classId, submittedBy, status, gradedBy, search, page = 1, limit = 20 } = req.query;
         const whereClause = {};
 
         if (groupId) whereClause.groupId = groupId;
@@ -46,9 +51,17 @@ const getAllSubmissions = async (req, res) => {
         const parsedLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const offset = (parsedPage - 1) * parsedLimit;
 
+        const include = includeConfig.map((item) => ({ ...item }));
+        if (classId) {
+            include[0] = {
+                ...include[0],
+                where: { classId }
+            };
+        }
+
         const { rows, count } = await Submission.findAndCountAll({
             where: whereClause,
-            include: includeConfig,
+            include,
             order: [['submittedAt', 'DESC']],
             limit: parsedLimit,
             offset
@@ -179,6 +192,14 @@ const updateSubmission = async (req, res) => {
             });
         }
 
+        if (String(submission.status || '').toUpperCase() === 'GRADED') {
+            return res.status(400).json({
+                success: false,
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Graded submissions cannot be updated'
+            });
+        }
+
         if (requesterRole === 'student' && Number(submission.submittedBy) !== Number(requesterId)) {
             return res.status(403).json({
                 success: false,
@@ -225,6 +246,14 @@ const deleteSubmission = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND,
                 detail: 'Submission not found'
+            });
+        }
+
+        if (String(submission.status || '').toUpperCase() === 'GRADED') {
+            return res.status(400).json({
+                success: false,
+                message: MSG.GENERAL.BAD_REQUEST,
+                detail: 'Graded submissions cannot be deleted'
             });
         }
 

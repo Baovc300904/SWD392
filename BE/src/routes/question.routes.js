@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const questionController = require('../controllers/question.controller');
+const { authenticate, authorize } = require('../middleware/auth.middleware');
 
 /**
  * @swagger
@@ -34,7 +35,7 @@ const questionController = require('../controllers/question.controller');
  *       200:
  *         description: List of questions
  */
-router.get('/', questionController.getAllQuestions);
+router.get('/', authenticate, questionController.getAllQuestions);
 
 /**
  * @swagger
@@ -54,7 +55,7 @@ router.get('/', questionController.getAllQuestions);
  *       404:
  *         description: Question not found
  */
-router.get('/:id', questionController.getQuestionById);
+router.get('/:id', authenticate, questionController.getQuestionById);
 
 /**
  * @swagger
@@ -86,7 +87,7 @@ router.get('/:id', questionController.getQuestionById);
  *       201:
  *         description: Question created
  */
-router.post('/', questionController.createQuestion);
+router.post('/', authenticate, authorize('student'), questionController.createQuestion);
 
 /**
  * @swagger
@@ -104,7 +105,8 @@ router.post('/', questionController.createQuestion);
  *       200:
  *         description: Question escalated
  */
-router.put('/:id/escalate', questionController.escalateQuestion);
+router.put('/:id/escalate', authenticate, authorize('lecturer'), questionController.escalateQuestion);
+router.post('/:id/ask-ai', authenticate, authorize('lecturer', 'manager'), questionController.askAIForQuestion);
 
 /**
  * @swagger
@@ -122,7 +124,7 @@ router.put('/:id/escalate', questionController.escalateQuestion);
  *       200:
  *         description: Question resolved
  */
-router.put('/:id/resolve', questionController.resolveQuestion);
+router.put('/:id/resolve', authenticate, authorize('lecturer', 'manager'), questionController.resolveQuestion);
 
 /**
  * @swagger
@@ -140,6 +142,6 @@ router.put('/:id/resolve', questionController.resolveQuestion);
  *       200:
  *         description: Question deleted
  */
-router.delete('/:id', questionController.deleteQuestion);
+router.delete('/:id', authenticate, authorize('manager'), questionController.deleteQuestion);
 
 module.exports = router;

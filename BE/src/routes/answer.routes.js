@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const answerController = require('../controllers/answer.controller');
+const { authenticate, authorize } = require('../middleware/auth.middleware');
 
 /**
  * @swagger
@@ -34,7 +35,7 @@ const answerController = require('../controllers/answer.controller');
  *       200:
  *         description: List of answers
  */
-router.get('/questions/:questionId/answers', answerController.getAnswersByQuestion);
+router.get('/questions/:questionId/answers', authenticate, answerController.getAnswersByQuestion);
 
 /**
  * @swagger
@@ -72,7 +73,7 @@ router.get('/questions/:questionId/answers', answerController.getAnswersByQuesti
  *       201:
  *         description: Answer created
  */
-router.post('/questions/:questionId/answers', answerController.createAnswer);
+router.post('/questions/:questionId/answers', authenticate, authorize('lecturer', 'manager'), answerController.createAnswer);
 
 /**
  * @swagger
@@ -100,7 +101,7 @@ router.post('/questions/:questionId/answers', answerController.createAnswer);
  *       200:
  *         description: Answer updated
  */
-router.put('/answers/:id', answerController.updateAnswer);
+router.put('/answers/:id', authenticate, authorize('lecturer', 'manager'), answerController.updateAnswer);
 
 /**
  * @swagger
@@ -118,7 +119,7 @@ router.put('/answers/:id', answerController.updateAnswer);
  *       200:
  *         description: Visibility toggled
  */
-router.put('/answers/:id/toggle-visibility', answerController.toggleAnswerVisibility);
+router.put('/answers/:id/toggle-visibility', authenticate, authorize('lecturer', 'manager'), answerController.toggleAnswerVisibility);
 
 /**
  * @swagger
@@ -136,7 +137,7 @@ router.put('/answers/:id/toggle-visibility', answerController.toggleAnswerVisibi
  *       200:
  *         description: Answer deleted
  */
-router.delete('/answers/:id', answerController.deleteAnswer);
+router.delete('/answers/:id', authenticate, authorize('lecturer', 'manager'), answerController.deleteAnswer);
 
 /**
  * @swagger
@@ -148,6 +149,6 @@ router.delete('/answers/:id', answerController.deleteAnswer);
  *       200:
  *         description: List of public answers
  */
-router.get('/answers/public', answerController.getPublicAnswers);
+router.get('/answers/public', authenticate, answerController.getPublicAnswers);
 
 module.exports = router;
