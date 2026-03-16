@@ -13,9 +13,7 @@ import 'question_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // For background/terminated state, Android/iOS will display the notification
-  // automatically when the message includes the `notification` payload.
-  // Keep this handler minimal to avoid plugin initialization issues.
+  WidgetsFlutterBinding.ensureInitialized();
 }
 
 class NotificationService {
@@ -59,19 +57,34 @@ class NotificationService {
 
     try {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+final messaging = FirebaseMessaging.instance;
 
-      final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
+await messaging.requestPermission(
+  alert: true,
+  badge: true,
+  sound: true,
+);
+
+final token = await messaging.getToken();
+print("FCM TOKEN = $token");
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-        final title = message.notification?.title ?? 'SWD392';
-        final body = message.notification?.body ?? 'You have a new update.';
-        final data = <String, dynamic>{
-          ...message.data,
-          if (message.messageId != null) 'messageId': message.messageId!,
-        };
-        await showLocal(title: title, body: body, payload: jsonEncode(data));
-      });
+  print("PUSH RECEIVED");
+
+  final title = message.notification?.title ?? 'SWD392';
+  final body = message.notification?.body ?? 'You have a new update.';
+
+  final data = <String, dynamic>{
+    ...message.data,
+    if (message.messageId != null) 'messageId': message.messageId!,
+  };
+
+  await showLocal(
+    title: title,
+    body: body,
+    payload: jsonEncode(data),
+  );
+});
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         _handleNavigation(message.data);

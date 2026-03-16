@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile_app/navigation/root_scaffold.dart';
-import 'package:mobile_app/screens/profile_screen.dart';
 
 void main() {
   testWidgets('Footer menu switches tabs', (WidgetTester tester) async {
@@ -19,18 +18,19 @@ void main() {
       ),
     );
 
-    // Default tab.
-    expect(find.text('Dashboard'), findsWidgets);
+    // Default tab title.
+    expect(find.text('Student Dashboard'), findsOneWidget);
 
     // Switch to Q&A tab.
     await tester.tap(find.text('Q&A'));
     await tester.pumpAndSettle();
-    expect(find.text('Management Flow'), findsOneWidget);
+    expect(find.text('Q&A Forum'), findsOneWidget);
 
     // Switch to Account tab.
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ProfileScreen), findsOneWidget);
+    // Account view intentionally hides the AppBar.
+    expect(find.byType(AppBar), findsNothing);
   });
 }

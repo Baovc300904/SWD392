@@ -5,7 +5,7 @@ const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger.config');
 const { sequelize, testConnection, User, Topic, Question, Answer } = require('./models');
-const { Op } = require('sequelize');
+const { Op, DataTypes } = require('sequelize');
 
 // Import routes
 const apiRoutes = require('./routes/api.routes');
@@ -197,8 +197,61 @@ async function repairDemoVietnameseData() {
     }
 }
 
+async function ensureUsersTableCompatibility() {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('users');
+
+    if (!columns.avatar_url) {
+        await queryInterface.addColumn('users', 'avatar_url', {
+            type: DataTypes.TEXT,
+            allowNull: true
+        });
+        console.log('✅ Added missing column users.avatar_url');
+    }
+
+    if (!columns.fcm_token) {
+        await queryInterface.addColumn('users', 'fcm_token', {
+            type: DataTypes.TEXT,
+            allowNull: true
+        });
+        console.log('✅ Added missing column users.fcm_token');
+    }
+
+    if (!columns.status) {
+        await queryInterface.addColumn('users', 'status', {
+            type: DataTypes.ENUM('Online', 'Offline', 'Away'),
+            allowNull: false,
+            defaultValue: 'Offline'
+        });
+        console.log('✅ Added missing column users.status');
+    }
+
+    if (!columns.is_online) {
+        await queryInterface.addColumn('users', 'is_online', {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
+        });
+        console.log('✅ Added missing column users.is_online');
+    }
+
+    if (!columns.last_seen_at) {
+        await queryInterface.addColumn('users', 'last_seen_at', {
+            type: DataTypes.DATE,
+            allowNull: true
+        });
+        console.log('✅ Added missing column users.last_seen_at');
+    }
+}
+
 // Connect to MySQL and create default admin
 testConnection().then(async () => {
+    try {
+        await ensureUsersTableCompatibility();
+    } catch (err) {
+        console.error('❌ Failed to ensure users table compatibility:', err.message);
+    }
+
     // Sync database (optional - use migrations in production)
     // await sequelize.sync({ alter: true });
 
@@ -273,6 +326,53 @@ testConnection().then(async () => {
             }
         } catch (err) {
             console.error(`❌ Failed to seed/repair lecturer (${lecturer.email}):`, err.message);
+        }
+    }
+
+    // Seed/repair demo students for local development.
+    // Many local databases have these rows unverified, which blocks /auth/login.
+    const demoStudents = [
+        {
+            fullName: process.env.STUDENT1_FULL_NAME || 'Sinh Viên Lê Văn C',
+            email: process.env.STUDENT1_EMAIL || 'sv1@fpt.edu.vn',
+            password: process.env.STUDENT1_PASSWORD || '123456',
+            studentCode: process.env.STUDENT1_CODE || 'SE170001'
+        },
+        {
+            fullName: process.env.STUDENT2_FULL_NAME || 'Sinh Viên Phạm Thị D',
+            email: process.env.STUDENT2_EMAIL || 'sv2@fpt.edu.vn',
+            password: process.env.STUDENT2_PASSWORD || '123456',
+            studentCode: process.env.STUDENT2_CODE || 'SE170002'
+        }
+    ];
+
+    for (const student of demoStudents) {
+        try {
+            const existing = await User.findOne({ where: { email: student.email } });
+            if (!existing) {
+                await User.create({
+                    fullName: student.fullName,
+                    email: student.email,
+                    studentCode: student.studentCode,
+                    passwordHash: student.password,
+                    role: 'student',
+                    isEmailVerified: true,
+                    isOnline: false,
+                    status: 'Offline'
+                });
+                console.log(`✅ Default student created: ${student.email}`);
+            } else {
+                await existing.update({
+                    fullName: existing.fullName || student.fullName,
+                    studentCode: existing.studentCode || student.studentCode,
+                    role: 'student',
+                    isEmailVerified: true,
+                    passwordHash: student.password
+                });
+                console.log(`✅ Default student repaired: ${student.email}`);
+            }
+        } catch (err) {
+            console.error(`❌ Failed to seed/repair student (${student.email}):`, err.message);
         }
     }
 
