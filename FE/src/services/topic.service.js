@@ -155,6 +155,16 @@ const topicService = {
             throw error;
         }
     },
+
+    registerTopicForGroup: async (topicId, groupId) => {
+        try {
+            const response = await api.post(`/topics/${topicId}/register`, { groupId });
+            return topicService.extractPayload(response);
+        } catch (error) {
+            console.error('Register topic for group error:', error);
+            throw error;
+        }
+    },
 };
 
 export default topicService;

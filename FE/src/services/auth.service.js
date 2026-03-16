@@ -239,6 +239,18 @@ const authService = {
     },
 
     /**
+     * Send heartbeat to keep current user online
+     * @returns {Promise<Object>} Heartbeat response
+     */
+    heartbeat: async () => {
+        try {
+            return await api.post('/auth/heartbeat');
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
      * Change password (authenticated user)
      * @param {string} currentPassword
      * @param {string} newPassword

@@ -38,7 +38,7 @@ function RoleBadge({ role }) {
 const PAGE_SIZE = 10;
 
 /* ══════════════════════════════════════════════ */
-export function UserManagementView() {
+export function UserManagementView({ initialStatusFilter = 'all' }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -56,6 +56,10 @@ export function UserManagementView() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => { fetchUsers(); }, []);
+
+  useEffect(() => {
+    setStatusFilter(initialStatusFilter || 'all');
+  }, [initialStatusFilter]);
 
   const fetchUsers = async () => {
     try {

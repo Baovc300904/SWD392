@@ -1,18 +1,30 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     ArrowLeft, User, Mail, IdCard, Phone, MapPin, Calendar,
     Edit3, Save, X, Camera, Shield, BookOpen, Users, Star,
     ChevronRight, Lock, Eye, EyeOff, CheckCircle, GraduationCap,
-    Briefcase, Award, Loader2
+    Briefcase, Award, Loader2, MessageSquare, AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import authService from '../services/auth.service';
 import userService from '../services/user.service';
 import userSettingsService from '../services/user-settings.service';
 import firebaseStorageService from '../services/firebase-storage.service';
+import questionService from '../services/question.service';
+import topicService from '../services/topic.service';
+import groupService from '../services/group.service';
+import classService from '../services/class.service';
+import { submissionService } from '../services/app.service';
 
 /* ── Token ── */
 const ORANGE = '#F27125';
+
+const toArray = (payload) => {
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload)) return payload;
+    return [];
+};
 
 /* ── Stat card ── */
 function StatCard({ icon: Icon, label, value, color = ORANGE }) {
@@ -89,6 +101,8 @@ export function UserProfilePage({ onNavigate, onLogout }) {
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [profileUser, setProfileUser] = useState(currentUser);
     const [userSettings, setUserSettings] = useState(userSettingsService.getSettings());
+    const [statsLoading, setStatsLoading] = useState(true);
+    const [profileStats, setProfileStats] = useState([]);
     const avatarInputRef = useRef(null);
 
     // Change password
@@ -174,6 +188,81 @@ export function UserProfilePage({ onNavigate, onLogout }) {
         storage.setItem('user', JSON.stringify(next));
         setProfileUser(next);
     };
+
+    useEffect(() => {
+        const loadProfileContext = async () => {
+            try {
+                const me = await userService.getMe();
+                if (me) {
+                    setProfileUser(me);
+                    setFormData((previous) => ({
+                        ...previous,
+                        fullName: me.fullName ?? '',
+                        email: me.email ?? '',
+                        phone: me.phone ?? previous.phone ?? '',
+                        address: me.address ?? previous.address ?? '',
+                        bio: me.bio ?? previous.bio ?? '',
+                    }));
+                    updateStoredUser(me);
+                }
+
+                if (role === 'lecturer') {
+                    const lecturerId = me?.userId || me?.id || currentUser?.userId || currentUser?.id;
+                    const [classesRes, groupsRes, questionsRes, topicsRes, submissionsRes] = await Promise.all([
+                        classService.getAllClasses({ lecturerId }),
+                        groupService.getAllGroups({ lecturerId }),
+                        questionService.getAllQuestions({ lecturerId }),
+                        topicService.getAllTopics({ lecturerId }),
+                        submissionService.getAllSubmissions({ limit: 100 })
+                    ]);
+
+                    const classes = toArray(classesRes);
+                    const groups = toArray(groupsRes);
+                    const questions = toArray(questionsRes);
+                    const topics = toArray(topicsRes);
+                    const allowedClassIds = new Set(classes.map((item) => Number(item.id)));
+                    const submissions = toArray(submissionsRes).filter((item) =>
+                        allowedClassIds.has(Number(item.group?.class?.id || item.group?.classId))
+                    );
+
+                    setProfileStats([
+                        { icon: BookOpen, label: 'Lớp phụ trách', value: classes.length },
+                        { icon: Users, label: 'Nhóm đang theo dõi', value: groups.length },
+                        { icon: MessageSquare, label: 'Q&A chờ phản hồi', value: questions.filter((item) => String(item.status || '').toUpperCase() === 'WAITING_LECTURER').length },
+                        { icon: Award, label: 'Topic đã duyệt', value: topics.filter((item) => String(item.status || '').toUpperCase() === 'APPROVED').length },
+                    ]);
+                } else if (role === 'manager') {
+                    const [usersRes, topicsRes, questionsRes, submissionsRes] = await Promise.all([
+                        userService.getAllUsers(),
+                        topicService.getAllTopics(),
+                        questionService.getAllQuestions(),
+                        submissionService.getAllSubmissions({ limit: 100 })
+                    ]);
+
+                    const users = toArray(usersRes);
+                    const topics = toArray(topicsRes);
+                    const questions = toArray(questionsRes);
+                    const submissions = toArray(submissionsRes);
+
+                    setProfileStats([
+                        { icon: Users, label: 'Tổng người dùng', value: users.length },
+                        { icon: BookOpen, label: 'Topic đã duyệt', value: topics.filter((item) => String(item.status || '').toUpperCase() === 'APPROVED').length },
+                        { icon: AlertCircle, label: 'Q&A escalated', value: questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length },
+                        { icon: Award, label: 'Submission đã chấm', value: submissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED').length },
+                    ]);
+                } else {
+                    setProfileStats(cfg.stats);
+                }
+            } catch (error) {
+                console.error('Failed to load profile context:', error);
+                setProfileStats(cfg.stats);
+            } finally {
+                setStatsLoading(false);
+            }
+        };
+
+        loadProfileContext();
+    }, [role]);
 
     const handlePickAvatar = () => {
         if (!firebaseStorageService.isEnabled()) {
@@ -328,8 +417,8 @@ export function UserProfilePage({ onNavigate, onLogout }) {
 
                         {/* Stats */}
                         <div className="grid grid-cols-2 gap-4">
-                            {cfg.stats.map((s, i) => (
-                                <StatCard key={i} icon={s.icon} label={s.label} value={s.value} color={cfg.color} />
+                            {(profileStats.length > 0 ? profileStats : cfg.stats).map((s, i) => (
+                                <StatCard key={i} icon={s.icon} label={s.label} value={statsLoading ? '...' : s.value} color={cfg.color} />
                             ))}
                         </div>
 
@@ -495,6 +584,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                         )}
 
                         {/* User Settings */}
+                        {role === 'manager' && (
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                             <div className="px-6 py-5 border-b border-gray-50">
                                 <h3 className="font-bold text-gray-900">User Settings</h3>
@@ -538,6 +628,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                 </div>
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
             </div>

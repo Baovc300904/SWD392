@@ -4,8 +4,12 @@ import {
   CheckCircle2, 
   Clock, 
   FileText,
-  ChevronRight
+  ChevronRight,
+  School,
+  X
 } from 'lucide-react';
+import authService from '../../services/auth.service';
+import classService from '../../services/class.service';
 import topicService from '../../services/topic.service';
 import questionService from '../../services/question.service';
 import groupService from '../../services/group.service';
@@ -35,7 +39,7 @@ const formatAgo = (dateValue) => {
  * Lecturer Dashboard - Statistics & Recent Activity
  * Task 18: Display metrics and Q&A overview
  */
-export function LecturerDashboard() {
+export function LecturerDashboard({ onAction }) {
   const [stats, setStats] = useState({
     pendingTopics: 0,
     unansweredQuestions: 0,
@@ -43,6 +47,8 @@ export function LecturerDashboard() {
     totalGroups: 0
   });
   const [recentSubmissions, setRecentSubmissions] = useState([]);
+  const [allRecentSubmissions, setAllRecentSubmissions] = useState([]);
+  const [showAllSubmissions, setShowAllSubmissions] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,22 +58,36 @@ export function LecturerDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      const currentUser = authService.getCurrentUser();
+      const lecturerId = currentUser?.userId || currentUser?.id;
+
+      if (!lecturerId) {
+        setStats({ pendingTopics: 0, unansweredQuestions: 0, escalatedQuestions: 0, totalGroups: 0 });
+        setRecentSubmissions([]);
+        setAllRecentSubmissions([]);
+        return;
+      }
       
-      const [topicsRes, questionsRes, groupsRes, submissionsRes] = await Promise.all([
-        topicService.getAllTopics(),
-        questionService.getAllQuestions(),
-        groupService.getAllGroups(),
-        submissionService.getAllSubmissions()
+      const [classesRes, topicsRes, questionsRes, groupsRes, submissionsRes] = await Promise.all([
+        classService.getAllClasses({ lecturerId }),
+        topicService.getAllTopics({ lecturerId }),
+        questionService.getAllQuestions({ lecturerId }),
+        groupService.getAllGroups({ lecturerId }),
+        submissionService.getAllSubmissions({ limit: 100 })
       ]);
 
+      const classes = toArray(classesRes);
       const topics = toArray(topicsRes);
       const questions = toArray(questionsRes);
       const groups = toArray(groupsRes);
-      const submissions = toArray(submissionsRes);
+      const allowedClassIds = new Set(classes.map((item) => Number(item.id)));
+      const submissions = toArray(submissionsRes).filter((item) =>
+        allowedClassIds.has(Number(item.group?.class?.id || item.group?.classId))
+      );
 
       const pendingTopics = topics.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
-      const unanswered = questions.filter((item) => !item.answers || item.answers.length === 0).length;
-      const escalated = questions.filter((item) => Boolean(item.escalatedTo || item.escalatedBy || item.status === 'ESCALATED')).length;
+      const unanswered = questions.filter((item) => String(item.status || '').toUpperCase() === 'WAITING_LECTURER').length;
+      const escalated = questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length;
       const totalGroups = groups.length;
       
       setStats({
@@ -77,18 +97,20 @@ export function LecturerDashboard() {
         totalGroups
       });
       
-      const latestSubmissions = submissions
+      const scopedSubmissions = submissions
         .sort((first, second) => new Date(second.submittedAt || second.createdAt || 0).getTime() - new Date(first.submittedAt || first.createdAt || 0).getTime())
-        .slice(0, 5)
         .map((submission) => ({
           id: submission.id,
           groupName: submission.group?.groupName || `Group #${submission.groupId || 'N/A'}`,
+          className: submission.group?.class?.className || 'N/A',
           submissionType: submission.milestone?.name || submission.title || 'Submission',
           submittedBy: submission.submitter?.fullName || submission.student?.fullName || 'N/A',
-          submittedAt: formatAgo(submission.submittedAt || submission.createdAt)
+          submittedAt: formatAgo(submission.submittedAt || submission.createdAt),
+          status: String(submission.status || '').toUpperCase() || 'SUBMITTED'
         }));
 
-      setRecentSubmissions(latestSubmissions);
+      setAllRecentSubmissions(scopedSubmissions);
+      setRecentSubmissions(scopedSubmissions.slice(0, 5));
       
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -130,26 +152,26 @@ export function LecturerDashboard() {
             title="Đề tài chờ duyệt"
             value={stats.pendingTopics}
             icon={Clock}
-            onClick={() => {/* Navigate to topic approvals */}}
+            onClick={() => onAction?.({ view: 'topics', filter: 'PENDING' })}
           />
           <StatCard
             title="Câu hỏi chưa trả lời"
             value={stats.unansweredQuestions}
             icon={AlertTriangle}
-            onClick={() => {/* Navigate to Q&A */}}
+            onClick={() => onAction?.({ view: 'qa', filter: 'UNANSWERED' })}
           />
           <StatCard
             title="Câu hỏi Escalate"
             value={stats.escalatedQuestions}
             icon={AlertTriangle}
             highlight={true}
-            onClick={() => {/* Navigate to escalated Q&A */}}
+            onClick={() => onAction?.({ view: 'qa', filter: 'ESCALATED' })}
           />
           <StatCard
             title="Tổng số nhóm"
             value={stats.totalGroups}
             icon={CheckCircle2}
-            onClick={() => {/* Navigate to groups */}}
+            onClick={() => onAction?.({ view: 'classes' })}
           />
         </div>
 
@@ -157,7 +179,7 @@ export function LecturerDashboard() {
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">Nộp bài gần đây (5 nhóm)</h2>
-            <button className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+            <button onClick={() => setShowAllSubmissions(true)} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
               Xem tất cả
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -216,7 +238,7 @@ export function LecturerDashboard() {
                         {submission.submittedAt}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-medium rounded-lg transition-colors shadow-md">
+                        <button onClick={() => onAction?.({ view: 'submissions' })} className="px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-medium rounded-lg transition-colors shadow-md">
                           Xem chi tiết
                         </button>
                       </td>
@@ -228,6 +250,47 @@ export function LecturerDashboard() {
           </div>
         </div>
       </div>
+
+      {showAllSubmissions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Tất cả bài nộp gần đây</h3>
+                <p className="text-sm text-gray-500 mt-1">Danh sách submission thuộc các lớp bạn đang phụ trách.</p>
+              </div>
+              <button onClick={() => setShowAllSubmissions(false)} className="text-gray-400 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto divide-y divide-gray-100">
+              {allRecentSubmissions.length === 0 ? (
+                <div className="px-6 py-12 text-center text-sm text-gray-500">Chưa có submission nào trong phạm vi phụ trách.</div>
+              ) : allRecentSubmissions.map((submission) => (
+                <div key={submission.id} className="px-6 py-4 flex items-start justify-between gap-4 hover:bg-gray-50">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <p className="font-semibold text-gray-900">{submission.groupName}</p>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                        <School className="w-3 h-3" /> {submission.className}
+                      </span>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${submission.status === 'GRADED' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {submission.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{submission.submissionType}</p>
+                    <p className="text-xs text-gray-500 mt-1">Người nộp: {submission.submittedBy} • {submission.submittedAt}</p>
+                  </div>
+                  <button onClick={() => onAction?.({ view: 'submissions' })} className="px-4 py-2 rounded-lg bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-medium">
+                    Mở chấm điểm
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

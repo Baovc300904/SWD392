@@ -161,7 +161,7 @@ export function ResourcesView({ groupId }) {
       await loadFiles();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || 'Upload failed');
+      toast.error(error?.response?.data?.message || error?.message || 'Upload failed');
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';

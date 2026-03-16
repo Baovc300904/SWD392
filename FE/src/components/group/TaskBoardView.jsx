@@ -3,6 +3,7 @@ import { MoreVertical, Plus, X, Loader2, ClipboardList, Users } from 'lucide-rea
 import { toast } from 'sonner';
 import { groupService } from '../../services/app.service';
 import taskService from '../../services/task.service';
+import authService from '../../services/auth.service';
 
 const TASK_COLUMNS = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
@@ -72,12 +73,17 @@ const toArray = (payload) => {
 const toTaskRow = (payload) => payload?.data || payload || null;
 
 export function TaskBoardView({ groupId }) {
+  const currentUser = authService.getCurrentUser();
+  const currentRole = String(currentUser?.role || '').toLowerCase();
+  const isStudent = currentRole === 'student';
+
   const [tasks, setTasks] = useState([]);
   const [members, setMembers] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [savingTask, setSavingTask] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
 
   const normalizeTask = (row) => ({
@@ -98,25 +104,25 @@ export function TaskBoardView({ groupId }) {
     createdAt: row.createdAt || new Date().toISOString()
   });
 
+  const loadTasks = async () => {
+    if (!groupId) {
+      setTasks([]);
+      return;
+    }
+
+    try {
+      setLoadingTasks(true);
+      const response = await taskService.getAllTasks({ groupId });
+      const rows = toArray(response);
+      setTasks(rows.map(normalizeTask));
+    } catch {
+      setTasks([]);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
   useEffect(() => {
-    const loadTasks = async () => {
-      if (!groupId) {
-        setTasks([]);
-        return;
-      }
-
-      try {
-        setLoadingTasks(true);
-        const response = await taskService.getAllTasks({ groupId });
-        const rows = toArray(response);
-        setTasks(rows.map(normalizeTask));
-      } catch {
-        setTasks([]);
-      } finally {
-        setLoadingTasks(false);
-      }
-    };
-
     loadTasks();
   }, [groupId]);
 
@@ -156,85 +162,53 @@ export function TaskBoardView({ groupId }) {
     loadMembers();
   }, [groupId]);
 
+  const handleCreateTask = async () => {
+    if (!taskForm.title.trim()) {
+      toast.error('Vui lòng nhập tiêu đề task');
+      return;
+    }
+
+    try {
+      setCreating(true);
+      await taskService.createTask({
+        groupId,
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim(),
+        assigneeId: taskForm.assigneeId ? Number(taskForm.assigneeId) : undefined,
+        priority: UI_TO_API_PRIORITY[taskForm.priority] || 'MEDIUM',
+        status: UI_TO_API_STATUS[taskForm.status] || 'TODO',
+        dueDate: taskForm.dueDate || undefined,
+        tags: taskForm.tags ? taskForm.tags.split(',').map((item) => item.trim()).filter(Boolean) : []
+      });
+      toast.success('Tạo task thành công');
+      setShowCreate(false);
+      setTaskForm(emptyTaskForm);
+      await loadTasks();
+    } catch (error) {
+      toast.error(error?.message || 'Không thể tạo task');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleUpdateStatus = async (taskId, nextStatus) => {
+    try {
+      setUpdatingTaskId(taskId);
+      await taskService.updateTask(taskId, { status: UI_TO_API_STATUS[nextStatus] || 'TODO' });
+      await loadTasks();
+    } catch (error) {
+      toast.error(error?.message || 'Không thể cập nhật trạng thái task');
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
+
   const columns = useMemo(() => {
     return TASK_COLUMNS.map((column) => ({
       ...column,
       tasks: tasks.filter((task) => task.status === column.id)
     }));
   }, [tasks]);
-
-  const resetForm = () => {
-    setTaskForm(emptyTaskForm);
-    setShowCreate(false);
-  };
-
-  const handleCreateTask = async (event) => {
-    event.preventDefault();
-    const title = taskForm.title.trim();
-
-    if (!title) {
-      toast.error('Task title is required');
-      return;
-    }
-
-    setSavingTask(true);
-    try {
-      const selectedMember = members.find((member) => Number(member.id) === Number(taskForm.assigneeId));
-
-      const payload = {
-        groupId,
-        title,
-        description: taskForm.description.trim() || null,
-        assigneeId: selectedMember?.id || null,
-        priority: UI_TO_API_PRIORITY[taskForm.priority] || 'MEDIUM',
-        status: UI_TO_API_STATUS[taskForm.status] || 'TODO',
-        tags: taskForm.tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        dueDate: taskForm.dueDate || null
-      };
-
-      const created = await taskService.createTask(payload);
-      const createdRow = toTaskRow(created);
-      if (createdRow) {
-        setTasks((prev) => [normalizeTask(createdRow), ...prev]);
-      }
-      toast.success('Task created');
-      resetForm();
-    } catch (error) {
-      toast.error(error?.message || 'Failed to create task');
-    } finally {
-      setSavingTask(false);
-    }
-  };
-
-  const moveTask = async (taskId, nextStatus) => {
-    const previousTasks = [...tasks];
-    setTasks((prev) => prev.map((task) => (
-      task.id === taskId ? { ...task, status: nextStatus } : task
-    )));
-
-    try {
-      await taskService.updateTask(taskId, { status: UI_TO_API_STATUS[nextStatus] || 'TODO' });
-    } catch (error) {
-      setTasks(previousTasks);
-      toast.error(error?.message || 'Failed to update task status');
-    }
-  };
-
-  const deleteTask = async (taskId) => {
-    const previousTasks = [...tasks];
-    setTasks((prev) => prev.filter((task) => task.id !== taskId));
-
-    try {
-      await taskService.deleteTask(taskId);
-      toast.success('Task removed');
-    } catch (error) {
-      setTasks(previousTasks);
-      toast.error(error?.message || 'Failed to remove task');
-    }
-  };
 
   if (!groupId) {
     return (
@@ -258,15 +232,17 @@ export function TaskBoardView({ groupId }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900"># 📋 task-board</h1>
-            <p className="text-sm text-gray-600 mt-0.5">Organize and track project tasks</p>
+            <p className="text-sm text-gray-600 mt-0.5">Nhóm sinh viên tự quản lý task nội bộ; giảng viên theo dõi tiến độ</p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-2 rounded-lg font-medium transition"
-          >
-            <Plus className="w-4 h-4" />
-            Add Task
-          </button>
+          {isStudent && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-2 rounded-lg text-sm font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              Tạo task
+            </button>
+          )}
         </div>
       </div>
 
@@ -281,13 +257,15 @@ export function TaskBoardView({ groupId }) {
               <p className="text-slate-600 mt-3 max-w-xl mx-auto">
                 Nhóm của bạn chưa tạo công việc nào trên board. Hãy tạo task đầu tiên để bắt đầu phân công và theo dõi tiến độ.
               </p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="inline-flex items-center gap-2 mt-6 bg-[#F27125] hover:bg-[#d96420] text-white px-5 py-3 rounded-xl font-medium transition"
-              >
-                <Plus className="w-4 h-4" />
-                Tạo task đầu tiên
-              </button>
+              {isStudent && (
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="inline-flex items-center gap-2 mt-6 bg-[#F27125] hover:bg-[#d96420] text-white px-5 py-3 rounded-xl font-medium transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  Tạo task đầu tiên
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -319,12 +297,6 @@ export function TaskBoardView({ groupId }) {
                   >
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <h4 className="font-medium text-gray-900 text-sm leading-snug flex-1">{task.title}</h4>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="text-xs text-red-500 hover:text-red-600"
-                      >
-                        Remove
-                      </button>
                     </div>
 
                     {task.description && (
@@ -365,25 +337,25 @@ export function TaskBoardView({ groupId }) {
                     </div>
 
                     <div className="mt-3 flex items-center gap-2">
-                      <select
-                        value={task.status}
-                        onChange={(event) => moveTask(task.id, event.target.value)}
-                        className="w-full px-2 py-1 border border-gray-200 rounded text-xs"
-                      >
-                        {TASK_COLUMNS.map((statusColumn) => (
-                          <option key={statusColumn.id} value={statusColumn.id}>{statusColumn.title}</option>
-                        ))}
-                      </select>
+                      {isStudent ? (
+                        <select
+                          value={task.status}
+                          onChange={(event) => handleUpdateStatus(task.id, event.target.value)}
+                          disabled={updatingTaskId === task.id}
+                          className="w-full px-2 py-2 border border-gray-200 rounded text-xs bg-white text-gray-700 font-medium"
+                        >
+                          {TASK_COLUMNS.map((statusColumn) => (
+                            <option key={statusColumn.id} value={statusColumn.id}>{statusColumn.title}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="w-full px-2 py-2 border border-gray-200 rounded text-xs bg-gray-50 text-gray-700 font-medium">
+                          Trạng thái: {TASK_COLUMNS.find((statusColumn) => statusColumn.id === task.status)?.title || 'To Do'}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
-
-                <button
-                  onClick={() => setShowCreate(true)}
-                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600 transition"
-                >
-                  + Add card
-                </button>
               </div>
             </div>
           ))}
@@ -391,104 +363,107 @@ export function TaskBoardView({ groupId }) {
         )}
       </div>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form onSubmit={handleCreateTask} className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Create Task</h3>
-              <button type="button" onClick={resetForm} className="text-gray-400 hover:text-gray-700">
-                <X className="w-5 h-5" />
+      {showCreate && isStudent && (
+        <div className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center">
+          <div className="w-full max-w-2xl bg-white rounded-xl border border-gray-200 shadow-xl">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Tạo task mới</h3>
+              <button
+                onClick={() => setShowCreate(false)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <div className="space-y-3">
-              <input
-                value={taskForm.title}
-                onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Task title"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-              />
-
-              <textarea
-                value={taskForm.description}
-                onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="Task description"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none"
-              />
-
-              <div className="grid grid-cols-2 gap-3">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Tiêu đề</label>
+                <input
+                  value={taskForm.title}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))}
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Mô tả</label>
+                <textarea
+                  value={taskForm.description}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))}
+                  rows={4}
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Người phụ trách</label>
                 <select
                   value={taskForm.assigneeId}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, assigneeId: event.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="">Assign to</option>
+                  <option value="">Không gán</option>
                   {members.map((member) => (
                     <option key={member.id} value={member.id}>{member.fullName}</option>
                   ))}
                 </select>
-
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Mức ưu tiên</label>
                 <select
                   value={taskForm.priority}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, priority: event.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
                   <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
                 </select>
-
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Trạng thái</label>
                 <select
                   value={taskForm.status}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, status: event.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 >
                   {TASK_COLUMNS.map((column) => (
                     <option key={column.id} value={column.id}>{column.title}</option>
                   ))}
                 </select>
-
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Hạn</label>
                 <input
                   type="date"
                   value={taskForm.dueDate}
                   onChange={(event) => setTaskForm((prev) => ({ ...prev, dueDate: event.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
-
-              <input
-                value={taskForm.tags}
-                onChange={(event) => setTaskForm((prev) => ({ ...prev, tags: event.target.value }))}
-                placeholder="Tags (comma separated)"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-              />
-
-              {loadingMembers && (
-                <div className="text-xs text-gray-500 flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Loading group members...
-                </div>
-              )}
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Tags (phân tách dấu phẩy)</label>
+                <input
+                  value={taskForm.tags}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, tags: event.target.value }))}
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
             </div>
-
-            <div className="mt-5 flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
               <button
-                type="button"
-                onClick={resetForm}
-                className="flex-1 py-2.5 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm"
               >
-                Cancel
+                Hủy
               </button>
               <button
-                type="submit"
-                disabled={savingTask}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-[#F27125] hover:bg-[#d96420] rounded-lg disabled:opacity-60"
+                onClick={handleCreateTask}
+                disabled={creating || loadingMembers}
+                className="px-4 py-2 rounded-lg bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-semibold disabled:opacity-60"
               >
-                {savingTask ? 'Saving...' : 'Create'}
+                {creating ? 'Đang tạo...' : 'Tạo task'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
     </div>

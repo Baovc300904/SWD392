@@ -1,17 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Loader2,
-  RefreshCw,
-  School,
-  FileText,
-  Award,
-  MessageSquare,
-  X
-} from 'lucide-react';
+import { Award, FileText, Loader2, MessageSquare, RefreshCw, School, X } from 'lucide-react';
 import { toast } from 'sonner';
-import authService from '../../services/auth.service';
-import classService from '../../services/class.service';
-import { submissionService } from '../../services/app.service';
+import { classService, submissionService } from '../../services/app.service';
 
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -19,43 +9,33 @@ const toArray = (payload) => {
   return [];
 };
 
-const getGradeStyle = (grade) => {
-  if (grade == null) return 'bg-gray-100 text-gray-500';
-  if (grade < 5)   return 'bg-red-100 text-red-700';
-  if (grade < 7)   return 'bg-yellow-100 text-yellow-700';
-  if (grade < 8.5) return 'bg-blue-100 text-blue-700';
-  return 'bg-green-100 text-green-700';
-};
-
-export function GroupSubmissionView() {
-  const currentUser = authService.getCurrentUser();
-  const lecturerId = currentUser?.userId || currentUser?.id;
+export function SubmissionManagementView() {
   const [classes, setClasses] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [gradingSubmission, setGradingSubmission] = useState(null);
   const [gradingForm, setGradingForm] = useState({ grade: '', feedback: '' });
-  const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const classList = await classService.getAllClasses({ lecturerId });
-      const classItems = Array.isArray(classList) ? classList : [];
-      setClasses(classItems);
+      const [classList, submissionResponse] = await Promise.all([
+        classService.getAllClasses(),
+        submissionService.getAllSubmissions()
+      ]);
 
-      const response = await submissionService.getAllSubmissions();
-      const allSubmissions = toArray(response);
-      const allowedClassIds = new Set(classItems.map((item) => Number(item.id)));
-      setSubmissions(allSubmissions.filter((item) => allowedClassIds.has(Number(item.group?.class?.id || item.group?.classId))));
+      const nextClasses = Array.isArray(classList) ? classList : [];
+      setClasses(nextClasses);
+      setSubmissions(toArray(submissionResponse));
 
-      if (!selectedClassId && classItems[0]?.id) {
-        setSelectedClassId(String(classItems[0].id));
+      if (!selectedClassId && nextClasses[0]?.id) {
+        setSelectedClassId(String(nextClasses[0].id));
       }
     } catch (error) {
-      console.error('Failed to load lecturer submissions:', error);
-      toast.error(error?.message || 'Không thể tải dữ liệu submissions');
+      console.error('Failed to load admin submissions:', error);
+      toast.error(error?.message || 'Không thể tải danh sách submissions');
     } finally {
       setLoading(false);
     }
@@ -63,7 +43,7 @@ export function GroupSubmissionView() {
 
   useEffect(() => {
     loadData();
-  }, [lecturerId]);
+  }, []);
 
   const filteredSubmissions = useMemo(() => {
     if (!selectedClassId) return submissions;
@@ -94,30 +74,30 @@ export function GroupSubmissionView() {
         Number(gradingForm.grade),
         gradingForm.feedback.trim()
       );
-      toast.success('Đã lưu điểm và feedback');
+      toast.success('Đã cập nhật điểm submission');
       closeGradeModal();
       await loadData();
     } catch (error) {
       console.error('Failed to grade submission:', error);
-      toast.error(error?.message || 'Không thể chấm bài');
+      toast.error(error?.message || 'Không thể lưu điểm submission');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="flex-1 bg-[#F3F4F6] overflow-auto p-8 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Submission & Chấm điểm</h1>
-          <p className="text-sm text-gray-600 mt-1">Giảng viên xem bài nộp theo lớp phụ trách và nhập điểm trực tiếp.</p>
+          <h2 className="text-2xl font-bold text-gray-900">Submission Review</h2>
+          <p className="text-sm text-gray-500 mt-1">Manager theo dõi bài nộp toàn hệ thống và có thể chấm lại khi cần.</p>
         </div>
         <button onClick={loadData} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
           <RefreshCw className="w-4 h-4" /> Làm mới
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-wrap items-center gap-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-3">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
           <School className="w-4 h-4 text-[#F27125]" /> Lọc theo lớp
         </div>
@@ -127,20 +107,20 @@ export function GroupSubmissionView() {
           className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
         >
           <option value="">Tất cả lớp</option>
-          {classes.map((classItem) => (
-            <option key={classItem.id} value={classItem.id}>{classItem.className}</option>
+          {classes.map((item) => (
+            <option key={item.id} value={item.id}>{item.className}</option>
           ))}
         </select>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 text-[#F27125] animate-spin" /></div>
         ) : filteredSubmissions.length === 0 ? (
           <div className="text-center py-16 px-6">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800">Chưa có bài nộp</h3>
-            <p className="text-sm text-gray-500 mt-2">Hiện chưa có submission nào trong phạm vi lớp đang chọn.</p>
+            <h3 className="text-lg font-semibold text-gray-800">Chưa có submission</h3>
+            <p className="text-sm text-gray-500 mt-2">Không có bài nộp nào trong phạm vi lọc hiện tại.</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -154,12 +134,9 @@ export function GroupSubmissionView() {
                     </span>
                     <span className="text-xs text-gray-500">{submission.group?.groupName || 'Unknown group'} · {submission.group?.class?.className || 'Unknown class'}</span>
                   </div>
-
                   <a href={submission.fileUrl || submission.filePath} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
                     {submission.fileUrl || submission.filePath}
                   </a>
-
-                  {submission.notes && <p className="text-sm text-gray-600 mt-3">{submission.notes}</p>}
                   {submission.feedback && (
                     <div className="mt-3 rounded-xl bg-gray-50 border border-gray-200 p-3 text-sm text-gray-700">
                       <span className="font-semibold">Feedback: </span>{submission.feedback}
@@ -168,7 +145,7 @@ export function GroupSubmissionView() {
                 </div>
 
                 <div className="flex flex-col items-end gap-3">
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${getGradeStyle(submission.grade)}`}>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-sm font-semibold">
                     <Award className="w-4 h-4" /> {submission.grade != null ? `${submission.grade}/10` : 'Chưa chấm'}
                   </div>
                   <button onClick={() => openGradeModal(submission)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F27125] hover:bg-[#d96420] text-white text-sm font-semibold">
@@ -214,7 +191,6 @@ export function GroupSubmissionView() {
                   value={gradingForm.feedback}
                   onChange={(event) => setGradingForm((prev) => ({ ...prev, feedback: event.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none"
-                  placeholder="Nhập nhận xét cho nhóm"
                 />
               </div>
             </div>

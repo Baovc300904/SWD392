@@ -18,11 +18,14 @@ const classService = {
     try {
       const queryParams = new URLSearchParams();
       
-      if (filters.semester_id) {
-        queryParams.append('semester_id', filters.semester_id);
+      if (filters.semester_id || filters.semesterId) {
+        queryParams.append('semesterId', filters.semester_id || filters.semesterId);
       }
-      if (filters.lecturer_id) {
-        queryParams.append('lecturer_id', filters.lecturer_id);
+      if (filters.lecturer_id || filters.lecturerId) {
+        queryParams.append('lecturerId', filters.lecturer_id || filters.lecturerId);
+      }
+      if (filters.search) {
+        queryParams.append('search', filters.search);
       }
 
       const queryString = queryParams.toString();

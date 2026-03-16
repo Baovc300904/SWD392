@@ -33,7 +33,7 @@ const toArray = (payload) => {
 export function StudentGroupJoinFlow({ onGroupJoined, onLogout }) {
   const currentUser = authService.getCurrentUser();
   const role = currentUser?.role?.toLowerCase() || 'student';
-  const canCreateGroup = role === 'lecturer' || role === 'manager';
+  const canCreateGroup = role === 'student';
   
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
@@ -121,10 +121,7 @@ export function StudentGroupJoinFlow({ onGroupJoined, onLogout }) {
       });
 
       toast.success('Tạo nhóm thành công!');
-      
-      // Auto join as creator
       const groupId = newGroup.id || newGroup.groupId;
-      await groupService.addGroupMember(groupId, currentUser.userId);
       
       // Notify parent
       if (onGroupJoined) {
@@ -167,8 +164,8 @@ export function StudentGroupJoinFlow({ onGroupJoined, onLogout }) {
               <h1 className="text-3xl font-bold text-gray-800 mb-2">Chọn Nhóm</h1>
               <p className="text-gray-600">
                 Dữ liệu nhóm đang được lấy trực tiếp từ API. {canCreateGroup
-                  ? 'Bạn có thể tham gia nhóm có sẵn hoặc tạo nhóm mới.'
-                  : 'Bạn chỉ có thể tham gia nhóm có sẵn. Chức năng tạo nhóm dành cho lecturer.'}
+                  ? 'Bạn có thể tham gia nhóm có sẵn hoặc tạo nhóm mới trong lớp của mình.'
+                  : 'Bạn chỉ có thể tham gia nhóm có sẵn.'}
               </p>
             </div>
             <button

@@ -11,23 +11,38 @@ const firebaseConfig = {
 };
 
 const normalizeStorageBucket = (bucket, projectId) => {
-    if (!bucket && projectId) return `${projectId}.appspot.com`;
+    const sanitized = String(bucket || '').trim().replace(/^gs:\/\//, '').replace(/\/$/, '');
+
+    if (sanitized) {
+        return sanitized;
+    }
+
+    if (projectId) {
+        return `${projectId}.firebasestorage.app`;
+    }
+
+    return '';
+};
+
+const toBucketAlias = (bucket) => {
     if (!bucket) return '';
+    if (bucket.endsWith('.appspot.com')) {
+        return bucket.replace('.appspot.com', '.firebasestorage.app');
+    }
     if (bucket.endsWith('.firebasestorage.app')) {
         return bucket.replace('.firebasestorage.app', '.appspot.com');
     }
-    return bucket;
+    return '';
 };
 
 const resolvedStorageBucket = normalizeStorageBucket(firebaseConfig.storageBucket, firebaseConfig.projectId);
+const alternateStorageBucket = toBucketAlias(resolvedStorageBucket);
 
 const hasFirebaseConfig = () =>
     !!firebaseConfig.apiKey
     && !!firebaseConfig.authDomain
     && !!firebaseConfig.projectId
-    && !!resolvedStorageBucket
-    && !!firebaseConfig.messagingSenderId
-    && !!firebaseConfig.appId;
+    && !!resolvedStorageBucket;
 
 const isFirebaseEnabled = hasFirebaseConfig();
 
@@ -37,6 +52,9 @@ let storage = null;
 if (isFirebaseEnabled) {
     firebaseApp = getApps().length ? getApp() : initializeApp({ ...firebaseConfig, storageBucket: resolvedStorageBucket });
     storage = getStorage(firebaseApp, `gs://${resolvedStorageBucket}`);
+} else {
+    console.warn('[Firebase] Storage is disabled due to missing config. Check VITE_FIREBASE_* env vars.');
 }
 
 export { firebaseApp, storage, isFirebaseEnabled };
+export { resolvedStorageBucket, alternateStorageBucket };
