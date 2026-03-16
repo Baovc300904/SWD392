@@ -6,9 +6,61 @@
 const { Op } = require('sequelize');
 const { Question, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models');
 const MSG = require('../constants/messages');
+const pushService = require('../services/push.service');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+
+const trimForNotification = (text, maxLength = 100) => {
+    const normalized = String(text || '').trim().replace(/\s+/g, ' ');
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, maxLength - 3)}...`;
+};
+
+const notifyLecturerOnQuestionCreate = async ({ question, groupId, askedBy }) => {
+    if (!question?.id || !groupId || !askedBy) return;
+
+    const group = await StudentGroup.findByPk(groupId, {
+        include: [{
+            model: Class,
+            as: 'class',
+            attributes: ['lecturerId']
+        }]
+    });
+
+    const lecturerId = group?.class?.lecturerId;
+    if (!lecturerId) return;
+
+    // No self-notification in edge cases.
+    if (Number(lecturerId) === Number(askedBy)) return;
+
+    const lecturer = await User.findByPk(lecturerId, {
+        attributes: ['id', 'fcmToken']
+    });
+    if (!lecturer?.fcmToken) {
+        console.warn(`⚠️ Skip question notification: lecturer #${lecturerId} has no fcmToken`);
+        return;
+    }
+
+    const result = await pushService.sendPush(
+        lecturer.fcmToken,
+        'Co cau hoi moi tu sinh vien',
+        trimForNotification(question.title || question.content || 'Sinh vien vua tao cau hoi moi'),
+        {
+            type: 'question',
+            screen: 'question',
+            event: 'question_created',
+            questionId: question.id,
+            askedBy
+        }
+    );
+
+    if (!result.success) {
+        console.warn(
+            `⚠️ Failed to send lecturer question notification for question #${question.id}: ${result.reason || result.error || result.code || 'unknown error'}`
+        );
+    }
+};
 
 /**
  * @desc    Get all questions (with filters)
@@ -144,6 +196,13 @@ exports.createQuestion = async (req, res) => {
             groupId,
             askedBy,
             status: 'WAITING_LECTURER'
+        });
+
+        // Best-effort push so assigned lecturer is notified immediately.
+        await notifyLecturerOnQuestionCreate({
+            question,
+            groupId,
+            askedBy
         });
 
         res.status(201).json({

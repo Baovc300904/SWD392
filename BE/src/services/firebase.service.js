@@ -2,6 +2,21 @@ const fs = require('fs');
 const path = require('path');
 const admin = require('firebase-admin');
 
+const DEFAULT_SERVICE_ACCOUNT_PATH = path.join(process.cwd(), 'config', 'serviceAccountKey.json');
+
+const readServiceAccountFromPath = (candidatePath) => {
+    if (!candidatePath) return null;
+
+    const fullPath = path.isAbsolute(candidatePath)
+        ? candidatePath
+        : path.join(process.cwd(), candidatePath);
+
+    if (!fs.existsSync(fullPath)) return null;
+
+    const raw = fs.readFileSync(fullPath, 'utf8');
+    return JSON.parse(raw);
+};
+
 class FirebaseService {
     constructor() {
         this._initialized = false;
@@ -17,20 +32,13 @@ class FirebaseService {
 
             if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
                 serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-            } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-                const rawPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-                const fullPath = path.isAbsolute(rawPath)
-                    ? rawPath
-                    : path.join(process.cwd(), rawPath);
-
-                if (fs.existsSync(fullPath)) {
-                    const raw = fs.readFileSync(fullPath, 'utf8');
-                    serviceAccount = JSON.parse(raw);
-                }
+            } else {
+                serviceAccount = readServiceAccountFromPath(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+                    || readServiceAccountFromPath(DEFAULT_SERVICE_ACCOUNT_PATH);
             }
 
             if (!serviceAccount) {
-                console.warn('⚠️ FCM disabled: missing FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH');
+                console.warn('⚠️ FCM disabled: missing service account. Use FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_PATH, or BE/config/serviceAccountKey.json');
                 this._available = false;
                 return false;
             }

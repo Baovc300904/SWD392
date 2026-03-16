@@ -27,6 +27,11 @@ class NotificationService {
   int _lastKnownQuestionCount = 0;
   bool _pushInitialized = false;
 
+  bool get _isStudentSession {
+    final role = AppSession.instance.session?.normalizedRole ?? '';
+    return role == 'student';
+  }
+
   Future<void> initialize() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const settings = InitializationSettings(
@@ -57,42 +62,37 @@ class NotificationService {
 
     try {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-final messaging = FirebaseMessaging.instance;
+      final messaging = FirebaseMessaging.instance;
 
-await messaging.requestPermission(
-  alert: true,
-  badge: true,
-  sound: true,
-);
-
-final token = await messaging.getToken();
-print("FCM TOKEN = $token");
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  print("PUSH RECEIVED");
+        final title = message.notification?.title ?? 'SWD392';
+        final body = message.notification?.body ?? 'You have a new update.';
 
-  final title = message.notification?.title ?? 'SWD392';
-  final body = message.notification?.body ?? 'You have a new update.';
+        final data = <String, dynamic>{
+          ...message.data,
+          if (message.messageId != null) 'messageId': message.messageId!,
+        };
 
-  final data = <String, dynamic>{
-    ...message.data,
-    if (message.messageId != null) 'messageId': message.messageId!,
-  };
-
-  await showLocal(
-    title: title,
-    body: body,
-    payload: jsonEncode(data),
-  );
-});
+        await showLocal(
+          title: title,
+          body: body,
+          payload: jsonEncode(data),
+        );
+      });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        _handleNavigation(message.data);
+        _handleNavigation(_normalizeDataMap(message.data));
       });
 
       final initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null) {
-        _handleNavigation(initialMessage.data);
+        _handleNavigation(_normalizeDataMap(initialMessage.data));
       }
 
       // Token registration (best-effort).
@@ -106,36 +106,40 @@ print("FCM TOKEN = $token");
   }
 
   Future<void> onLogin() async {
-    await startQuestionPolling();
+    await stop();
     await _registerCurrentToken();
   }
 
-  Future<void> onLogout() async {
-    try {
-      await UserService.instance.clearMyFcmToken();
-    } catch (_) {
-      // Ignore network issues.
+  Future<void> onLogout({bool clearServerToken = false}) async {
+    if (clearServerToken) {
+      try {
+        await UserService.instance.clearMyFcmToken();
+      } catch (_) {
+        // Ignore network issues.
+      }
     }
     await stop();
   }
 
   Future<void> _registerCurrentToken() async {
     if (!AppSession.instance.isAuthenticated) return;
+    if (!_isStudentSession) return;
     try {
       final token = await FirebaseMessaging.instance.getToken();
       await _registerToken(token);
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      debugPrint('FCM token fetch/register failed: $e');
     }
   }
 
   Future<void> _registerToken(String? token) async {
     if (!AppSession.instance.isAuthenticated) return;
+    if (!_isStudentSession) return;
     if (token == null || token.trim().isEmpty) return;
     try {
       await UserService.instance.updateMyFcmToken(token.trim());
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      debugPrint('FCM token sync failed: $e');
     }
   }
 
@@ -190,14 +194,36 @@ print("FCM TOKEN = $token");
     );
   }
 
+  Map<String, dynamic> _normalizeDataMap(Map<dynamic, dynamic> data) {
+    return data.map((key, value) => MapEntry('$key', value));
+  }
+
+  int? _parseQuestionId(Map<String, dynamic> data) {
+    final direct = data['questionId'] ?? data['question_id'] ?? data['qid'];
+    final parsedDirect = int.tryParse('${direct ?? ''}');
+    if (parsedDirect != null && parsedDirect > 0) return parsedDirect;
+
+    final nestedData = data['data'];
+    if (nestedData is Map) {
+      final nested = _normalizeDataMap(nestedData);
+      final nestedId = nested['questionId'] ?? nested['question_id'] ?? nested['qid'];
+      final parsedNested = int.tryParse('${nestedId ?? ''}');
+      if (parsedNested != null && parsedNested > 0) return parsedNested;
+    }
+
+    return null;
+  }
+
   void _handleNavigation(Map<String, dynamic> data) {
     if (!AppSession.instance.isAuthenticated) return;
 
     final type = (data['type'] ?? data['screen'] ?? '').toString().toLowerCase();
-    final questionIdRaw = data['questionId'] ?? data['question_id'] ?? data['qid'];
-    final questionId = int.tryParse(questionIdRaw?.toString() ?? '');
+    final questionId = _parseQuestionId(data);
 
-    if (type == 'question' && questionId != null && questionId > 0) {
+    final isQuestionNavigation =
+        type == 'question' || type == 'question_answered' || type == 'answer_created';
+
+    if (isQuestionNavigation && questionId != null && questionId > 0) {
       final nav = AppNavigator.state;
       if (nav == null) return;
       nav.push(

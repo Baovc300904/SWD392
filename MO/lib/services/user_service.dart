@@ -57,10 +57,11 @@ class UserService {
   }
 
   Future<Map<String, dynamic>> updateMyFcmToken(String token) {
-    return ApiClient.instance.post(
-      '/users/me/fcm-token',
-      body: <String, dynamic>{'token': token},
-    );
+    final payload = <String, dynamic>{'token': token};
+
+    return ApiClient.instance
+        .post('/users/me/fcm-token', body: payload)
+        .catchError((_) => ApiClient.instance.post('/users/token', body: payload));
   }
 
   Future<Map<String, dynamic>> clearMyFcmToken() {
