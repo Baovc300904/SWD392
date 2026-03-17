@@ -1,15 +1,22 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../models/question_item.dart';
 import '../../models/topic_item.dart';
 import '../../services/answer_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/class_service.dart';
 import '../../services/group_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/question_service.dart';
 import '../../services/submission_service.dart';
 import '../../services/topic_service.dart';
+import '../../services/user_service.dart';
 import '../../state/app_session.dart';
+import '../../widgets/ui_kit.dart';
+import '../login_screen.dart';
+import '../question_detail_screen.dart';
 
 class LecturerShell extends StatefulWidget {
   const LecturerShell({super.key});
@@ -21,53 +28,88 @@ class LecturerShell extends StatefulWidget {
 class _LecturerShellState extends State<LecturerShell> {
   int _index = 0;
 
-  final List<Widget> _pages = const <Widget>[
-    _LecturerDashboardPage(),
-    _LecturerClassesGroupsPage(),
-    _LecturerTopicManagementPage(),
-    _LecturerQAManagementPage(),
-    _LecturerSubmissionGradingPage(),
+  static const _tabs = <NavigationDestination>[
+    NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+    NavigationDestination(icon: Icon(Icons.lightbulb_outline), label: 'De tai'),
+    NavigationDestination(icon: Icon(Icons.quiz_outlined), label: 'Hoi dap'),
+    NavigationDestination(icon: Icon(Icons.assignment_turned_in_outlined), label: 'Cham diem'),
+    NavigationDestination(icon: Icon(Icons.person_outline), label: 'Ho so'),
   ];
+
+  static const _titles = <String>[
+    'Lecturer Workspace',
+    'Quan ly De tai',
+    'Quan ly Hoi dap',
+    'Submission & Cham diem',
+    'Ho so Giang vien',
+  ];
+
+  Future<void> _backToLogin() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Back to Login'),
+        content: const Text('Ban co chac muon dang xuat va quay lai man hinh dang nhap?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Huy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Dang xuat'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+
+    final refreshToken = AppSession.instance.session?.refreshToken;
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await AuthService.instance.logout(refreshToken);
+      } catch (_) {
+        // Keep local logout resilient even when network logout fails.
+      }
+    }
+
+    await NotificationService.instance.onLogout();
+    await AppSession.instance.clear();
+    if (!mounted) return;
+
+    await Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pages = <Widget>[
+      const _LecturerDashboardPage(),
+      const _LecturerTopicPage(),
+      const _LecturerQAPage(),
+      const _LecturerSubmissionPage(),
+      const _LecturerProfilePage(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lecturer Workspace'),
-      ),
-      body: _pages[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (int value) {
-          setState(() => _index = value);
-        },
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Classes',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.topic_outlined),
-            selectedIcon: Icon(Icons.topic),
-            label: 'Topics',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.question_answer_outlined),
-            selectedIcon: Icon(Icons.question_answer),
-            label: 'Q&A',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.assignment_turned_in_outlined),
-            selectedIcon: Icon(Icons.assignment_turned_in),
-            label: 'Grading',
+        title: Text(_titles[_index]),
+        actions: [
+          IconButton(
+            onPressed: _backToLogin,
+            tooltip: 'Back to Login',
+            icon: const Icon(Icons.logout_outlined),
           ),
         ],
+      ),
+      body: IndexedStack(index: _index, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        destinations: _tabs,
+        onDestinationSelected: (value) => setState(() => _index = value),
       ),
     );
   }
@@ -82,11 +124,14 @@ class _LecturerDashboardPage extends StatefulWidget {
 
 class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
   bool _loading = true;
-  int _pendingTopics = 0;
-  int _unanswered = 0;
-  int _escalated = 0;
-  int _groups = 0;
-  List<Map<String, dynamic>> _recentSubmissions = <Map<String, dynamic>>[];
+  String? _error;
+
+  List<TopicItem> _topics = const <TopicItem>[];
+  List<QuestionItem> _questions = const <QuestionItem>[];
+  List<Map<String, dynamic>> _groups = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _submissions = const <Map<String, dynamic>>[];
+
+  int get _lecturerId => AppSession.instance.session?.userId ?? 0;
 
   @override
   void initState() {
@@ -95,158 +140,189 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      final int? lecturerId = AppSession.instance.session?.userId;
-      final List<TopicItem> topics = await TopicService.instance.getAll(
-        status: 'PENDING',
-      );
-      final List<QuestionItem> questions = await QuestionService.instance.getAll();
-      final List<Map<String, dynamic>> groups = await GroupService.instance.getAll();
-      final List<Map<String, dynamic>> classes = await ClassService.instance.getAll(
-        lecturerId: lecturerId,
-      );
-      final List<Map<String, dynamic>> submissions =
-          await SubmissionService.instance.getAll();
+      final results = await Future.wait<dynamic>([
+        ClassService.instance.getAll(lecturerId: _lecturerId),
+        TopicService.instance.getAll(),
+        QuestionService.instance.getAll(),
+        GroupService.instance.getAll(),
+        SubmissionService.instance.getAll(),
+      ]);
 
-      final Set<int> classIds = classes
-          .map((Map<String, dynamic> e) => _asInt(e['id']))
+      final classes = results[0] as List<Map<String, dynamic>>;
+      final classIds = classes
+          .map((item) => int.tryParse(item['id']?.toString() ?? ''))
           .whereType<int>()
           .toSet();
 
-      final List<Map<String, dynamic>> filtered = submissions.where((Map<String, dynamic> s) {
-        final Map<String, dynamic> group = _asMap(s['group']);
-        final int? classId = _asInt(group['classId']) ??
-            _asInt(_asMap(group['class'])['id']);
-        return classIds.isEmpty || (classId != null && classIds.contains(classId));
-      }).toList();
+      final submissions = (results[4] as List<Map<String, dynamic>>).where((item) {
+        final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final classId = int.tryParse(classMap['id']?.toString() ?? '') ??
+            int.tryParse(group['classId']?.toString() ?? '');
+        if (classIds.isEmpty) return true;
+        return classId != null && classIds.contains(classId);
+      }).toList(growable: false);
 
-      filtered.sort((Map<String, dynamic> a, Map<String, dynamic> b) {
-        final DateTime ad = _parseDateTime(a['submittedAt']);
-        final DateTime bd = _parseDateTime(b['submittedAt']);
-        return bd.compareTo(ad);
-      });
-
-      final Set<int> seenGroups = <int>{};
-      final List<Map<String, dynamic>> recent = <Map<String, dynamic>>[];
-      for (final Map<String, dynamic> item in filtered) {
-        final int? groupId = _asInt(item['groupId']) ?? _asInt(_asMap(item['group'])['id']);
-        if (groupId == null || seenGroups.contains(groupId)) {
-          continue;
-        }
-        seenGroups.add(groupId);
-        recent.add(item);
-        if (recent.length >= 5) {
-          break;
-        }
-      }
-
-      final int pendingCount = topics
-          .where((TopicItem t) =>
-              t.status.toUpperCase() == 'PENDING' || t.status.toUpperCase() == 'WAITING')
-          .length;
-
+      if (!mounted) return;
       setState(() {
-        _pendingTopics = pendingCount;
-        _unanswered = questions
-            .where((QuestionItem q) => q.status.toUpperCase() == 'WAITING_LECTURER')
-            .length;
-        _escalated = questions
-            .where((QuestionItem q) =>
-                q.status.toUpperCase() == 'ESCALATED_TO_MANAGER')
-            .length;
-        _groups = groups.length;
-        _recentSubmissions = recent;
-        _loading = false;
+        _topics = results[1] as List<TopicItem>;
+        _questions = results[2] as List<QuestionItem>;
+        _groups = results[3] as List<Map<String, dynamic>>;
+        _submissions = submissions;
       });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _normalizedQuestionStatus(String raw) {
+    final status = raw.toUpperCase();
+    if (status == 'WAITING') return 'WAITING_LECTURER';
+    if (status == 'ESCALATED') return 'ESCALATED_TO_MANAGER';
+    if (status == 'ANSWERED') return 'RESOLVED';
+    return status;
+  }
+
+  bool _isActiveGroup(Map<String, dynamic> group) {
+    final status = (group['groupStatus'] ?? group['status'] ?? '').toString().toUpperCase();
+    return status == 'FORMING' || status == 'ACTIVE' || status == 'PENDING' || status == 'WAITING';
+  }
+
+  Future<void> _confirmGroup(Map<String, dynamic> group) async {
+    final id = int.tryParse(group['id']?.toString() ?? '') ?? 0;
+    if (id == 0) return;
+
+    try {
+      await GroupService.instance.confirmGroup(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Da chot nhom thanh cong.')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final pendingTopics = _topics.where((item) => item.status.toUpperCase() == 'PENDING').length;
+    final unansweredQuestions = _questions
+        .where((item) => _normalizedQuestionStatus(item.status) == 'WAITING_LECTURER')
+        .length;
+    final escalatedQuestions = _questions
+        .where((item) => _normalizedQuestionStatus(item.status) == 'ESCALATED_TO_MANAGER')
+        .length;
+    final activeGroups = _groups.where(_isActiveGroup).toList(growable: false);
+
+    final recentSubmissions = [..._submissions]
+      ..sort((a, b) {
+        final left = _parseDate(a['submittedAt'] ?? a['createdAt'])?.millisecondsSinceEpoch ?? 0;
+        final right = _parseDate(b['submittedAt'] ?? b['createdAt'])?.millisecondsSinceEpoch ?? 0;
+        return right.compareTo(left);
+      });
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          const Text(
-            'Dashboard',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        padding: const EdgeInsets.all(12),
+        children: [
+          DashboardHero(
+            title: 'Dashboard',
+            subtitle: 'Lecturer can theo doi bai nop, de tai, hoi dap va chot nhom ngay tai day.',
+            icon: Icons.school_outlined,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              _StatCard(title: 'Pending Topic Approvals', value: '$_pendingTopics'),
-              _StatCard(title: 'Unanswered Questions', value: '$_unanswered'),
-              _StatCard(title: 'Escalated Questions', value: '$_escalated'),
-              _StatCard(title: 'Total Active Groups', value: '$_groups'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              StatCard(
+                label: 'Pending Topic Approvals',
+                value: pendingTopics,
+                icon: Icons.pending_actions_outlined,
+              ),
+              StatCard(
+                label: 'Unanswered Questions',
+                value: unansweredQuestions,
+                icon: Icons.help_outline,
+              ),
+              StatCard(
+                label: 'Escalated Questions',
+                value: escalatedQuestions,
+                icon: Icons.north_outlined,
+              ),
+              StatCard(
+                label: 'Total Active Groups',
+                value: activeGroups.length,
+                icon: Icons.groups_outlined,
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text(
-                    'Recent Submissions (5 groups)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_recentSubmissions.isEmpty)
-                    const Text(
-                      'No submissions found for your groups yet.',
-                      style: TextStyle(color: Colors.black54),
-                    )
-                  else
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columns: const <DataColumn>[
-                          DataColumn(label: Text('Class')),
-                          DataColumn(label: Text('Group Name')),
-                          DataColumn(label: Text('Submission Date')),
-                          DataColumn(label: Text('Status')),
-                        ],
-                        rows: _recentSubmissions.map((Map<String, dynamic> item) {
-                          final Map<String, dynamic> group = _asMap(item['group']);
-                          final Map<String, dynamic> classMap =
-                              _asMap(group['class']);
-                          final String className = _safeText(
-                            classMap['name'],
-                            fallback: 'Class ${_safeText(group['classId'])}',
-                          );
-                          final String groupName =
-                              _safeText(group['name'], fallback: 'Group');
-                          final String date = DateFormat('dd/MM/yyyy').format(
-                            _parseDateTime(item['submittedAt']),
-                          );
-                          final String status =
-                              _safeText(item['status'], fallback: 'UNKNOWN');
-                          return DataRow(
-                            cells: <DataCell>[
-                              DataCell(Text(className)),
-                              DataCell(Text(groupName)),
-                              DataCell(Text(date)),
-                              DataCell(_statusChip(status)),
-                            ],
-                          );
-                        }).toList(),
+          const SizedBox(height: 10),
+          _RecentSubmissionSection(submissions: recentSubmissions),
+          const SizedBox(height: 10),
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '.SE1701',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text('${activeGroups.length} nhom dang hoat dong'),
+                const SizedBox(height: 8),
+                if (activeGroups.isEmpty)
+                  const Text('Chua co nhom nao can chot.')
+                else
+                  ...activeGroups.take(3).map((group) {
+                    final topic = group['topic'] as Map<String, dynamic>? ?? <String, dynamic>{};
+                    final groupName = _readText(group['groupName']);
+                    final topicTitle = _readText(topic['title']);
+                    final status = _readText(group['groupStatus'] ?? group['status']);
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                       ),
-                    ),
-                ],
-              ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text(topicTitle),
+                          const SizedBox(height: 2),
+                          Text('Trang thai: $status'),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            onPressed: () => _confirmGroup(group),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('Chot nhom'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
             ),
           ),
         ],
@@ -255,605 +331,588 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
   }
 }
 
-class _LecturerClassesGroupsPage extends StatefulWidget {
-  const _LecturerClassesGroupsPage();
+class _RecentSubmissionSection extends StatefulWidget {
+  const _RecentSubmissionSection({required this.submissions});
+
+  final List<Map<String, dynamic>> submissions;
 
   @override
-  State<_LecturerClassesGroupsPage> createState() =>
-      _LecturerClassesGroupsPageState();
+  State<_RecentSubmissionSection> createState() => _RecentSubmissionSectionState();
 }
 
-class _LecturerClassesGroupsPageState extends State<_LecturerClassesGroupsPage> {
-  bool _loading = true;
-  List<Map<String, dynamic>> _classes = <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> _groups = <Map<String, dynamic>>[];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-
-    try {
-      final int? lecturerId = AppSession.instance.session?.userId;
-      final List<Map<String, dynamic>> classes = await ClassService.instance.getAll(
-        lecturerId: lecturerId,
-      );
-      final List<Map<String, dynamic>> groups = await GroupService.instance.getAll();
-
-      setState(() {
-        _classes = classes;
-        _groups = groups;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
-    }
-  }
+class _RecentSubmissionSectionState extends State<_RecentSubmissionSection> {
+  bool _showAll = false;
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final firstFive = widget.submissions.take(5).toList(growable: false);
 
-    if (_classes.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: const <Widget>[
-            Text(
-              'Classes & Groups',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12),
-            Text('No classes assigned to this lecturer yet.'),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _classes.length,
-        itemBuilder: (BuildContext context, int index) {
-          final Map<String, dynamic> item = _classes[index];
-          final int? classId = _asInt(item['id']);
-          final List<Map<String, dynamic>> classGroups = _groups.where((Map<String, dynamic> g) {
-            final int? gid = _asInt(g['classId']);
-            return classId != null && gid == classId;
-          }).toList();
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    _safeText(item['name'], fallback: 'Class'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('Total Groups: ${classGroups.length}'),
-                  const SizedBox(height: 8),
-                  if (classGroups.isEmpty)
-                    const Text('No groups created for this class.')
-                  else
-                    ...classGroups.map((Map<String, dynamic> g) {
-                      final int members = _resolveMemberCount(g);
-                      final String topicName =
-                          _safeText(_asMap(g['topic'])['name'], fallback: 'No topic');
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            const Icon(Icons.group, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    _safeText(g['name'], fallback: 'Group'),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text('Topic: $topicName'),
-                                ],
-                              ),
-                            ),
-                            Text('$members members'),
-                          ],
-                        ),
-                      );
-                    }),
-                ],
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Nop bai gan day (5 nhom)',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
               ),
-            ),
-          );
-        },
+              TextButton.icon(
+                onPressed: () => setState(() => _showAll = !_showAll),
+                icon: Icon(_showAll ? Icons.expand_less : Icons.expand_more),
+                label: Text(_showAll ? 'Thu gon' : 'Xem tat ca'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (firstFive.isEmpty)
+            const Text('Chua co bai nop nao.')
+          else
+            ...firstFive.map((item) => _SubmissionRow(item: item)),
+          if (_showAll && widget.submissions.length > 5) ...[
+            const Divider(height: 18),
+            ...widget.submissions.skip(5).map((item) => _SubmissionRow(item: item)),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _LecturerTopicManagementPage extends StatefulWidget {
-  const _LecturerTopicManagementPage();
+class _SubmissionRow extends StatelessWidget {
+  const _SubmissionRow({required this.item});
+
+  final Map<String, dynamic> item;
 
   @override
-  State<_LecturerTopicManagementPage> createState() =>
-      _LecturerTopicManagementPageState();
+  Widget build(BuildContext context) {
+    final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final submitter = item['submitter'] as Map<String, dynamic>? ??
+        item['student'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
+    final groupName = _readText(group['groupName']);
+    final className = _readText(classMap['className']);
+    final submissionType = _readText(item['milestoneName'] ?? item['title'] ?? 'Submission');
+    final submittedBy = _readText(submitter['fullName']);
+    final submittedAt = _formatAgo(_parseDate(item['submittedAt'] ?? item['createdAt']));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$groupName - $className', style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text('Loai bai nop: $submissionType'),
+          const SizedBox(height: 2),
+          Text('Nguoi nop: $submittedBy'),
+          const SizedBox(height: 2),
+          Text('Thoi gian: $submittedAt'),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.visibility_outlined),
+            label: const Text('Xem chi tiet'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _LecturerTopicManagementPageState extends State<_LecturerTopicManagementPage> {
+class _LecturerTopicPage extends StatefulWidget {
+  const _LecturerTopicPage();
+
+  @override
+  State<_LecturerTopicPage> createState() => _LecturerTopicPageState();
+}
+
+class _LecturerTopicPageState extends State<_LecturerTopicPage> {
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _syllabusController = TextEditingController();
+  final _searchController = TextEditingController();
+
   bool _loading = true;
-  final TextEditingController _search = TextEditingController();
-  String _status = 'ALL';
-  List<TopicItem> _topics = <TopicItem>[];
+  bool _creating = false;
+  String? _error;
+
+  List<TopicItem> _topics = const <TopicItem>[];
+  String _statusFilter = 'ALL';
+
+  int get _lecturerId => AppSession.instance.session?.userId ?? 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _search.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _syllabusController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      final List<TopicItem> topics = await TopicService.instance.getAll();
-      setState(() {
-        _topics = topics;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
+      final topics = await TopicService.instance.getAll();
+      if (!mounted) return;
+      setState(() => _topics = topics);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _createTopic() async {
-    final TextEditingController nameCtrl = TextEditingController();
-    final TextEditingController descCtrl = TextEditingController();
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
 
-    final bool? created = await showDialog<bool>(
+    if (title.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui long nhap day du tieu de va mo ta de tai.')),
+      );
+      return;
+    }
+
+    setState(() => _creating = true);
+    try {
+      await TopicService.instance.create(
+        proposerId: _lecturerId,
+        title: title,
+        description: description,
+        syllabusUrl: _syllabusController.text.trim().isEmpty ? null : _syllabusController.text.trim(),
+        maxGroups: 5,
+      );
+
+      _titleController.clear();
+      _descriptionController.clear();
+      _syllabusController.clear();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tao de tai thanh cong.')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  Future<void> _showTopicDetail(TopicItem topic) async {
+    await showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Create Topic'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Topic Name'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-              ],
-            ),
+      builder: (context) => AlertDialog(
+        title: Text('#${topic.id} ${topic.title}'),
+        content: SingleChildScrollView(
+          child: Text(topic.description),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Dong')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editTopic(TopicItem topic) async {
+    final titleController = TextEditingController(text: topic.title);
+    final descController = TextEditingController(text: topic.description);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sua de tai'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Tieu de')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descController,
+                minLines: 2,
+                maxLines: 6,
+                decoration: const InputDecoration(labelText: 'Mo ta'),
+              ),
+            ],
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final String name = nameCtrl.text.trim();
-                if (name.isEmpty) {
-                  return;
-                }
-                try {
-                  await TopicService.instance.create(
-                    title: name,
-                    description: descCtrl.text.trim(),
-                    proposerId: AppSession.instance.session?.userId ?? 1,
-                    maxGroups: 10,
-                  );
-                  if (!context.mounted) {
-                    return;
-                  }
-                  Navigator.pop(context, true);
-                } catch (_) {
-                  if (!context.mounted) {
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to create topic.')),
-                  );
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Luu')),
+        ],
+      ),
     );
 
-    nameCtrl.dispose();
-    descCtrl.dispose();
+    if (ok != true) return;
 
-    if (created == true) {
+    try {
+      await TopicService.instance.update(topic.id, <String, dynamic>{
+        'title': titleController.text.trim(),
+        'description': descController.text.trim(),
+      });
       await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
+  }
+
+  Future<void> _deleteTopic(TopicItem topic) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xoa de tai'),
+        content: Text('Ban co chac muon xoa "${topic.title}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Xoa')),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    try {
+      await TopicService.instance.deleteTopic(topic.id);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  List<TopicItem> get _filteredTopics {
+    final search = _searchController.text.trim().toLowerCase();
+    return _topics.where((topic) {
+      final statusOk = _statusFilter == 'ALL' || topic.status.toUpperCase() == _statusFilter;
+      final searchOk = search.isEmpty ||
+          topic.title.toLowerCase().contains(search) ||
+          topic.description.toLowerCase().contains(search);
+      return statusOk && searchOk;
+    }).toList(growable: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final String keyword = _search.text.trim().toLowerCase();
-    final List<TopicItem> visible = _topics.where((TopicItem item) {
-      final String status = item.status.toUpperCase();
-      final bool statusMatch = _status == 'ALL' || status == _status;
-      final bool searchMatch = keyword.isEmpty ||
-          item.title.toLowerCase().contains(keyword) ||
-          item.description.toLowerCase().contains(keyword);
-      return statusMatch && searchMatch;
-    }).toList();
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
+        padding: const EdgeInsets.all(12),
+        children: [
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '.Quan ly De tai',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                const Text('Quan ly de tai va theo doi trang thai duyet'),
+                const SizedBox(height: 10),
+                TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Tieu de de tai')),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _descriptionController,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'Mo ta'),
+                ),
+                const SizedBox(height: 8),
+                TextField(controller: _syllabusController, decoration: const InputDecoration(labelText: 'Syllabus URL (tuy chon)')),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: _creating ? null : _createTopic,
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: Text(_creating ? 'Dang tao...' : 'Tao de tai'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
-            children: <Widget>[
-              const Expanded(
-                child: Text(
-                  'Topic Management',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Tim kiem theo tieu de hoac mo ta...',
+                  ),
                 ),
               ),
-              FilledButton.icon(
-                onPressed: _createTopic,
-                icon: const Icon(Icons.add),
-                label: const Text('Create Topic'),
+              const SizedBox(width: 8),
+              DropdownButton<String>(
+                value: _statusFilter,
+                items: const [
+                  DropdownMenuItem(value: 'ALL', child: Text('Tat ca trang thai')),
+                  DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
+                  DropdownMenuItem(value: 'APPROVED', child: Text('APPROVED')),
+                  DropdownMenuItem(value: 'REJECTED', child: Text('REJECTED')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _statusFilter = value);
+                },
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _search,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search by topic name',
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _status,
-            decoration: const InputDecoration(labelText: 'Filter by status'),
-            items: const <String>['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'WAITING']
-                .map(
-                  (String e) => DropdownMenuItem<String>(
-                    value: e,
-                    child: Text(e),
-                  ),
-                )
-                .toList(),
-            onChanged: (String? value) {
-              if (value == null) {
-                return;
-              }
-              setState(() => _status = value);
-            },
-          ),
-          const SizedBox(height: 12),
-          if (visible.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('No topics found.'),
-              ),
-            )
+          const SizedBox(height: 10),
+          if (_filteredTopics.isEmpty)
+            const SectionCard(child: Text('Khong tim thay de tai nao.'))
           else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: const <DataColumn>[
-                  DataColumn(label: Text('ID')),
-                  DataColumn(label: Text('Topic Name')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Created By')),
-                ],
-                rows: visible.map((TopicItem item) {
-                  return DataRow(
-                    cells: <DataCell>[
-                      DataCell(Text('${item.id}')),
-                      DataCell(
-                        SizedBox(
-                          width: 240,
-                          child: Text(item.title, overflow: TextOverflow.ellipsis),
-                        ),
-                      ),
-                      DataCell(_statusChip(item.status)),
-                      DataCell(
-                        Text(_safeText(AppSession.instance.session?.fullName, fallback: 'Lecturer')),
-                      ),
+            ..._filteredTopics.map((topic) {
+              return Card(
+                child: ListTile(
+                  title: Text('#${topic.id} ${topic.title}'),
+                  subtitle: Text(topic.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'view') _showTopicDetail(topic);
+                      if (value == 'edit') _editTopic(topic);
+                      if (value == 'delete') _deleteTopic(topic);
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'view', child: Text('Xem chi tiet')),
+                      PopupMenuItem(value: 'edit', child: Text('Sua')),
+                      PopupMenuItem(value: 'delete', child: Text('Xoa')),
                     ],
-                  );
-                }).toList(),
-              ),
-            ),
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
   }
 }
 
-class _LecturerQAManagementPage extends StatefulWidget {
-  const _LecturerQAManagementPage();
+class _LecturerQAPage extends StatefulWidget {
+  const _LecturerQAPage();
 
   @override
-  State<_LecturerQAManagementPage> createState() =>
-      _LecturerQAManagementPageState();
+  State<_LecturerQAPage> createState() => _LecturerQAPageState();
 }
 
-class _LecturerQAManagementPageState extends State<_LecturerQAManagementPage> {
+class _LecturerQAPageState extends State<_LecturerQAPage> {
   bool _loading = true;
-  final TextEditingController _search = TextEditingController();
-  String _status = 'ALL';
-  List<QuestionItem> _questions = <QuestionItem>[];
+  String? _error;
+
+  final _searchController = TextEditingController();
+  String _statusFilter = 'ALL';
+  List<QuestionItem> _questions = const <QuestionItem>[];
 
   @override
   void initState() {
     super.initState();
     _load();
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _search.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
+  String _normalizedStatus(String raw) {
+    final status = raw.toUpperCase();
+    if (status == 'WAITING') return 'WAITING_LECTURER';
+    if (status == 'ESCALATED') return 'ESCALATED_TO_MANAGER';
+    if (status == 'ANSWERED') return 'RESOLVED';
+    return status;
+  }
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      final List<QuestionItem> items = await QuestionService.instance.getAll();
-      setState(() {
-        _questions = items;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
+      final data = await QuestionService.instance.getAll();
+      if (!mounted) return;
+      setState(() => _questions = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _askAi(QuestionItem item) async {
+  List<QuestionItem> get _filteredQuestions {
+    final search = _searchController.text.trim().toLowerCase();
+    return _questions.where((item) {
+      final normalized = _normalizedStatus(item.status);
+      final statusOk = _statusFilter == 'ALL' ||
+          (_statusFilter == 'UNANSWERED' && normalized == 'WAITING_LECTURER') ||
+          (_statusFilter == 'ANSWERED' && normalized == 'RESOLVED') ||
+          (_statusFilter == 'ESCALATED' && normalized == 'ESCALATED_TO_MANAGER');
+      final searchOk = search.isEmpty ||
+          item.title.toLowerCase().contains(search) ||
+          item.content.toLowerCase().contains(search);
+      return statusOk && searchOk;
+    }).toList(growable: false);
+  }
+
+  Future<void> _escalateQuestion(QuestionItem question) async {
     try {
-      final Map<String, dynamic> response =
-          await QuestionService.instance.generateAiSuggestion(item.id);
-      final dynamic data = response['data'];
-      final String suggestion = _safeText(
-        (data is Map<String, dynamic>) ? data['suggestion'] : null,
-        fallback: _safeText(response['message'], fallback: 'No AI suggestion available.'),
-      );
-      if (!mounted) {
-        return;
-      }
-      await showDialog<void>(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('AI Suggestion'),
-            content: SingleChildScrollView(child: Text(suggestion)),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
+      await QuestionService.instance.escalate(question.id);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to generate AI suggestion.')),
+        const SnackBar(content: Text('Da escalate len truong bo mon.')),
       );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
-  Future<void> _openReply(QuestionItem item) async {
-    await showDialog<void>(
+  Future<void> _openReplyComposer(QuestionItem question, {String initialDraft = ''}) async {
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (BuildContext context) {
-        final TextEditingController ctrl = TextEditingController();
-        return AlertDialog(
-          title: Text('Reply to #${item.id}'),
-          content: TextField(
-            controller: ctrl,
-            maxLines: 5,
-            decoration: const InputDecoration(
-              hintText: 'Enter your response',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final String content = ctrl.text.trim();
-                if (content.isEmpty) {
-                  return;
-                }
-                try {
-                  await AnswerService.instance.create(
-                    questionId: item.id,
-                    answeredBy: AppSession.instance.session?.userId ?? 1,
-                    content: content,
-                    isPublic: true,
-                    markAsResolved: true,
-                  );
-                  if (!context.mounted) {
-                    return;
-                  }
-                  Navigator.pop(context);
-                  await _load();
-                } catch (_) {
-                  if (!context.mounted) {
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to submit reply.')),
-                  );
-                }
-              },
-              child: const Text('Send Reply'),
-            ),
-          ],
-        );
-      },
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ReplyComposerSheet(question: question, initialDraft: initialDraft),
     );
+
+    if (!mounted) return;
+    await _load();
+  }
+
+  Future<void> _generateAiDraftAndReply(QuestionItem question) async {
+    try {
+      final response = await QuestionService.instance.generateAiSuggestion(question.id);
+      final data = response['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final draft = _readText(data['draft'] ?? response['draft']);
+      if (!mounted) return;
+      await _openReplyComposer(question, initialDraft: draft);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final String keyword = _search.text.trim().toLowerCase();
-    final List<QuestionItem> visible = _questions.where((QuestionItem item) {
-      final String mapped = _qaStatus(item.status);
-      final bool statusMatch = _status == 'ALL' || mapped == _status;
-      final bool searchMatch = keyword.isEmpty ||
-          item.title.toLowerCase().contains(keyword) ||
-          item.content.toLowerCase().contains(keyword);
-      return statusMatch && searchMatch;
-    }).toList();
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          const Text(
-            'Q&A Management',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text(
+            '.Quan ly Hoi dap',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+          const Text('Tra loi cau hoi cua sinh vien'),
+          const SizedBox(height: 10),
           TextField(
-            controller: _search,
+            controller: _searchController,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Search by question title',
+              hintText: 'Tim kiem cau hoi...',
             ),
-            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _status,
-            decoration: const InputDecoration(labelText: 'Filter by status'),
-            items: const <String>[
-              'ALL',
-              'WAITING_LECTURER',
-              'ESCALATED_TO_MANAGER',
-              'ANSWERED',
-            ]
-                .map(
-                  (String e) => DropdownMenuItem<String>(
-                    value: e,
-                    child: Text(e),
-                  ),
-                )
-                .toList(),
-            onChanged: (String? value) {
-              if (value == null) {
-                return;
-              }
-              setState(() => _status = value);
+          DropdownButton<String>(
+            value: _statusFilter,
+            items: const [
+              DropdownMenuItem(value: 'ALL', child: Text('Tat ca')),
+              DropdownMenuItem(value: 'UNANSWERED', child: Text('Chua tra loi')),
+              DropdownMenuItem(value: 'ANSWERED', child: Text('Da tra loi')),
+              DropdownMenuItem(value: 'ESCALATED', child: Text('Escalated')),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _statusFilter = value);
             },
           ),
-          const SizedBox(height: 12),
-          if (visible.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('No unanswered or escalated questions at the moment.'),
-              ),
-            )
+          const SizedBox(height: 8),
+          if (_filteredQuestions.isEmpty)
+            const SectionCard(child: Text('Khong tim thay cau hoi nao.'))
           else
-            ...visible.map((QuestionItem item) {
+            ..._filteredQuestions.map((question) {
+              final status = _normalizedStatus(question.status);
               return Card(
-                margin: const EdgeInsets.only(bottom: 10),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Text(
-                            '#${item.id}',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          _statusChip(_qaStatus(item.status)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(item.content),
+                    children: [
+                      Text('#${question.id} ${_readText(question.title)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(_readText(question.content), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Text('Nguoi hoi: ${_readText(question.askerName)}'),
+                      const SizedBox(height: 4),
+                      Text('Trang thai: $status'),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
-                        children: <Widget>[
+                        runSpacing: 8,
+                        children: [
                           OutlinedButton.icon(
-                            onPressed: () => _askAi(item),
-                            icon: const Icon(Icons.auto_awesome),
-                            label: const Text('Ask AI'),
+                            onPressed: () => _generateAiDraftAndReply(question),
+                            icon: const Icon(Icons.auto_awesome_outlined),
+                            label: const Text('Tao nhap AI'),
                           ),
+                          if (status == 'WAITING_LECTURER')
+                            OutlinedButton.icon(
+                              onPressed: () => _escalateQuestion(question),
+                              icon: const Icon(Icons.north_outlined),
+                              label: const Text('Escalate'),
+                            ),
                           FilledButton.icon(
-                            onPressed: () => _openReply(item),
-                            icon: const Icon(Icons.reply),
-                            label: const Text('Reply'),
+                            onPressed: () => _openReplyComposer(question),
+                            icon: const Icon(Icons.reply_outlined),
+                            label: const Text('Tra loi'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => QuestionDetailScreen(questionId: question.id)),
+                              );
+                              if (!mounted) return;
+                              await _load();
+                            },
+                            child: const Text('Xem chi tiet'),
                           ),
                         ],
                       ),
@@ -868,303 +927,259 @@ class _LecturerQAManagementPageState extends State<_LecturerQAManagementPage> {
   }
 }
 
-class _LecturerSubmissionGradingPage extends StatefulWidget {
-  const _LecturerSubmissionGradingPage();
+class _ReplyComposerSheet extends StatefulWidget {
+  const _ReplyComposerSheet({required this.question, required this.initialDraft});
+
+  final QuestionItem question;
+  final String initialDraft;
 
   @override
-  State<_LecturerSubmissionGradingPage> createState() =>
-      _LecturerSubmissionGradingPageState();
+  State<_ReplyComposerSheet> createState() => _ReplyComposerSheetState();
 }
 
-class _LecturerSubmissionGradingPageState
-    extends State<_LecturerSubmissionGradingPage> {
-  bool _loading = true;
-  String _selectedClass = 'ALL';
-  List<Map<String, dynamic>> _classes = <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> _submissions = <Map<String, dynamic>>[];
+class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
+  late final TextEditingController _answerController;
+
+  bool _sending = false;
+  bool _loadingAnswers = true;
+  bool _isPublic = false;
+  String? _error;
+  List<Map<String, dynamic>> _answers = const <Map<String, dynamic>>[];
+
+  int get _userId => AppSession.instance.session?.userId ?? 0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _answerController = TextEditingController(text: widget.initialDraft);
+    _loadAnswers();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _answerController.dispose();
+    super.dispose();
+  }
+
+  bool _isMyAnswer(Map<String, dynamic> answer) {
+    final answeredBy = int.tryParse(answer['answeredBy']?.toString() ?? '') ?? 0;
+    if (answeredBy == _userId) return true;
+
+    final answerer = answer['answerer'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final answererId = int.tryParse(answerer['id']?.toString() ?? '') ?? 0;
+    return answererId == _userId;
+  }
+
+  Future<void> _loadAnswers() async {
+    if (!mounted) return;
+    setState(() {
+      _loadingAnswers = true;
+      _error = null;
+    });
 
     try {
-      final int? lecturerId = AppSession.instance.session?.userId;
-      final List<Map<String, dynamic>> classes = await ClassService.instance.getAll(
-        lecturerId: lecturerId,
-      );
-      final List<Map<String, dynamic>> submissions =
-          await SubmissionService.instance.getAll();
-
-      final Set<int> classIds = classes
-          .map((Map<String, dynamic> e) => _asInt(e['id']))
-          .whereType<int>()
-          .toSet();
-
-      final List<Map<String, dynamic>> visible = submissions.where((Map<String, dynamic> s) {
-        final Map<String, dynamic> group = _asMap(s['group']);
-        final int? classId = _asInt(group['classId']) ??
-            _asInt(_asMap(group['class'])['id']);
-        return classIds.isEmpty || (classId != null && classIds.contains(classId));
-      }).toList();
-
-      visible.sort((Map<String, dynamic> a, Map<String, dynamic> b) {
-        final DateTime ad = _parseDateTime(a['submittedAt']);
-        final DateTime bd = _parseDateTime(b['submittedAt']);
-        return bd.compareTo(ad);
-      });
-
-      setState(() {
-        _classes = classes;
-        _submissions = visible;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
+      final data = await AnswerService.instance.getByQuestion(widget.question.id);
+      if (!mounted) return;
+      setState(() => _answers = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loadingAnswers = false);
     }
   }
 
-  Future<void> _grade(Map<String, dynamic> submission) async {
-    final TextEditingController gradeCtrl = TextEditingController(
-      text: _safeText(submission['grade'], fallback: ''),
-    );
-    final TextEditingController feedbackCtrl = TextEditingController(
-      text: _safeText(submission['feedback'], fallback: ''),
-    );
+  Future<void> _sendAnswer() async {
+    final content = _answerController.text.trim();
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui long nhap noi dung tra loi.')),
+      );
+      return;
+    }
 
-    await showDialog<void>(
+    setState(() => _sending = true);
+    try {
+      await AnswerService.instance.create(
+        questionId: widget.question.id,
+        answeredBy: _userId,
+        content: content,
+        isPublic: _isPublic,
+        markAsResolved: true,
+      );
+      _answerController.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Da gui cau tra loi.')),
+      );
+      await _loadAnswers();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _editAnswer(Map<String, dynamic> answer) async {
+    final id = int.tryParse(answer['id']?.toString() ?? '') ?? 0;
+    if (id == 0) return;
+
+    final controller = TextEditingController(text: _readText(answer['content']));
+    var isPublic = answer['isPublic'] == true;
+
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Grade Submission'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Sua cau tra loi'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
+              children: [
                 TextField(
-                  controller: gradeCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Grade (0-10)'),
+                  controller: controller,
+                  minLines: 3,
+                  maxLines: 8,
+                  decoration: const InputDecoration(hintText: 'Noi dung tra loi'),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: feedbackCtrl,
-                  maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Feedback'),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Public'),
+                  value: isPublic,
+                  onChanged: (value) => setDialogState(() => isPublic = value),
                 ),
               ],
             ),
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final int? id = _asInt(submission['id']);
-                final double? grade = double.tryParse(gradeCtrl.text.trim());
-                if (id == null || grade == null) {
-                  return;
-                }
-                try {
-                  await SubmissionService.instance.grade(
-                    id: id,
-                    grade: grade,
-                    feedback: feedbackCtrl.text.trim(),
-                  );
-                  if (!context.mounted) {
-                    return;
-                  }
-                  Navigator.pop(context);
-                  await _load();
-                } catch (_) {
-                  if (!context.mounted) {
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to submit grade.')),
-                  );
-                }
-              },
-              child: const Text('Submit Grade'),
-            ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Luu')),
           ],
-        );
-      },
+        ),
+      ),
     );
 
-    gradeCtrl.dispose();
-    feedbackCtrl.dispose();
+    if (ok != true) return;
+
+    try {
+      await AnswerService.instance.update(id, content: controller.text.trim(), isPublic: isPublic);
+      await _loadAnswers();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Future<void> _deleteAnswer(Map<String, dynamic> answer) async {
+    final id = int.tryParse(answer['id']?.toString() ?? '') ?? 0;
+    if (id == 0) return;
 
-    final List<String> classOptions = <String>[
-      'ALL',
-      ..._classes.map((Map<String, dynamic> item) => _safeText(item['id'])),
-    ];
-
-    final List<Map<String, dynamic>> visible = _submissions.where((Map<String, dynamic> s) {
-      if (_selectedClass == 'ALL') {
-        return true;
-      }
-      final Map<String, dynamic> group = _asMap(s['group']);
-      final String classId = _safeText(group['classId'], fallback: '');
-      return classId == _selectedClass;
-    }).toList();
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          const Text(
-            'Submission & Grading',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedClass,
-            decoration: const InputDecoration(labelText: 'Filter by class'),
-            items: classOptions.map((String id) {
-              if (id == 'ALL') {
-                return const DropdownMenuItem<String>(
-                  value: 'ALL',
-                  child: Text('All Classes'),
-                );
-              }
-              final Map<String, dynamic> classMap = _classes.firstWhere(
-                (Map<String, dynamic> item) => _safeText(item['id']) == id,
-                orElse: () => <String, dynamic>{},
-              );
-              final String className = _safeText(
-                classMap['name'],
-                fallback: 'Class $id',
-              );
-              return DropdownMenuItem<String>(
-                value: id,
-                child: Text(className),
-              );
-            }).toList(),
-            onChanged: (String? value) {
-              if (value == null) {
-                return;
-              }
-              setState(() => _selectedClass = value);
-            },
-          ),
-          const SizedBox(height: 12),
-          if (visible.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('No submissions available for grading in this class.'),
-              ),
-            )
-          else
-            ...visible.map((Map<String, dynamic> item) {
-              final Map<String, dynamic> group = _asMap(item['group']);
-              final Map<String, dynamic> classMap = _asMap(group['class']);
-              final String className =
-                  _safeText(classMap['name'], fallback: 'Class ${_safeText(group['classId'])}');
-              final String groupName = _safeText(group['name'], fallback: 'Group');
-              final String submissionLink =
-                  _safeText(item['submissionLink'], fallback: 'No link');
-              final String status = _safeText(item['status'], fallback: 'UNKNOWN');
-              final String submittedDate =
-                  DateFormat('dd/MM/yyyy HH:mm').format(_parseDateTime(item['submittedAt']));
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              '$className - $groupName',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                          _statusChip(status),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text('Submitted: $submittedDate'),
-                      const SizedBox(height: 4),
-                      Text('Link: $submissionLink'),
-                      if (item['grade'] != null) ...<Widget>[
-                        const SizedBox(height: 4),
-                        Text('Grade: ${item['grade']}'),
-                      ],
-                      if (_safeText(item['feedback'], fallback: '').isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 4),
-                        Text('Feedback: ${_safeText(item['feedback'])}'),
-                      ],
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
-                          onPressed: () => _grade(item),
-                          icon: const Icon(Icons.grading),
-                          label: const Text('Grade'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xoa cau tra loi'),
+        content: const Text('Ban co chac muon xoa cau tra loi nay?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Xoa')),
         ],
       ),
     );
+
+    if (ok != true) return;
+
+    try {
+      await AnswerService.instance.deleteAnswer(id);
+      await _loadAnswers();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
-}
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _StatCard({required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 165,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.9,
+        child: Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: Text('Tra loi #${widget.question.id}'),
+            actions: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.question.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(widget.question.content),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               Text(
-                title,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                'Cau tra loi cua toi',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+              if (_loadingAnswers)
+                const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+              else if (_error != null)
+                Text(_error!, style: const TextStyle(color: Colors.red))
+              else
+                ..._answers.where(_isMyAnswer).map((answer) {
+                  final isPublic = answer['isPublic'] == true;
+                  return Card(
+                    child: ListTile(
+                      title: Text(_readText(answer['content'])),
+                      subtitle: Text(isPublic ? 'Public' : 'Private'),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'edit') _editAnswer(answer);
+                          if (value == 'delete') _deleteAnswer(answer);
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Sua')),
+                          PopupMenuItem(value: 'delete', child: Text('Xoa')),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              if (_answers.where(_isMyAnswer).isEmpty)
+                const SectionCard(child: Text('Ban chua co cau tra loi nao cho ticket nay.')),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _answerController,
+                minLines: 3,
+                maxLines: 8,
+                decoration: const InputDecoration(hintText: 'Nhap cau tra loi...'),
+              ),
+              const SizedBox(height: 6),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _isPublic,
+                onChanged: (value) => setState(() => _isPublic = value),
+                title: const Text('Public (hien cho tat ca)'),
+              ),
+              const SizedBox(height: 6),
+              FilledButton.icon(
+                onPressed: _sending ? null : _sendAnswer,
+                icon: const Icon(Icons.send_outlined),
+                label: Text(_sending ? 'Dang gui...' : 'Gui cau tra loi'),
               ),
             ],
           ),
@@ -1174,105 +1189,384 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-Widget _statusChip(String status) {
-  final String upper = status.toUpperCase();
-  Color background = Colors.grey.shade200;
-  Color foreground = Colors.grey.shade800;
+class _LecturerSubmissionPage extends StatefulWidget {
+  const _LecturerSubmissionPage();
 
-  if (upper == 'PENDING' || upper == 'WAITING' || upper == 'WAITING_LECTURER') {
-    background = Colors.orange.shade100;
-    foreground = Colors.orange.shade900;
-  } else if (upper == 'APPROVED' || upper == 'GRADED' || upper == 'ANSWERED') {
-    background = Colors.green.shade100;
-    foreground = Colors.green.shade900;
-  } else if (upper == 'REJECTED') {
-    background = Colors.red.shade100;
-    foreground = Colors.red.shade900;
-  } else if (upper == 'ESCALATED_TO_MANAGER') {
-    background = Colors.deepPurple.shade100;
-    foreground = Colors.deepPurple.shade900;
+  @override
+  State<_LecturerSubmissionPage> createState() => _LecturerSubmissionPageState();
+}
+
+class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
+  bool _loading = true;
+  String? _error;
+
+  List<Map<String, dynamic>> _classes = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _submissions = const <Map<String, dynamic>>[];
+  int? _classIdFilter;
+
+  int get _lecturerId => AppSession.instance.session?.userId ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(
-      color: background,
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Text(
-      status,
-      style: TextStyle(
-        color: foreground,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await Future.wait<dynamic>([
+        ClassService.instance.getAll(lecturerId: _lecturerId),
+        SubmissionService.instance.getAll(),
+      ]);
+
+      final classes = results[0] as List<Map<String, dynamic>>;
+      final classIds = classes
+          .map((item) => int.tryParse(item['id']?.toString() ?? ''))
+          .whereType<int>()
+          .toSet();
+
+      final submissions = (results[1] as List<Map<String, dynamic>>).where((item) {
+        final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final classId = int.tryParse(classMap['id']?.toString() ?? '') ??
+            int.tryParse(group['classId']?.toString() ?? '');
+        if (classIds.isEmpty) return true;
+        return classId != null && classIds.contains(classId);
+      }).toList(growable: false);
+
+      if (!mounted) return;
+      setState(() {
+        _classes = classes;
+        _submissions = submissions;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_classIdFilter == null) return _submissions;
+    return _submissions.where((item) {
+      final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final classId = int.tryParse(classMap['id']?.toString() ?? '') ??
+          int.tryParse(group['classId']?.toString() ?? '');
+      return classId == _classIdFilter;
+    }).toList(growable: false);
+  }
+
+  Future<void> _grade(Map<String, dynamic> submission) async {
+    final id = int.tryParse(submission['id']?.toString() ?? '') ?? 0;
+    if (id == 0) return;
+
+    final gradeController = TextEditingController(text: submission['grade']?.toString() ?? '');
+    final feedbackController = TextEditingController(text: _readText(submission['feedback']));
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Cham Submission #$id'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: gradeController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Diem (0-10)'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: feedbackController,
+                minLines: 2,
+                maxLines: 6,
+                decoration: const InputDecoration(labelText: 'Nhan xet'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Luu')),
+        ],
       ),
-    ),
-  );
+    );
+
+    if (ok != true) return;
+
+    final grade = double.tryParse(gradeController.text.trim());
+    if (grade == null || grade < 0 || grade > 10) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Diem khong hop le.')),
+      );
+      return;
+    }
+
+    try {
+      await SubmissionService.instance.grade(
+        id: id,
+        grade: grade,
+        feedback: feedbackController.text.trim(),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text(
+            'Submission & Cham diem',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          const Text('Giang vien xem bai nop theo lop phu trach va nhap diem truc tiep.'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Lam moi'),
+              ),
+              DropdownButton<int?>(
+                value: _classIdFilter,
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Tat ca lop')),
+                  ..._classes.map((item) {
+                    final id = int.tryParse(item['id']?.toString() ?? '');
+                    return DropdownMenuItem<int?>(value: id, child: Text(_readText(item['className'])));
+                  }),
+                ],
+                onChanged: (value) => setState(() => _classIdFilter = value),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_filtered.isEmpty)
+            const SectionCard(child: Text('Chua co bai nop nao trong bo loc hien tai.'))
+          else
+            ..._filtered.map((item) {
+              final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
+              final status = _readText(item['status']).toUpperCase();
+              final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+              final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+              final groupName = _readText(group['groupName']);
+              final className = _readText(classMap['className']);
+              final fileUrl = _readText(item['fileUrl'] ?? item['filePath']);
+              final grade = item['grade'];
+
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Submission #$id', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(status),
+                      const SizedBox(height: 4),
+                      Text('$groupName - $className'),
+                      const SizedBox(height: 4),
+                      Text(fileUrl),
+                      const SizedBox(height: 4),
+                      Text(grade == null ? 'Chua cham' : 'Diem: $grade'),
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        onPressed: () => _grade(item),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: Text(grade == null ? 'Cham bai' : 'Cap nhat diem'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
 }
 
-String _qaStatus(String raw) {
-  final String upper = raw.toUpperCase();
-  if (upper == 'RESOLVED') {
-    return 'ANSWERED';
-  }
-  return upper;
+class _LecturerProfilePage extends StatefulWidget {
+  const _LecturerProfilePage();
+
+  @override
+  State<_LecturerProfilePage> createState() => _LecturerProfilePageState();
 }
 
-Map<String, dynamic> _asMap(dynamic value) {
-  if (value is Map<String, dynamic>) {
-    return value;
+class _LecturerProfilePageState extends State<_LecturerProfilePage> {
+  bool _loading = true;
+  String? _error;
+
+  Map<String, dynamic> _user = const <String, dynamic>{};
+  List<Map<String, dynamic>> _classes = const <Map<String, dynamic>>[];
+  List<TopicItem> _topics = const <TopicItem>[];
+  List<QuestionItem> _questions = const <QuestionItem>[];
+  List<Map<String, dynamic>> _submissions = const <Map<String, dynamic>>[];
+
+  int get _lecturerId => AppSession.instance.session?.userId ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
-  if (value is Map) {
-    return value.map((dynamic k, dynamic v) => MapEntry('$k', v));
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await Future.wait<dynamic>([
+        UserService.instance.getCurrentUser(),
+        ClassService.instance.getAll(lecturerId: _lecturerId),
+        TopicService.instance.getAll(),
+        QuestionService.instance.getAll(),
+        SubmissionService.instance.getAll(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _user = results[0] as Map<String, dynamic>;
+        _classes = results[1] as List<Map<String, dynamic>>;
+        _topics = results[2] as List<TopicItem>;
+        _questions = results[3] as List<QuestionItem>;
+        _submissions = results[4] as List<Map<String, dynamic>>;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
-  return <String, dynamic>{};
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final pendingTopics = _topics.where((item) => item.status.toUpperCase() == 'PENDING').length;
+    final waitingQuestions = _questions.where((item) {
+      final status = item.status.toUpperCase();
+      return status == 'WAITING_LECTURER' || status == 'WAITING';
+    }).length;
+    final needGrading = _submissions
+        .where((item) => _readText(item['status']).toUpperCase() == 'SUBMITTED')
+        .length;
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        children: [
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Profile',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text('Ho ten: ${_readText(_user['fullName'] ?? AppSession.instance.session?.fullName)}'),
+                Text('Email: ${_readText(_user['email'] ?? AppSession.instance.session?.email)}'),
+                Text('Role: ${_readText(_user['role'] ?? AppSession.instance.session?.role)}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              StatCard(label: 'Lop phu trach', value: _classes.length, icon: Icons.class_outlined),
+              StatCard(label: 'De tai cho duyet', value: pendingTopics, icon: Icons.pending_outlined),
+              StatCard(label: 'Hoi dap cho xu ly', value: waitingQuestions, icon: Icons.question_answer_outlined),
+              StatCard(label: 'Bai can cham', value: needGrading, icon: Icons.rate_review_outlined),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Danh sach lop',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                if (_classes.isEmpty)
+                  const Text('Chua co lop phu trach.')
+                else
+                  ..._classes.map((item) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.class_outlined),
+                        title: Text(_readText(item['className'])),
+                        subtitle: Text('ID: ${_readText(item['id'])}'),
+                      )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-String _safeText(dynamic value, {String fallback = 'N/A'}) {
-  if (value == null) {
-    return fallback;
-  }
-  final String text = '$value'.trim();
-  if (text.isEmpty || text.toLowerCase() == 'null') {
-    return fallback;
-  }
-  return text;
+DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+  return DateTime.tryParse(value.toString());
 }
 
-int? _asInt(dynamic value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    return value.toInt();
-  }
-  if (value is String) {
-    return int.tryParse(value);
-  }
-  return null;
+String _formatAgo(DateTime? time) {
+  if (time == null) return 'N/A';
+  final diff = DateTime.now().difference(time);
+  if (diff.inMinutes < 1) return 'Vua xong';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} phut truoc';
+  if (diff.inHours < 24) return '${diff.inHours} gio truoc';
+  return '${diff.inDays} ngay truoc';
 }
 
-DateTime _parseDateTime(dynamic value) {
-  if (value is DateTime) {
-    return value;
-  }
-  if (value is String) {
-    return DateTime.tryParse(value)?.toLocal() ?? DateTime(1970);
-  }
-  return DateTime(1970);
-}
+String _readText(Object? value) {
+  final text = (value ?? '').toString().trim();
+  if (text.isEmpty) return '-';
 
-int _resolveMemberCount(Map<String, dynamic> group) {
-  final dynamic direct = group['membersCount'];
-  if (direct is int) {
-    return direct;
+  const suspicious = ['Ã', 'Â', 'Ä', 'áº', 'á»', 'Æ', 'Ð', 'Ñ'];
+  final looksBroken = suspicious.any(text.contains);
+  if (!looksBroken) return text;
+
+  try {
+    return utf8.decode(latin1.encode(text));
+  } catch (_) {
+    return text;
   }
-  if (direct is num) {
-    return direct.toInt();
-  }
-  final dynamic members = group['members'];
-  if (members is List) {
-    return members.length;
-  }
-  return 0;
 }

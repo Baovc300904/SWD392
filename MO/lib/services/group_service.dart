@@ -49,6 +49,10 @@ class GroupService {
     return ApiClient.instance.put('/groups/$id', body: payload);
   }
 
+  Future<Map<String, dynamic>> confirmGroup(int id) {
+    return ApiClient.instance.put('/groups/$id/confirm');
+  }
+
   Future<Map<String, dynamic>> deleteGroup(int id) {
     return ApiClient.instance.delete('/groups/$id');
   }
