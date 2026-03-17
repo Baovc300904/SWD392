@@ -810,13 +810,15 @@ class _StudentGroupTaskPageState extends State<_StudentGroupTaskPage> {
                   const Text('Bạn chưa có nhóm. Vui lòng tạo nhóm tại tab Topic trước.')
                 else
                   DropdownButtonFormField<int>(
+                    isExpanded: true,
                     initialValue: _selectedGroupId,
                     items: _myGroups
                         .map(
                           (group) => DropdownMenuItem<int>(
                             value: int.tryParse(group['id']?.toString() ?? ''),
                             child: Text(
-                              '${group['groupName']} • Topic: ${(group['topic'] as Map<String, dynamic>?)?['title'] ?? 'N/A'}',
+                              _safe(group['groupName']?.toString() ?? 'Group'),
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
