@@ -10,6 +10,7 @@ const Semester = require('./semester.model');
 const StudentGroup = require('./studentGroup.model');
 const GroupMember = require('./groupMember.model');
 const Question = require('./question.model');
+const QuestionDraft = require('./questionDraft.model');
 const Answer = require('./answer.model');
 const Submission = require('./submission.model');
 const Task = require('./task.model');
@@ -23,6 +24,7 @@ User.hasMany(Class, { foreignKey: 'lecturerId', as: 'classesManaged' });
 User.hasMany(Topic, { foreignKey: 'proposedBy', as: 'topicsProposed' });
 User.hasMany(Topic, { foreignKey: 'approvedBy', as: 'topicsApproved' });
 User.hasMany(Question, { foreignKey: 'askedBy', as: 'questionsAsked' });
+User.hasMany(QuestionDraft, { foreignKey: 'lecturerId', as: 'questionDraftsGenerated' });
 User.hasMany(Answer, { foreignKey: 'answeredBy', as: 'answersGiven' });
 User.hasMany(Submission, { foreignKey: 'submittedBy', as: 'submissions' });
 User.hasMany(Submission, { foreignKey: 'gradedBy', as: 'gradedSubmissions' });
@@ -58,7 +60,12 @@ GroupMember.belongsTo(User, { foreignKey: 'studentId', as: 'student' });
 // Question Associations
 Question.belongsTo(StudentGroup, { foreignKey: 'groupId', as: 'group' });
 Question.belongsTo(User, { foreignKey: 'askedBy', as: 'asker' });
+Question.hasMany(QuestionDraft, { foreignKey: 'questionId', as: 'drafts' });
 Question.hasMany(Answer, { foreignKey: 'questionId', as: 'answers' });
+
+// QuestionDraft Associations
+QuestionDraft.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
+QuestionDraft.belongsTo(User, { foreignKey: 'lecturerId', as: 'lecturer' });
 
 // Answer Associations
 Answer.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
@@ -83,6 +90,7 @@ module.exports = {
     StudentGroup,
     GroupMember,
     Question,
+    QuestionDraft,
     Answer,
     Submission,
     Task
