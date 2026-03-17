@@ -2963,6 +2963,117 @@ class _ManagerSubmissionReviewPageState extends State<_ManagerSubmissionReviewPa
   List<Map<String, dynamic>> _items = const <Map<String, dynamic>>[];
   String _classFilter = 'Tất cả lớp';
 
+  String _statusText(Map<String, dynamic> item) {
+    return _safeText(item['status']?.toString().toUpperCase() ?? 'SUBMITTED');
+  }
+
+  String _groupAndClassText(Map<String, dynamic> item) {
+    final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final groupName = _safeText(group['groupName']?.toString() ?? '-');
+    final className = _safeText(classMap['className']?.toString() ?? '-');
+    return '$groupName · $className';
+  }
+
+  String _fileLinkText(Map<String, dynamic> item) {
+    final fileUrl = item['fileUrl']?.toString() ?? '';
+    final filePath = item['filePath']?.toString() ?? '';
+    if (fileUrl.trim().isNotEmpty) return fileUrl.trim();
+    if (filePath.trim().isNotEmpty) return filePath.trim();
+    return 'Không có link file';
+  }
+
+  String _gradeText(Map<String, dynamic> item) {
+    final grade = item['grade'];
+    if (grade == null || grade.toString().trim().isEmpty) {
+      return 'Chưa chấm';
+    }
+    return 'Đã chấm: ${grade.toString()}';
+  }
+
+  Future<void> _openGradeDialog(Map<String, dynamic> item) async {
+    final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
+    if (id == 0) return;
+
+    final gradeController = TextEditingController(
+      text: item['grade']?.toString() ?? '',
+    );
+    final feedbackController = TextEditingController(
+      text: item['feedback']?.toString() ?? '',
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Chấm bài #$id'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: gradeController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Điểm (0 - 10)',
+                  hintText: 'Ví dụ: 8.5',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: feedbackController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Nhận xét',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Lưu điểm'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    final grade = double.tryParse(gradeController.text.trim());
+    if (grade == null || grade < 0 || grade > 10) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Điểm phải từ 0 đến 10.')),
+      );
+      return;
+    }
+
+    try {
+      await SubmissionService.instance.grade(
+        id: id,
+        grade: grade,
+        feedback: feedbackController.text.trim(),
+      );
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã chấm bài #$id thành công.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3036,15 +3147,29 @@ class _ManagerSubmissionReviewPageState extends State<_ManagerSubmissionReviewPa
             const SectionCard(child: Text('Không có bài nộp nào trong phạm vi lọc hiện tại.'))
           else
             ...filtered.map((item) {
-              final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
-              final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+              final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
               return Card(
-                child: ListTile(
-                  title: Text(_safeText(item['milestoneName']?.toString() ?? 'Submission')),
-                  subtitle: Text(
-                    '${_safeText(group['groupName']?.toString() ?? '-')} · ${_safeText(classMap['className']?.toString() ?? '-')}',
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Submission #$id', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(_statusText(item), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(_groupAndClassText(item)),
+                      const SizedBox(height: 4),
+                      Text(_safeText(_fileLinkText(item))),
+                      const SizedBox(height: 4),
+                      Text(_gradeText(item)),
+                      const SizedBox(height: 10),
+                      FilledButton.tonal(
+                        onPressed: () => _openGradeDialog(item),
+                        child: const Text('Chấm bài'),
+                      ),
+                    ],
                   ),
-                  trailing: Text(_safeText(item['status']?.toString() ?? '-')),
                 ),
               );
             }),
