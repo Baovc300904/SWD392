@@ -4,11 +4,45 @@
  */
 
 const { Op } = require('sequelize');
-const { Question, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models');
-const MSG = require('../constants/messages');
+const { Question, QuestionDraft, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models'); const MSG = require('../constants/messages');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+const questionService = require("../services/question.service");
+
+/**
+ * @desc    Generate AI draft for question
+ * @route   POST /api/questions/:id/drafts/generate
+ * @access  Private (Lecturer/Manager)
+ */
+exports.generateDraft = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const lecturerId = getRequesterId(req) || 1;
+        const requesterRole = getRequesterRole(req);
+
+        if (!['lecturer', 'manager', 'admin'].includes(requesterRole)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'Only lecturer/manager/admin can generate AI draft'
+            });
+        }
+
+        const draft = await questionService.generateDraftForQuestion(id, lecturerId);
+
+        return res.status(201).json({
+            success: true,
+            message: "AI draft generated successfully",
+            data: draft
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || MSG.GENERAL.SERVER_ERROR
+        });
+    }
+};
 
 /**
  * @desc    Get all questions (with filters)
@@ -97,10 +131,23 @@ exports.getQuestionById = async (req, res) => {
                 { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
                 { model: StudentGroup, as: 'group', attributes: ['id', 'groupName'] },
                 {
-                    model: Answer, as: 'answers', include: [
+                    model: QuestionDraft,
+                    as: 'drafts',
+                    include: [
+                        { model: User, as: 'generator', attributes: ['id', 'fullName', 'email', 'avatarURL'] }
+                    ]
+                },
+                {
+                    model: Answer,
+                    as: 'answers',
+                    include: [
                         { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role', 'avatarURL'] }
                     ]
                 }
+            ],
+            order: [
+                [{ model: QuestionDraft, as: 'drafts' }, 'version', 'DESC'],
+                [{ model: Answer, as: 'answers' }, 'createdAt', 'ASC']
             ]
         });
 
@@ -136,7 +183,7 @@ exports.getQuestionById = async (req, res) => {
 exports.createQuestion = async (req, res) => {
     try {
         const { title, content, groupId } = req.body;
-        const askedBy = getRequesterId(req);
+        // Removed the line exporting generateDraft
 
         const question = await Question.create({
             title,
@@ -384,6 +431,8 @@ exports.resolveQuestion = async (req, res) => {
         });
     }
 };
+
+
 
 /**
  * @desc    Delete question
