@@ -44,13 +44,10 @@ const getAllGroups = async (req, res) => {
         }
 
         if (requesterRole === 'student') {
-            const memberships = await GroupMember.findAll({
-                where: { studentId: requesterId },
-                attributes: ['groupId']
-            });
-
-            const groupIds = memberships.map((item) => item.groupId);
-            whereClause.id = groupIds.length > 0 ? { [Op.in]: groupIds } : -1;
+            // Student group-picking flow needs to see available groups (not only joined groups).
+            // If classId is provided from UI filter, we respect it via whereClause.classId above.
+            // If no classId filter, student sees all available groups.
+            // (Membership checks are enforced at join/create endpoints.)
         }
 
         const groups = await StudentGroup.findAll({
@@ -81,6 +78,64 @@ const getAllGroups = async (req, res) => {
     } catch (error) {
         console.error('Error fetching groups:', error);
         res.status(500).json({
+            success: false,
+            message: MSG.GENERAL.SERVER_ERROR,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            errorName: process.env.NODE_ENV === 'development' ? error.name : undefined,
+            errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+/**
+ * @desc    Lecturer/Manager confirms a group
+ * @route   PUT /api/groups/:id/confirm
+ * @access  Lecturer/Admin
+ */
+const confirmGroup = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
+
+        const group = await StudentGroup.findByPk(id, {
+            include: [{
+                model: Class,
+                as: 'class',
+                attributes: ['id', 'lecturerId']
+            }]
+        });
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                message: MSG.GENERAL.NOT_FOUND,
+                detail: 'Group not found'
+            });
+        }
+
+        if (requesterRole === 'lecturer' && Number(group.class?.lecturerId) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.GENERAL.FORBIDDEN || 'Forbidden',
+                detail: 'Only class lecturer can confirm this group'
+            });
+        }
+
+        await group.update({
+            groupStatus: 'CONFIRMED',
+            confirmedBy: requesterId,
+            confirmedAt: new Date()
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: MSG.GENERAL.SUCCESS,
+            data: group
+        });
+    } catch (error) {
+        console.error('Error confirming group:', error);
+        return res.status(500).json({
             success: false,
             message: MSG.GENERAL.SERVER_ERROR,
             error: process.env.NODE_ENV === 'development' ? error.message : undefined,
@@ -482,6 +537,7 @@ module.exports = {
     getAllGroups,
     getGroupById,
     createGroup,
+    confirmGroup,
     updateGroup,
     deleteGroup,
     addGroupMember,

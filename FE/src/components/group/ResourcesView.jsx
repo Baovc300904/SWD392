@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FolderOpen, File, FileText, Image, Download, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { submissionService } from '../../services/app.service';
-import firebaseStorageService from '../../services/firebase-storage.service';
+import cloudinaryStorageService from '../../services/cloudinary-storage.service';
 
 const inferType = (fileName = '') => {
   const lowered = fileName.toLowerCase();
@@ -137,8 +137,8 @@ export function ResourcesView({ groupId }) {
   }, [files]);
 
   const handleUploadClick = () => {
-    if (!firebaseStorageService.isEnabled()) {
-      toast.error('Firebase upload is not configured');
+    if (!cloudinaryStorageService.isEnabled()) {
+      toast.error('Cloudinary upload is not configured');
       return;
     }
     inputRef.current?.click();
@@ -150,7 +150,7 @@ export function ResourcesView({ groupId }) {
 
     setUploading(true);
     try {
-      const uploaded = await firebaseStorageService.uploadFile(file, 'resources');
+      const uploaded = await cloudinaryStorageService.uploadFile(file, 'resources');
       await submissionService.createSubmission({
         groupId,
         milestoneName: 'Resources',

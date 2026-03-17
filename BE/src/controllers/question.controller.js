@@ -4,61 +4,43 @@
  */
 
 const { Op } = require('sequelize');
-const { Question, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models');
-const MSG = require('../constants/messages');
-const pushService = require('../services/push.service');
+const { Question, QuestionDraft, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models'); const MSG = require('../constants/messages');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+const questionService = require("../services/question.service");
 
-const trimForNotification = (text, maxLength = 100) => {
-    const normalized = String(text || '').trim().replace(/\s+/g, ' ');
-    if (normalized.length <= maxLength) return normalized;
-    return `${normalized.slice(0, maxLength - 3)}...`;
-};
+/**
+ * @desc    Generate AI draft for question
+ * @route   POST /api/questions/:id/drafts/generate
+ * @access  Private (Lecturer/Manager)
+ */
+exports.generateDraft = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const lecturerId = getRequesterId(req) || 1;
+        const requesterRole = getRequesterRole(req);
 
-const notifyLecturerOnQuestionCreate = async ({ question, groupId, askedBy }) => {
-    if (!question?.id || !groupId || !askedBy) return;
-
-    const group = await StudentGroup.findByPk(groupId, {
-        include: [{
-            model: Class,
-            as: 'class',
-            attributes: ['lecturerId']
-        }]
-    });
-
-    const lecturerId = group?.class?.lecturerId;
-    if (!lecturerId) return;
-
-    // No self-notification in edge cases.
-    if (Number(lecturerId) === Number(askedBy)) return;
-
-    const lecturer = await User.findByPk(lecturerId, {
-        attributes: ['id', 'fcmToken']
-    });
-    if (!lecturer?.fcmToken) {
-        console.warn(`⚠️ Skip question notification: lecturer #${lecturerId} has no fcmToken`);
-        return;
-    }
-
-    const result = await pushService.sendPush(
-        lecturer.fcmToken,
-        'Co cau hoi moi tu sinh vien',
-        trimForNotification(question.title || question.content || 'Sinh vien vua tao cau hoi moi'),
-        {
-            type: 'question',
-            screen: 'question',
-            event: 'question_created',
-            questionId: question.id,
-            askedBy
+        if (!['lecturer', 'manager', 'admin'].includes(requesterRole)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'Only lecturer/manager/admin can generate AI draft'
+            });
         }
-    );
 
-    if (!result.success) {
-        console.warn(
-            `⚠️ Failed to send lecturer question notification for question #${question.id}: ${result.reason || result.error || result.code || 'unknown error'}`
-        );
+        const draft = await questionService.generateDraftForQuestion(id, lecturerId);
+
+        return res.status(201).json({
+            success: true,
+            message: "AI draft generated successfully",
+            data: draft
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || MSG.GENERAL.SERVER_ERROR
+        });
     }
 };
 
@@ -149,10 +131,23 @@ exports.getQuestionById = async (req, res) => {
                 { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
                 { model: StudentGroup, as: 'group', attributes: ['id', 'groupName'] },
                 {
-                    model: Answer, as: 'answers', include: [
+                    model: QuestionDraft,
+                    as: 'drafts',
+                    include: [
+                        { model: User, as: 'generator', attributes: ['id', 'fullName', 'email', 'avatarURL'] }
+                    ]
+                },
+                {
+                    model: Answer,
+                    as: 'answers',
+                    include: [
                         { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role', 'avatarURL'] }
                     ]
                 }
+            ],
+            order: [
+                [{ model: QuestionDraft, as: 'drafts' }, 'version', 'DESC'],
+                [{ model: Answer, as: 'answers' }, 'createdAt', 'ASC']
             ]
         });
 
@@ -188,7 +183,7 @@ exports.getQuestionById = async (req, res) => {
 exports.createQuestion = async (req, res) => {
     try {
         const { title, content, groupId } = req.body;
-        const askedBy = getRequesterId(req);
+        // Removed the line exporting generateDraft
 
         const question = await Question.create({
             title,
@@ -196,13 +191,6 @@ exports.createQuestion = async (req, res) => {
             groupId,
             askedBy,
             status: 'WAITING_LECTURER'
-        });
-
-        // Best-effort push so assigned lecturer is notified immediately.
-        await notifyLecturerOnQuestionCreate({
-            question,
-            groupId,
-            askedBy
         });
 
         res.status(201).json({
@@ -443,6 +431,8 @@ exports.resolveQuestion = async (req, res) => {
         });
     }
 };
+
+
 
 /**
  * @desc    Delete question

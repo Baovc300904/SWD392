@@ -826,6 +826,29 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "Generate AI Draft (Lecturer/Manager)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/questions/1/generate-draft",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "questions",
+                                "1",
+                                "generate-draft"
+                            ]
+                        }
+                    }
                 }
             ]
         },

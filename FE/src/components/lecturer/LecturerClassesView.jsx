@@ -3,6 +3,7 @@ import { Loader2, RefreshCw, School, Users, BookOpen } from 'lucide-react';
 import authService from '../../services/auth.service';
 import classService from '../../services/class.service';
 import groupService from '../../services/group.service';
+import { useGroupConfirmation } from '../../hooks/useGroupConfirmation';
 
 export function LecturerClassesView() {
   const currentUser = authService.getCurrentUser();
@@ -10,6 +11,17 @@ export function LecturerClassesView() {
   const [classes, setClasses] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { confirmGroup, confirming } = useGroupConfirmation();
+
+  const normalizeGroupStatus = (group) =>
+    String(group?.groupStatus || group?.group_status || 'PENDING').toUpperCase();
+
+  const handleConfirmGroup = async (groupId) => {
+    const ok = await confirmGroup(groupId);
+    if (ok) {
+      await loadData();
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -73,9 +85,30 @@ export function LecturerClassesView() {
                             <BookOpen className="w-4 h-4 text-[#F27125]" />
                             {group.topic?.title || 'Chưa có đề tài'}
                           </div>
+                          <div className="mt-2">
+                            {normalizeGroupStatus(group) === 'CONFIRMED' ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                Đã chốt nhóm
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                Chờ giảng viên chốt
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-gray-200 text-xs font-semibold text-gray-700">
-                          <Users className="w-3.5 h-3.5" /> {group.members?.length || 0}
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-gray-200 text-xs font-semibold text-gray-700">
+                            <Users className="w-3.5 h-3.5" /> {group.members?.length || 0}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={confirming || normalizeGroupStatus(group) === 'CONFIRMED'}
+                            onClick={() => handleConfirmGroup(group.id)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F27125] text-white hover:bg-[#d96420] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {normalizeGroupStatus(group) === 'CONFIRMED' ? 'Đã chốt' : 'Chốt nhóm'}
+                          </button>
                         </div>
                       </div>
                     </div>

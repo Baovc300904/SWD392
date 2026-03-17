@@ -10,6 +10,7 @@ const {
     getAllGroups,
     getGroupById,
     createGroup,
+    confirmGroup,
     updateGroup,
     deleteGroup,
     addGroupMember,
@@ -130,6 +131,9 @@ router.route('/').get(authenticate, getAllGroups).post(authenticate, authorize('
  *         description: Unauthorized
  */
 router.route('/:id').get(authenticate, getGroupById).put(authenticate, authorize('student', 'lecturer', 'manager'), updateGroup).delete(authenticate, authorize('lecturer', 'manager'), deleteGroup);
+
+// Lecturer/Manager confirm group
+router.put('/:id/confirm', authenticate, authorize('lecturer', 'manager'), confirmGroup);
 
 /**
  * @swagger
