@@ -87,7 +87,9 @@ const questionService = {
             const response = await api.post(`/questions/${id}/ask-ai`);
             return questionService.extractPayload(response);
         } catch (error) {
-            throw error;
+            const detail = error?.response?.data?.detail || error?.response?.data?.error;
+            const message = error?.response?.data?.message || error?.message || 'Unknown error';
+            throw new Error(detail || message);
         }
     },
 
