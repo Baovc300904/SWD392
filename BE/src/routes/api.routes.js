@@ -12,6 +12,7 @@ const questionRoutes = require('./question.routes');
 const answerRoutes = require('./answer.routes');
 const submissionRoutes = require('./submission.routes');
 const taskRoutes = require('./task.routes');
+const aiRoutes = require('./ai.routes');
 
 // Authentication routes
 router.use('/auth', authRoutes);
@@ -34,5 +35,8 @@ router.use('/submissions', submissionRoutes);
 
 // FLOW 4: Task Board Management
 router.use('/tasks', taskRoutes);
+
+// AI Assistant
+router.use('/ai', aiRoutes);
 
 module.exports = router;

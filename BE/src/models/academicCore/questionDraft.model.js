@@ -1,54 +1,56 @@
-// src/models/academicCore/questionDraft.model.js
-// Sequelize model cho bảng QuestionDraft
+/**
+ * QuestionDraft Model (MySQL/Sequelize)
+ * Stores AI-generated draft answers for lecturer/manager review
+ */
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../../config/database.sequelize');
 
-module.exports = (sequelize, DataTypes) => {
-    const QuestionDraft = sequelize.define('QuestionDraft', {
-        id: {
-            type: DataTypes.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
+const QuestionDraft = sequelize.define('QuestionDraft', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    questionId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'questions',
+            key: 'id'
         },
-        questionId: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: 'Questions',
-                key: 'id',
-            },
-            onDelete: 'CASCADE',
+        field: 'question_id'
+    },
+    lecturerId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'users',
+            key: 'id'
         },
-        lecturerId: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: 'Users',
-                key: 'id',
-            },
-            onDelete: 'CASCADE',
-        },
-        draft: {
-            type: DataTypes.TEXT,
-            allowNull: false,
-        },
-        createdAt: {
-            type: DataTypes.DATE,
-            allowNull: false,
-            defaultValue: DataTypes.NOW,
-        },
-        updatedAt: {
-            type: DataTypes.DATE,
-            allowNull: false,
-            defaultValue: DataTypes.NOW,
-        },
-    }, {
-        tableName: 'QuestionDrafts',
-        timestamps: true,
-    });
+        field: 'lecturer_id'
+    },
+    draft: {
+        type: DataTypes.TEXT,
+        allowNull: false
+    },
+    createdAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        field: 'created_at'
+    },
+    updatedAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        field: 'updated_at'
+    }
+}, {
+    tableName: 'question_drafts',
+    timestamps: true,
+    indexes: [
+        { fields: ['question_id'] },
+        { fields: ['lecturer_id'] },
+        { fields: ['created_at'] }
+    ]
+});
 
-    QuestionDraft.associate = function (models) {
-        QuestionDraft.belongsTo(models.Question, { foreignKey: 'questionId', as: 'question' });
-        QuestionDraft.belongsTo(models.User, { foreignKey: 'lecturerId', as: 'lecturer' });
-    };
-
-    return QuestionDraft;
-};
+module.exports = QuestionDraft;

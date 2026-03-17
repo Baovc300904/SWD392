@@ -23,6 +23,7 @@ module.exports = {
     StudentGroup: AcademicCore.StudentGroup,
     GroupMember: AcademicCore.GroupMember,
     Question: AcademicCore.Question,
+    QuestionDraft: AcademicCore.QuestionDraft,
     Answer: AcademicCore.Answer,
     Submission: AcademicCore.Submission,
     Task: AcademicCore.Task,

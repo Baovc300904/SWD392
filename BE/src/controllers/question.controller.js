@@ -134,7 +134,7 @@ exports.getQuestionById = async (req, res) => {
                     model: QuestionDraft,
                     as: 'drafts',
                     include: [
-                        { model: User, as: 'generator', attributes: ['id', 'fullName', 'email', 'avatarURL'] }
+                        { model: User, as: 'lecturer', attributes: ['id', 'fullName', 'email', 'avatarURL'] }
                     ]
                 },
                 {
@@ -146,7 +146,7 @@ exports.getQuestionById = async (req, res) => {
                 }
             ],
             order: [
-                [{ model: QuestionDraft, as: 'drafts' }, 'version', 'DESC'],
+                [{ model: QuestionDraft, as: 'drafts' }, 'createdAt', 'DESC'],
                 [{ model: Answer, as: 'answers' }, 'createdAt', 'ASC']
             ]
         });
@@ -183,7 +183,7 @@ exports.getQuestionById = async (req, res) => {
 exports.createQuestion = async (req, res) => {
     try {
         const { title, content, groupId } = req.body;
-        // Removed the line exporting generateDraft
+        const askedBy = getRequesterId(req);
 
         const question = await Question.create({
             title,
@@ -199,6 +199,7 @@ exports.createQuestion = async (req, res) => {
             data: question
         });
     } catch (error) {
+        console.error('[createQuestion] Error:', error.name, error.message, error.parent?.message);
         res.status(500).json({
             success: false,
             message: MSG.GENERAL.SERVER_ERROR,
@@ -287,7 +288,7 @@ exports.askAIForQuestion = async (req, res) => {
                 as: 'group',
                 include: [
                     { model: Class, as: 'class', attributes: ['lecturerId', 'className'] },
-                    { model: Topic, as: 'topic', attributes: ['title', 'description', 'descriptionFile'] }
+                    { model: Topic, as: 'topic', attributes: ['title', 'description'] }
                 ]
             }]
         });
@@ -308,69 +309,45 @@ exports.askAIForQuestion = async (req, res) => {
             });
         }
 
-        const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            return res.status(400).json({
-                success: false,
-                message: MSG.GENERAL.BAD_REQUEST,
-                detail: 'AI key is not configured on backend'
-            });
-        }
-
-        const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-        const baseUrl = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-
-        const context = [
-            `Class: ${question.group?.class?.className || 'N/A'}`,
-            `Topic: ${question.group?.topic?.title || 'N/A'}`,
-            `Topic Description: ${question.group?.topic?.description || 'N/A'}`,
-            `Syllabus File URL: ${question.group?.topic?.descriptionFile || 'N/A'}`,
-            `Question Title: ${question.title || 'N/A'}`,
-            `Question Content: ${question.content || 'N/A'}`
-        ].join('\n');
-
-        const payload = {
-            contents: [{
-                role: 'user',
-                parts: [{ text: `Bạn là trợ lý cho giảng viên đại học. Hãy tạo bản nháp câu trả lời ngắn gọn, đúng ngữ cảnh môn học, tiếng Việt lịch sự.\n\n${context}` }]
-            }]
-        };
-
-        const response = await fetch(`${baseUrl}/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            return res.status(response.status).json({
-                success: false,
-                message: MSG.GENERAL.SERVER_ERROR,
-                detail: `AI request failed: ${errorText}`
-            });
-        }
-
-        const data = await response.json();
-        const draft = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-        if (!draft) {
-            return res.status(500).json({
-                success: false,
-                message: MSG.GENERAL.SERVER_ERROR,
-                detail: 'AI returned empty draft'
-            });
-        }
+        const draft = await questionService.generateDraftForQuestion(req.params.id, requesterId);
 
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            data: { draft }
+            data: {
+                id: draft.id,
+                questionId: draft.questionId,
+                lecturerId: draft.lecturerId,
+                draft: draft.draft,
+                createdAt: draft.createdAt,
+                updatedAt: draft.updatedAt
+            }
         });
     } catch (error) {
+        const status = Number(error?.status || error?.response?.status || 0);
+        const message = String(error?.message || '').toLowerCase();
+
+        if (status === 429 || message.includes('quota') || message.includes('resource_exhausted')) {
+            return res.status(429).json({
+                success: false,
+                message: 'AI quota exceeded. Vui lòng thử lại sau.',
+                detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+
+        if (status === 401 || message.includes('api key')) {
+            return res.status(400).json({
+                success: false,
+                message: 'AI key backend chưa cấu hình đúng.',
+                detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+
+        console.error('[askAIForQuestion] Error:', error.name, error.message);
         res.status(500).json({
             success: false,
             message: MSG.GENERAL.SERVER_ERROR,
+            detail: error.message,
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
