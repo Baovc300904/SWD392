@@ -107,10 +107,18 @@ class ApiClient {
         : (jsonDecode(text) as Map<String, dynamic>);
     final normalizedMap = _normalizeResponseMap(map);
 
-    if (response.statusCode == 401 &&
-        auth &&
-        retryOnAuthError &&
-        !path.contains('/auth/refresh')) {
+    final messageText = normalizedMap['message']?.toString().toLowerCase() ?? '';
+    final is401 = response.statusCode == 401;
+    final is403TokenError =
+      response.statusCode == 403 &&
+      (messageText.contains('token') ||
+        messageText.contains('expired') ||
+        messageText.contains('authentication'));
+
+    if ((is401 || is403TokenError) &&
+      auth &&
+      retryOnAuthError &&
+      !path.contains('/auth/refresh')) {
       final refreshed = await _tryRefreshToken();
       if (refreshed) {
         return _request(
@@ -122,6 +130,10 @@ class ApiClient {
           retryOnAuthError: false,
         );
       }
+
+      // Refresh token is invalid/stale: clear local session to stop auth-error loops.
+      await AppSession.instance.clear();
+      throw Exception('Session expired. Please login again.');
     }
 
     if (response.statusCode >= 400) {
