@@ -4,13 +4,21 @@
 const { GoogleGenAI } = require('@google/genai');
 require('dotenv').config();
 
-const API_KEY = process.env.GEMINI_API_KEY;
+let ai = null;
 
-if (!API_KEY) {
-    throw new Error('Vui lòng thiết lập biến môi trường GEMINI_API_KEY trong file .env');
+function getGeminiClient() {
+    if (ai) {
+        return ai;
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error('Vui lòng thiết lập biến môi trường GEMINI_API_KEY trong file .env');
+    }
+
+    ai = new GoogleGenAI({ apiKey });
+    return ai;
 }
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 /**
  * Gửi prompt tới Gemini và nhận kết quả trả về
@@ -20,7 +28,8 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
  */
 async function generateGeminiDraft(prompt, model = 'gemini-2.5-flash') {
     try {
-        const response = await ai.models.generateContent({
+        const client = getGeminiClient();
+        const response = await client.models.generateContent({
             model,
             contents: Array.isArray(prompt) ? prompt.join('\n') : prompt,
         });

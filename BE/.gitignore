@@ -11,6 +11,10 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Firebase service account key (private secret)
+config/serviceAccountKey.json
+config/serviceAccountKey.json.json
+
 # IDE
 .vscode/
 .idea/

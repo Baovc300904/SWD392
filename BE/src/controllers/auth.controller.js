@@ -324,20 +324,23 @@ class AuthController {
                 });
             }
 
-            // Validate role
-            if (!['manager', 'lecturer'].includes(role)) {
+            // Validate + normalize role (accept Admin/Lecturer as well)
+            const normalizedRole = (role || '').toString().trim().toLowerCase();
+            const resolvedRole = normalizedRole === 'admin' ? 'manager' : normalizedRole;
+
+            if (!['manager', 'lecturer'].includes(resolvedRole)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Role must be either manager or lecturer'
+                    message: 'Role must be either manager/admin or lecturer'
                 });
             }
 
             // Call service layer
-            const result = await authService.adminLecturerLogin(email, password, role);
+            const result = await authService.adminLecturerLogin(email, password, resolvedRole);
 
             res.json({
                 success: true,
-                message: `${role} login successful`,
+                message: `${resolvedRole} login successful`,
                 data: result
             });
         } catch (error) {

@@ -164,6 +164,24 @@ class UserService {
         await user.destroy();
         return user.toJSON();
     }
+
+    /**
+     * Set (or clear) the user's FCM token.
+     * @param {number|string} userId
+     * @param {string|null} token
+     */
+    async setFcmToken(userId, token) {
+        const user = await User.findByPk(userId);
+        if (!user) {
+            throw { statusCode: 404, message: MSG.USER.NOT_FOUND };
+        }
+
+        const normalized = (token ?? '').toString().trim();
+        user.fcmToken = normalized.length === 0 ? null : normalized;
+        await user.save();
+
+        return { updated: true };
+    }
 }
 
 module.exports = new UserService();

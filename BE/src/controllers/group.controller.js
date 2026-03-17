@@ -44,10 +44,12 @@ const getAllGroups = async (req, res) => {
         }
 
         if (requesterRole === 'student') {
-            // Student group-picking flow needs to see available groups (not only joined groups).
-            // If classId is provided from UI filter, we respect it via whereClause.classId above.
-            // If no classId filter, student sees all available groups.
-            // (Membership checks are enforced at join/create endpoints.)
+            const memberships = await GroupMember.findAll({
+                where: { studentId: requesterId },
+                attributes: ['groupId']
+            });
+            const groupIds = memberships.map((item) => item.groupId);
+            whereClause.id = groupIds.length > 0 ? { [Op.in]: groupIds } : -1;
         }
 
         const groups = await StudentGroup.findAll({
@@ -153,6 +155,8 @@ const confirmGroup = async (req, res) => {
 const getGroupById = async (req, res) => {
     try {
         const { id } = req.params;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         const group = await StudentGroup.findByPk(id, {
             include: [
@@ -173,6 +177,19 @@ const getGroupById = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND
             });
+        }
+
+        if (requesterRole === 'student') {
+            const membership = await GroupMember.findOne({
+                where: { groupId: group.id, studentId: requesterId }
+            });
+            if (!membership) {
+                return res.status(403).json({
+                    success: false,
+                    message: MSG.AUTHORIZATION.FORBIDDEN,
+                    detail: 'You can only view your own groups'
+                });
+            }
         }
 
         res.status(200).json({
@@ -290,6 +307,8 @@ const createGroup = async (req, res) => {
 const updateGroup = async (req, res) => {
     try {
         const { id } = req.params;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const updates = req.body;
 
         const group = await StudentGroup.findByPk(id);
@@ -299,6 +318,19 @@ const updateGroup = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND
             });
+        }
+
+        if (requesterRole === 'student') {
+            const membership = await GroupMember.findOne({
+                where: { groupId: group.id, studentId: requesterId }
+            });
+            if (!membership) {
+                return res.status(403).json({
+                    success: false,
+                    message: MSG.AUTHORIZATION.FORBIDDEN,
+                    detail: 'You can only update your own groups'
+                });
+            }
         }
 
         await group.update(updates);

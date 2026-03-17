@@ -1,9 +1,28 @@
-version: '3.8'
-
-# Docker Compose for auxiliary services only
-# Backend and MySQL run locally for faster development
+# Docker Compose for local development dependencies
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: swd_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: academic_collaboration_db
+      MYSQL_USER: swd_user
+      MYSQL_PASSWORD: swd_pass_2026
+    ports:
+      - "${MYSQL_EXTERNAL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database-schema.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - swd_network
+
   # Redis - Uncomment when needed for caching/sessions
   # redis:
   #   image: redis:7-alpine
@@ -13,6 +32,9 @@ services:
   #     - "6379:6379"
   #   networks:
   #     - swd_network
+
+volumes:
+  mysql_data:
 
 networks:
   swd_network:

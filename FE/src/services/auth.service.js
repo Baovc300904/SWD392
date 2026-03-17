@@ -4,6 +4,17 @@ import api from '../config/api.config';
 const getStorage = () =>
     localStorage.getItem('rememberMe') === 'true' ? localStorage : sessionStorage;
 
+// Backward compatibility for older components still reading accessToken/refreshToken directly.
+const syncLegacyTokenKeys = (token, refreshToken) => {
+    [localStorage, sessionStorage].forEach((storage) => {
+        if (token) storage.setItem('accessToken', token);
+        else storage.removeItem('accessToken');
+
+        if (refreshToken) storage.setItem('refreshToken', refreshToken);
+        else storage.removeItem('refreshToken');
+    });
+};
+
 const authService = {
     /**
      * Register new user
@@ -54,6 +65,7 @@ const authService = {
                 localStorage.setItem('rememberMe', String(rememberMe));
                 // Lưu user vào đúng storage
                 getStorage().setItem('user', JSON.stringify(userData));
+                syncLegacyTokenKeys(userData.token, userData.refreshToken);
                 // Đảm bảo storage kia không còn user cũ
                 if (rememberMe) sessionStorage.removeItem('user');
                 else localStorage.removeItem('user');
@@ -89,6 +101,7 @@ const authService = {
                     token: response.data.accessToken
                 };
                 storage.setItem('user', JSON.stringify(userData));
+                syncLegacyTokenKeys(userData.token, userData.refreshToken);
                 return userData;
             }
 
@@ -154,6 +167,7 @@ const authService = {
                     refreshToken: response.data.refreshToken
                 };
                 localStorage.setItem('user', JSON.stringify(userData));
+                syncLegacyTokenKeys(userData.token, userData.refreshToken);
                 return userData;
             }
 
@@ -202,6 +216,7 @@ const authService = {
                     refreshToken: response.data.refreshToken
                 };
                 localStorage.setItem('user', JSON.stringify(userData));
+                syncLegacyTokenKeys(userData.token, userData.refreshToken);
                 return userData;
             }
 
@@ -235,6 +250,7 @@ const authService = {
             localStorage.removeItem('user');
             sessionStorage.removeItem('user');
             localStorage.removeItem('rememberMe');
+            syncLegacyTokenKeys(null, null);
         }
     },
 

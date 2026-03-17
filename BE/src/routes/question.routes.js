@@ -294,6 +294,6 @@ router.put('/:id/resolve', authenticate, authorize('lecturer', 'manager'), quest
  *       403:
  *         description: Forbidden - manager access required
  */
-router.delete('/:id', authenticate, authorize('manager'), questionController.deleteQuestion);
+router.delete('/:id', authenticate, authorize('student', 'manager'), questionController.deleteQuestion);
 
 module.exports = router;

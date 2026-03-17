@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/auth_session.dart';
 import '../screens/login_screen.dart';
+import '../services/auth_service.dart';
+import '../services/notification_service.dart';
+import '../services/user_service.dart';
+import '../state/app_session.dart';
 import '../theme/app_settings.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -11,13 +16,261 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static const _bg = Color(0xFFF6F7FB);
-  static const _cardBorder = Color(0xFFE6E8EF);
-  static const _muted = Color(0xFF6B7280);
-  static const _accent = Color(0xFFE67E22);
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic> _profile = <String, dynamic>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await UserService.instance.getCurrentUser();
+      if (!mounted) return;
+      setState(() => _profile = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String get _displayName {
+    final fromApi = _profile['fullName']?.toString();
+    if (fromApi != null && fromApi.trim().isNotEmpty) return fromApi;
+    return AppSession.instance.session?.fullName ?? 'Unknown User';
+  }
+
+  String get _email {
+    final fromApi = _profile['email']?.toString();
+    if (fromApi != null && fromApi.trim().isNotEmpty) return fromApi;
+    return AppSession.instance.session?.email ?? '-';
+  }
+
+  String get _studentCode {
+    final value = _profile['studentCode']?.toString();
+    if (value == null || value.trim().isEmpty) return '-';
+    return value;
+  }
+
+  String get _role {
+    final fromApi = _profile['role']?.toString();
+    final raw = fromApi ?? AppSession.instance.session?.role ?? 'student';
+    return raw.toLowerCase();
+  }
+
+  String get _status {
+    final value = _profile['status']?.toString();
+    if (value != null && value.trim().isNotEmpty) return value;
+    return (_profile['isOnline'] == true) ? 'Online' : 'Offline';
+  }
+
+  int get _userId {
+    final id = int.tryParse(_profile['id']?.toString() ?? '');
+    return id ?? (AppSession.instance.session?.userId ?? 0);
+  }
+
+  String get _avatarInitial {
+    final name = _displayName.trim();
+    if (name.isEmpty) return 'U';
+    return name.substring(0, 1).toUpperCase();
+  }
 
   void _toggleDarkMode(bool enabled) {
     AppSettings.themeMode.value = enabled ? ThemeMode.dark : ThemeMode.light;
+  }
+
+  Future<void> _editProfile() async {
+    final userId = _userId;
+    if (userId == 0) return;
+
+    final fullNameController = TextEditingController(text: _displayName);
+    final emailController = TextEditingController(text: _email);
+    final studentCodeController = TextEditingController(
+      text: _studentCode == '-' ? '' : _studentCode,
+    );
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Profile'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: fullNameController,
+                  decoration: const InputDecoration(labelText: 'Full Name'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: studentCodeController,
+                  decoration: const InputDecoration(labelText: 'Student Code'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave != true) return;
+
+    try {
+      await UserService.instance.updateUser(userId, <String, dynamic>{
+        'fullName': fullNameController.text.trim(),
+        'email': emailController.text.trim(),
+        'studentCode': studentCodeController.text.trim(),
+      });
+
+      final session = AppSession.instance.session;
+      if (session != null) {
+        await AppSession.instance.setSession(
+          AuthSession(
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            userId: session.userId,
+            fullName: fullNameController.text.trim(),
+            email: emailController.text.trim(),
+            role: session.role,
+          ),
+        );
+      }
+
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _changePasswordOtpFlow() async {
+    final emailController = TextEditingController(text: _email == '-' ? '' : _email);
+    final otpController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    final sendOtp = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Change Password'),
+          content: TextField(
+            controller: emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Send OTP'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (sendOtp != true) return;
+
+    try {
+      await AuthService.instance.forgotPassword(emailController.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OTP sent. Check your email.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      return;
+    }
+
+    if (!mounted) return;
+
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Enter OTP'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: otpController,
+                  decoration: const InputDecoration(labelText: 'OTP'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'New Password'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Update Password'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldReset != true) return;
+
+    try {
+      await AuthService.instance.resetPassword(
+        email: emailController.text.trim(),
+        otp: otpController.text.trim(),
+        newPassword: passwordController.text.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password updated successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   Future<void> _logout() async {
@@ -43,6 +296,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (ok != true || !mounted) return;
 
+    final refreshToken = AppSession.instance.session?.refreshToken;
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await AuthService.instance.logout(refreshToken);
+      } catch (_) {
+        // Keep local logout resilient when network logout fails.
+      }
+    }
+    await NotificationService.instance.onLogout();
+    await AppSession.instance.clear();
+    if (!mounted) return;
+
     await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
@@ -52,35 +317,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isDark = AppSettings.themeMode.value == ThemeMode.dark;
+    final roleDisplay = _role.toUpperCase();
 
     return Scaffold(
-      backgroundColor: _bg,
       body: SafeArea(
-        child: ListView(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
           children: [
+            Row(
+              children: [
+                const Spacer(),
+                IconButton(
+                  onPressed: _loadProfile,
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh profile',
+                ),
+              ],
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             Center(
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.fromBorderSide(
-                        BorderSide(color: _accent, width: 2),
+                        BorderSide(color: colorScheme.primary, width: 2),
                       ),
                     ),
                     child: CircleAvatar(
                       radius: 36,
-                      backgroundColor: const Color(0xFFFFEDD5),
-                      child: const Text(
-                        'A',
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Text(
+                        _avatarInitial,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF111827),
+                          color: colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -102,29 +389,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
             Center(
               child: Text(
-                'Nguyen Van A',
+                _displayName,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ),
             const SizedBox(height: 6),
-            const Center(
+            Center(
               child: Text(
-                'Student ID: SE161234',
+                'User ID: $_userId  |  Role: $roleDisplay',
                 style: TextStyle(
-                  color: _muted,
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
               ),
             ),
             const SizedBox(height: 4),
-            const Center(
+            Center(
               child: Text(
-                'anv@fpt.edu.vn',
+                _email,
                 style: TextStyle(
-                  color: _muted,
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                'Student Code: $_studentCode  |  Status: $_status',
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -137,10 +435,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _GroupCard(
               children: [
                 _SettingsTile(
-                  icon: Icons.notifications_outlined,
-                  title: 'Notifications',
-                  subtitle: 'Manage your notifications',
-                  onTap: () {},
+                  icon: Icons.edit_outlined,
+                  title: 'Edit Profile',
+                  subtitle: 'Update name, email, and student code',
+                  onTap: _editProfile,
                 ),
                 const _GroupDivider(),
                 _SettingsTile(
@@ -158,10 +456,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const _GroupDivider(),
                 _SettingsTile(
-                  icon: Icons.language_outlined,
-                  title: 'Language',
-                  subtitle: 'English',
-                  onTap: () {},
+                  icon: Icons.badge_outlined,
+                  title: 'Account Role',
+                  subtitle: roleDisplay,
                 ),
               ],
             ),
@@ -173,9 +470,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 _SettingsTile(
                   icon: Icons.lock_outline,
-                  title: 'Change Password',
-                  subtitle: 'Update your password',
-                  onTap: () {},
+                  title: 'Change Password (OTP)',
+                  subtitle: 'Send OTP and set a new password',
+                  onTap: _changePasswordOtpFlow,
                 ),
                 const _GroupDivider(),
                 _SettingsTile(
@@ -193,17 +490,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _GroupCard(
               children: [
                 _SettingsTile(
-                  icon: Icons.help_outline,
-                  title: 'Help Center',
-                  subtitle: 'FAQs and support',
-                  onTap: () {},
+                  icon: Icons.admin_panel_settings_outlined,
+                  title: 'Admin Account',
+                  subtitle: 'Manager-level access enabled',
                 ),
                 const _GroupDivider(),
                 _SettingsTile(
                   icon: Icons.settings_outlined,
                   title: 'Settings',
                   subtitle: 'App preferences',
-                  onTap: () {},
                 ),
               ],
             ),
@@ -213,8 +508,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               height: 52,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFEF4444),
-                  side: const BorderSide(color: Color(0xFFEF4444)),
+                  foregroundColor: colorScheme.error,
+                  side: BorderSide(color: colorScheme.error),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -232,7 +527,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text(
                 'SWP Hub v1.0.0',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: _muted,
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -250,10 +545,11 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Text(
       text,
-      style: const TextStyle(
-        color: _ProfileScreenState._muted,
+      style: TextStyle(
+        color: colorScheme.onSurfaceVariant,
         fontWeight: FontWeight.w900,
         fontSize: 11,
         letterSpacing: 0.8,
@@ -269,20 +565,14 @@ class _GroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: const Border.fromBorderSide(
-          BorderSide(color: _ProfileScreenState._cardBorder),
+        border: Border.fromBorderSide(
+          BorderSide(color: colorScheme.outlineVariant),
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 14,
-            offset: Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(children: children),
     );
@@ -294,10 +584,11 @@ class _GroupDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Divider(
       height: 1,
       thickness: 1,
-      color: _ProfileScreenState._cardBorder,
+      color: colorScheme.outlineVariant,
     );
   }
 }
@@ -319,30 +610,31 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return ListTile(
       onTap: onTap,
       leading: Container(
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: const Color(0xFF374151)),
+        child: Icon(icon, color: colorScheme.onPrimaryContainer),
       ),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: colorScheme.onSurface),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: _ProfileScreenState._muted,
+        style: TextStyle(
+          color: colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
       ),
-      trailing: trailing ?? const Icon(Icons.chevron_right, color: _ProfileScreenState._muted),
+      trailing: trailing ?? Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
     );
   }
 }

@@ -24,6 +24,7 @@ CREATE TABLE users (
     otp VARCHAR(6) NULL,
     otp_expires DATETIME NULL,
     refresh_token TEXT NULL,
+    fcm_token TEXT NULL,
     status ENUM('Online', 'Offline', 'Away') DEFAULT 'Offline',
     is_online BOOLEAN DEFAULT FALSE,
     last_seen_at DATETIME NULL,

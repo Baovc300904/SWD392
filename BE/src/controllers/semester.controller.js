@@ -64,7 +64,7 @@ const getSemesterById = async (req, res) => {
             include: [{
                 model: Class,
                 as: 'classes',
-                attributes: ['classId', 'className', 'status', 'description']
+                attributes: ['id', 'className', 'semesterId', 'lecturerId', 'createdAt']
             }]
         });
 
@@ -269,7 +269,7 @@ const getActiveSemester = async (req, res) => {
             include: [{
                 model: Class,
                 as: 'classes',
-                attributes: ['classId', 'className', 'status']
+                attributes: ['id', 'className', 'semesterId', 'lecturerId', 'createdAt']
             }]
         });
 

@@ -3,9 +3,20 @@
  * Handles CRUD and grading operations for submissions
  */
 
-const { Submission, StudentGroup, User, Class } = require('../models');
+const { Submission, StudentGroup, User, Class, GroupMember } = require('../models');
 const { Op } = require('sequelize');
 const MSG = require('../constants/messages');
+
+const getRequesterId = (req) => req.user?.userId || req.user?.id;
+const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+
+const getStudentGroupIds = async (studentId) => {
+    const memberships = await GroupMember.findAll({
+        where: { studentId },
+        attributes: ['groupId']
+    });
+    return memberships.map((item) => item.groupId);
+};
 
 const includeConfig = [
     {
@@ -33,6 +44,8 @@ const includeConfig = [
 const getAllSubmissions = async (req, res) => {
     try {
         const { groupId, classId, submittedBy, status, gradedBy, search, page = 1, limit = 20 } = req.query;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const whereClause = {};
 
         if (groupId) whereClause.groupId = groupId;
@@ -45,6 +58,21 @@ const getAllSubmissions = async (req, res) => {
                 { notes: { [Op.like]: `%${search}%` } },
                 { feedback: { [Op.like]: `%${search}%` } }
             ];
+        }
+
+        if (requesterRole === 'student') {
+            const groupIds = await getStudentGroupIds(requesterId);
+            if (groupId) {
+                if (!groupIds.includes(Number(groupId))) {
+                    return res.status(403).json({
+                        success: false,
+                        message: MSG.AUTHORIZATION.FORBIDDEN,
+                        detail: 'You can only view submissions of your own groups'
+                    });
+                }
+            } else {
+                whereClause.groupId = groupIds.length > 0 ? { [Op.in]: groupIds } : -1;
+            }
         }
 
         const parsedPage = Math.max(Number(page) || 1, 1);
@@ -120,7 +148,7 @@ const getSubmissionById = async (req, res) => {
 const createSubmission = async (req, res) => {
     try {
         const { groupId, milestoneName, fileUrl, filePath, notes } = req.body;
-        const submittedBy = req.user?.userId;
+        const submittedBy = getRequesterId(req);
 
         if (!groupId) {
             return res.status(400).json({
@@ -144,6 +172,15 @@ const createSubmission = async (req, res) => {
                 success: false,
                 message: MSG.GENERAL.NOT_FOUND,
                 detail: 'Group not found'
+            });
+        }
+
+        const membership = await GroupMember.findOne({ where: { groupId, studentId: submittedBy } });
+        if (!membership) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You can only submit for your own groups'
             });
         }
 
@@ -180,8 +217,8 @@ const updateSubmission = async (req, res) => {
     try {
         const { id } = req.params;
         const { milestoneName, fileUrl, filePath, notes } = req.body;
-        const requesterId = req.user?.userId;
-        const requesterRole = String(req.user?.role || '').toLowerCase();
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         const submission = await Submission.findByPk(id);
         if (!submission) {
@@ -237,8 +274,8 @@ const updateSubmission = async (req, res) => {
 const deleteSubmission = async (req, res) => {
     try {
         const { id } = req.params;
-        const requesterId = req.user?.userId;
-        const requesterRole = String(req.user?.role || '').toLowerCase();
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
 
         const submission = await Submission.findByPk(id);
         if (!submission) {
@@ -287,7 +324,7 @@ const gradeSubmission = async (req, res) => {
     try {
         const { id } = req.params;
         const { grade, feedback } = req.body;
-        const gradedBy = req.user?.userId;
+        const gradedBy = getRequesterId(req);
 
         if (grade === undefined || grade === null || Number.isNaN(Number(grade))) {
             return res.status(400).json({

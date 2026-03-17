@@ -84,13 +84,18 @@ const getTopicById = async (req, res) => {
             include: [
                 {
                     model: User,
-                    as: 'creator',
-                    attributes: ['userId', 'fullName', 'email', 'avatarURL', 'role']
+                    as: 'proposer',
+                    attributes: ['id', 'fullName', 'email', 'role']
+                },
+                {
+                    model: User,
+                    as: 'approver',
+                    attributes: ['id', 'fullName', 'email', 'role']
                 },
                 {
                     model: StudentGroup,
                     as: 'groups',
-                    attributes: ['id', 'groupName', 'status', 'maxMembers']
+                    attributes: ['id', 'groupName', 'classId', 'topicId', 'createdAt']
                 }
             ]
         });

@@ -5,9 +5,49 @@
 
 const { Answer, Question, User, GroupMember, StudentGroup, Class } = require('../models');
 const MSG = require('../constants/messages');
+const pushService = require('../services/push.service');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+
+const trimForNotification = (text, maxLength = 120) => {
+    const normalized = String(text || '').trim().replace(/\s+/g, ' ');
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, maxLength - 1)}…`;
+};
+
+const notifyQuestionAskerOnAnswer = async ({ question, answer, requesterRole }) => {
+    if (!question?.askedBy || !answer?.id) return;
+
+    // Skip self-notification in unexpected data states.
+    if (Number(question.askedBy) === Number(answer.answeredBy)) return;
+
+    const asker = await User.findByPk(question.askedBy, {
+        attributes: ['id', 'fcmToken']
+    });
+
+    if (!asker?.fcmToken) {
+        console.warn(`⚠️ Skip answer notification: user #${question.askedBy} has no fcmToken`);
+        return;
+    }
+
+    const actorLabel = requesterRole === 'lecturer' ? 'Giảng viên' : 'Quản lý';
+    const preview = trimForNotification(answer.content, 100);
+
+    const result = await pushService.sendQuestionAnsweredToStudent({
+        token: asker.fcmToken,
+        questionId: question.id,
+        answerId: answer.id,
+        actorRole: requesterRole,
+        answerPreview: preview
+    });
+
+    if (!result.success) {
+        console.warn(
+            `⚠️ Failed to send answer notification for question #${question.id} to user #${asker.id}: ${result.reason || result.error || result.code || 'unknown error'}`
+        );
+    }
+};
 
 /**
  * @desc    Get all answers for a question
@@ -112,6 +152,13 @@ exports.createAnswer = async (req, res) => {
             question.status = 'RESOLVED';
             await question.save();
         }
+
+        // Best-effort push notification so the asker knows their question was answered.
+        await notifyQuestionAskerOnAnswer({
+            question,
+            answer,
+            requesterRole
+        });
 
         res.status(201).json({
             success: true,

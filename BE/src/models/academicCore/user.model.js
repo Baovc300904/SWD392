@@ -80,6 +80,11 @@ const User = sequelize.define('User', {
         allowNull: true,
         field: 'refresh_token'
     },
+    fcmToken: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'fcm_token'
+    },
     status: {
         type: DataTypes.ENUM('Online', 'Offline', 'Away'),
         defaultValue: 'Offline'
@@ -132,6 +137,11 @@ User.beforeUpdate(async (user) => {
 // Virtual getter for userId (alias for id) - for backward compatibility
 User.prototype.toJSON = function() {
     const values = { ...this.get() };
+    delete values.passwordHash;
+    delete values.refreshToken;
+    delete values.otp;
+    delete values.otpExpires;
+    delete values.fcmToken;
     values.userId = values.id; // Add userId as alias for id
     return values;
 };

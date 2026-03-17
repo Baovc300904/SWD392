@@ -8,31 +8,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_app/app.dart';
+import 'package:mobile_app/navigation/root_scaffold.dart';
 
 void main() {
   testWidgets('Footer menu switches tabs', (WidgetTester tester) async {
-    await tester.pumpWidget(const MobileApp());
-
-    // App starts at Login.
-    expect(find.text('SWP Hub'), findsOneWidget);
-
-    // Sign in and go to RootScaffold.
-    await tester.enterText(
-      find.byType(TextFormField).at(0),
-      'admin@fpt.edu.vn',
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: RootScaffold(),
+      ),
     );
-    await tester.enterText(find.byType(TextFormField).at(1), '1');
-    await tester.tap(find.text('Sign In'));
-    await tester.pumpAndSettle();
 
-    // Default tab.
-    expect(find.text('Home'), findsWidgets);
+    // Default tab title.
+    expect(find.text('Student Dashboard'), findsOneWidget);
+
+    // Switch to Q&A tab.
+    await tester.tap(find.text('Q&A'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ask questions and share knowledge'), findsOneWidget);
 
     // Switch to Account tab.
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nguyen Van A'), findsOneWidget);
+    // Account view intentionally hides the AppBar.
+    expect(find.byType(AppBar), findsNothing);
   });
 }

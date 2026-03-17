@@ -1,296 +1,589 @@
 import 'package:flutter/material.dart';
 
-class HomeScreen extends StatelessWidget {
+import 'login_screen.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  static const _messages = <_ChatItem>[
-    _ChatItem.message(
-      name: 'Tuyet Minh',
-      time: '9:12 AM',
-      text: "Good morning team! Let's have a quick\nsync on today's priorities.",
-      emoji: '👏',
-      count: 3,
-    ),
-    _ChatItem.message(
-      name: 'Tran Thi B',
-      time: '9:32 AM',
-      text: "Morning! I've finished the authentication\nflow. It's ready for testing.",
-      emoji: '🎉',
-      count: 2,
-      emoji2: '👍',
-      count2: 1,
-    ),
-    _ChatItem.message(
-      name: 'Le Van C',
-      time: '9:35 AM',
-      text: "Great work! I'll start working on the\ndatabase integration today.",
-    ),
-    _ChatItem.separator('NEW MESSAGES'),
-    _ChatItem.message(
-      name: 'Pham Thi D',
-      time: '9:38 AM',
-      text:
-          "I'm updating the UI mockups based on\nyesterday's feedback. Will share in a bit!",
-      emoji: '✨',
-      count: 1,
-    ),
-    _ChatItem.message(
-      name: 'Dr. Tran Minh',
-      time: '10:15 AM',
-      text:
-          "Good progress everyone. Don't forget we\nhave our sprint review on Friday. Make\nsure to prepare your demos.",
-    ),
-  ];
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _showBackToTop = false;
+  final PageController _previewController = PageController(viewportFraction: 0.92);
+  int _previewIndex = 0;
+
+  List<Widget> _buildAppBarActions(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    // Mobile: keep only the primary CTA.
+    if (width < 520) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: FilledButton(
+            onPressed: _goToLogin,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFF27125),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Get Started'),
+          ),
+        ),
+      ];
+    }
+
+    // Tablet-ish: keep primary CTAs.
+    if (width < 820) {
+      return [
+        TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
+        const SizedBox(width: 4),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: FilledButton(
+            onPressed: _goToLogin,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFF27125),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Get Started'),
+          ),
+        ),
+      ];
+    }
+
+    // Desktop: show full nav.
+    return [
+      TextButton(onPressed: () => _showSoon('About'), child: const Text('About')),
+      TextButton(onPressed: () => _showSoon('Docs'), child: const Text('Docs')),
+      TextButton(onPressed: () => _showSoon('FAQ'), child: const Text('FAQ')),
+      const SizedBox(width: 6),
+      TextButton(onPressed: _goToLogin, child: const Text('Sign In')),
+      const SizedBox(width: 4),
+      Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: FilledButton(
+          onPressed: _goToLogin,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFF27125),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Get Started'),
+        ),
+      ),
+    ];
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    _previewController.dispose();
+    super.dispose();
+  }
+
+  Widget _dot(bool active) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: active ? 18 : 8,
+      height: 8,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFF27125) : const Color(0x55FFFFFF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+    );
+  }
+
+  Widget _previewCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<String> bullets,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: const Color(0x0DFFFFFF),
+        border: Border.all(color: const Color(0x33FFFFFF)),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0x22F27125),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0x55F27125)),
+                ),
+                child: Icon(icon, color: const Color(0xFFF27125)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              itemCount: _messages.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final item = _messages[index];
-                return switch (item) {
-                  _ChatMessageItem() => _ChatMessage(item: item),
-                  _ChatSeparatorItem() => _ChatSeparator(text: item.text),
-                };
-              },
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: const Color(0x1A000000),
+                border: Border.all(color: const Color(0x22FFFFFF)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0x22FFFFFF))),
+                    ),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Color(0xFFF27125),
+                          child: Text('S', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'SWP Hub',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Icon(Icons.more_horiz, color: Colors.white.withValues(alpha: 0.7)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(12),
+                      itemCount: bullets.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0x0FFFFFFF),
+                            border: Border.all(color: const Color(0x1AFFFFFF)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFFF27125)),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  bullets[i],
+                                  style: const TextStyle(color: Color(0xFFE5E7EB), fontSize: 13, height: 1.2),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const _Composer(),
         ],
       ),
     );
   }
-}
 
-sealed class _ChatItem {
-  const _ChatItem();
+  void _onScroll() {
+    final visible = _scrollController.offset > 300;
+    if (visible != _showBackToTop) {
+      setState(() => _showBackToTop = visible);
+    }
+  }
 
-  const factory _ChatItem.message({
-    required String name,
-    required String time,
-    required String text,
-    String? emoji,
-    int? count,
-    String? emoji2,
-    int? count2,
-  }) = _ChatMessageItem;
+  Future<void> _goToLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
 
-  const factory _ChatItem.separator(String text) = _ChatSeparatorItem;
-}
-
-final class _ChatMessageItem extends _ChatItem {
-  const _ChatMessageItem({
-    required this.name,
-    required this.time,
-    required this.text,
-    this.emoji,
-    this.count,
-    this.emoji2,
-    this.count2,
-  });
-
-  final String name;
-  final String time;
-  final String text;
-  final String? emoji;
-  final int? count;
-  final String? emoji2;
-  final int? count2;
-}
-
-final class _ChatSeparatorItem extends _ChatItem {
-  const _ChatSeparatorItem(this.text);
-  final String text;
-}
-
-class _ChatMessage extends StatelessWidget {
-  const _ChatMessage({required this.item});
-
-  final _ChatMessageItem item;
+  void _showSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature page is not integrated yet in MO.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final avatarColor = Colors.primaries[item.name.hashCode % Colors.primaries.length];
+    final width = MediaQuery.sizeOf(context).width;
+    final isSmall = width < 420;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: avatarColor.shade200,
-          child: Text(
-            item.name.trim().isEmpty ? '?' : item.name.trim()[0].toUpperCase(),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      floatingActionButton: AnimatedSlide(
+        duration: const Duration(milliseconds: 240),
+        offset: _showBackToTop ? Offset.zero : const Offset(0, 2),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 240),
+          opacity: _showBackToTop ? 1 : 0,
+          child: FloatingActionButton(
+            onPressed: () {
+              _scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOutCubic,
+              );
+            },
+            backgroundColor: const Color(0xFFF27125),
+            child: const Icon(Icons.keyboard_arrow_up, color: Colors.white),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
+      ),
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            toolbarHeight: 72,
+            backgroundColor: Colors.white.withValues(alpha: 0.95),
+            surfaceTintColor: Colors.transparent,
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF27125),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
                     child: Text(
-                      item.name,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                      'S',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    item.time,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(item.text, style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  if (item.emoji != null && item.count != null)
-                    _ReactionChip(emoji: item.emoji!, count: item.count!),
-                  if (item.emoji2 != null && item.count2 != null)
-                    _ReactionChip(emoji: item.emoji2!, count: item.count2!),
-                  _AddReactionButton(),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ChatSeparator extends StatelessWidget {
-  const _ChatSeparator({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider()),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.red,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              letterSpacing: 0.4,
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'SWP Hub',
+                  style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w800),
+                ),
+              ],
             ),
+            actions: _buildAppBarActions(context),
           ),
-        ),
-        const Expanded(child: Divider()),
-      ],
-    );
-  }
-}
 
-class _ReactionChip extends StatelessWidget {
-  const _ReactionChip({required this.emoji, required this.count});
-
-  final String emoji;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        '$emoji $count',
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _AddReactionButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: IconButton(
-        visualDensity: VisualDensity.compact,
-        iconSize: 18,
-        onPressed: () {},
-        icon: const Icon(Icons.emoji_emotions_outlined),
-      ),
-    );
-  }
-}
-
-class _Composer extends StatelessWidget {
-  const _Composer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.attach_file),
-          ),
-          Expanded(
+          SliverToBoxAdapter(
             child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(22),
+              padding: EdgeInsets.fromLTRB(24, isSmall ? 62 : 80, 24, isSmall ? 62 : 80),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1D21),
               ),
-              child: const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Message #general-chat',
-                  style: TextStyle(color: Color(0xFF6B7280)),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1180),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Monitor & Manage the Complete\nStudent Project Experience',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 48,
+                          height: 1.15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'The all-in-one platform for FPT students to manage topics, form groups, and get instant answers.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: const Color(0xFFD1D5DB),
+                          fontSize: isSmall ? 16 : 20,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: _goToLogin,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFF27125),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                            ),
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _showSoon('Documentation'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0x55FFFFFF)),
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                            ),
+                            icon: const Icon(Icons.play_circle_outline),
+                            label: const Text('View Documentation', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 34),
+                      Container(
+                        height: isSmall ? 360 : 380,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0x0DFFFFFF),
+                          border: Border.all(color: const Color(0x33FFFFFF)),
+                        ),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    'Product Preview',
+                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                                  ),
+                                  const Spacer(),
+                                  Icon(Icons.swipe, color: Colors.white.withValues(alpha: 0.7), size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Swipe',
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: PageView(
+                                controller: _previewController,
+                                onPageChanged: (i) => setState(() => _previewIndex = i),
+                                children: [
+                                  _previewCard(
+                                    title: 'Dashboard',
+                                    subtitle: 'Track topics, classes, and queues at a glance.',
+                                    icon: Icons.dashboard_outlined,
+                                    bullets: const [
+                                      'Pending topics & approvals',
+                                      'Waiting Q&A tickets',
+                                      'Quick status overview',
+                                    ],
+                                  ),
+                                  _previewCard(
+                                    title: 'Topic Proposals',
+                                    subtitle: 'Propose, review, and manage topics quickly.',
+                                    icon: Icons.lightbulb_outline,
+                                    bullets: const [
+                                      'Create proposal in seconds',
+                                      'Approval status tracking',
+                                      'Syllabus link attached',
+                                    ],
+                                  ),
+                                  _previewCard(
+                                    title: 'Hierarchical Q&A',
+                                    subtitle: 'Answer, escalate, and resolve questions fast.',
+                                    icon: Icons.quiz_outlined,
+                                    bullets: const [
+                                      'Prioritized ticket view',
+                                      'Escalate edge cases',
+                                      'Keep answers consistent',
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _dot(_previewIndex == 0),
+                                  _dot(_previewIndex == 1),
+                                  _dot(_previewIndex == 2),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.send_outlined),
+
+          SliverToBoxAdapter(
+            child: Container(
+              color: const Color(0xFFF9FAFB),
+              padding: const EdgeInsets.fromLTRB(24, 70, 24, 70),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1180),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Why Choose SWP Hub?',
+                        style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Everything you need to succeed in your Software Project',
+                        style: TextStyle(fontSize: 20, color: Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(height: 34),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final narrow = constraints.maxWidth < 960;
+                          return Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: [
+                              _featureCard(
+                                width: narrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3,
+                                title: 'AI-Powered Answers',
+                                desc:
+                                    'Get syllabus-based suggestions instantly. Our AI assistant analyzes your questions and provides accurate answers.',
+                                icon: Icons.psychology_alt_outlined,
+                              ),
+                              _featureCard(
+                                width: narrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3,
+                                title: 'Smart Group Matching',
+                                desc: 'Find teammates that match your skill set and form balanced project teams quickly.',
+                                icon: Icons.groups_2_outlined,
+                              ),
+                              _featureCard(
+                                width: narrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3,
+                                title: 'Topic Management',
+                                desc: 'Streamlined workflow for topic submission, approval, and milestone tracking.',
+                                icon: Icons.shield_outlined,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
+
+          SliverToBoxAdapter(
+            child: Container(
+              color: const Color(0xFF1A1D21),
+              padding: const EdgeInsets.fromLTRB(24, 64, 24, 64),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 920),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Ready to start your journey?',
+                        style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Join thousands of FPT students already using SWP Hub to ace their projects.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 20),
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: _goToLogin,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFF27125),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                        ),
+                        child: const Text('Get Started for Free', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _featureCard({
+    required double width,
+    required String title,
+    required String desc,
+    required IconData icon,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0x1AF27125),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFFF27125), size: 26),
+          ),
+          const SizedBox(height: 14),
+          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF111827))),
+          const SizedBox(height: 8),
+          Text(desc, style: const TextStyle(color: Color(0xFF6B7280), height: 1.5)),
         ],
       ),
     );

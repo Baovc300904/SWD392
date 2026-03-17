@@ -188,7 +188,7 @@ class AuthService {
         }
 
         // Check if email is verified (skip for MANAGER role)
-        if (!user.isEmailVerified && user.role !== 'MANAGER') {
+        if (!user.isEmailVerified && user.role !== 'manager') {
             throw { statusCode: 403, message: 'Please verify your email before logging in' };
         }
 
