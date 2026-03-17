@@ -12,10 +12,10 @@ import '../../services/notification_service.dart';
 import '../../services/question_service.dart';
 import '../../services/submission_service.dart';
 import '../../services/topic_service.dart';
-import '../../services/user_service.dart';
 import '../../state/app_session.dart';
 import '../../widgets/ui_kit.dart';
 import '../login_screen.dart';
+import '../profile_screen.dart';
 import '../question_detail_screen.dart';
 
 class LecturerShell extends StatefulWidget {
@@ -30,18 +30,20 @@ class _LecturerShellState extends State<LecturerShell> {
 
   static const _tabs = <NavigationDestination>[
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-    NavigationDestination(icon: Icon(Icons.lightbulb_outline), label: 'De tai'),
-    NavigationDestination(icon: Icon(Icons.quiz_outlined), label: 'Hoi dap'),
-    NavigationDestination(icon: Icon(Icons.assignment_turned_in_outlined), label: 'Cham diem'),
-    NavigationDestination(icon: Icon(Icons.person_outline), label: 'Ho so'),
+    NavigationDestination(icon: Icon(Icons.class_outlined), label: 'Classes'),
+    NavigationDestination(icon: Icon(Icons.lightbulb_outline), label: 'Topics'),
+    NavigationDestination(icon: Icon(Icons.quiz_outlined), label: 'Q&A'),
+    NavigationDestination(icon: Icon(Icons.assignment_turned_in_outlined), label: 'Grading'),
+    NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
   ];
 
   static const _titles = <String>[
     'Lecturer Workspace',
-    'Quan ly De tai',
-    'Quan ly Hoi dap',
-    'Submission & Cham diem',
-    'Ho so Giang vien',
+    'Classes Managed',
+    'Topic Management',
+    'Q&A Management',
+    'Submission & Grading',
+    'Account',
   ];
 
   Future<void> _backToLogin() async {
@@ -49,15 +51,15 @@ class _LecturerShellState extends State<LecturerShell> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Back to Login'),
-        content: const Text('Ban co chac muon dang xuat va quay lai man hinh dang nhap?'),
+        content: const Text('Are you sure you want to sign out and return to login?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Huy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Dang xuat'),
+            child: const Text('Sign out'),
           ),
         ],
       ),
@@ -88,10 +90,11 @@ class _LecturerShellState extends State<LecturerShell> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       const _LecturerDashboardPage(),
+      const _LecturerClassesPage(),
       const _LecturerTopicPage(),
       const _LecturerQAPage(),
       const _LecturerSubmissionPage(),
-      const _LecturerProfilePage(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
@@ -198,23 +201,6 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
     return status == 'FORMING' || status == 'ACTIVE' || status == 'PENDING' || status == 'WAITING';
   }
 
-  Future<void> _confirmGroup(Map<String, dynamic> group) async {
-    final id = int.tryParse(group['id']?.toString() ?? '') ?? 0;
-    if (id == 0) return;
-
-    try {
-      await GroupService.instance.confirmGroup(id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da chot nhom thanh cong.')),
-      );
-      await _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -244,7 +230,7 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
         children: [
           DashboardHero(
             title: 'Dashboard',
-            subtitle: 'Lecturer can theo doi bai nop, de tai, hoi dap va chot nhom ngay tai day.',
+            subtitle: 'Track submissions, topics, Q&A tickets, and teaching progress in one place.',
             icon: Icons.school_outlined,
           ),
           const SizedBox(height: 10),
@@ -276,55 +262,6 @@ class _LecturerDashboardPageState extends State<_LecturerDashboardPage> {
           ),
           const SizedBox(height: 10),
           _RecentSubmissionSection(submissions: recentSubmissions),
-          const SizedBox(height: 10),
-          SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '.SE1701',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text('${activeGroups.length} nhom dang hoat dong'),
-                const SizedBox(height: 8),
-                if (activeGroups.isEmpty)
-                  const Text('Chua co nhom nao can chot.')
-                else
-                  ...activeGroups.take(3).map((group) {
-                    final topic = group['topic'] as Map<String, dynamic>? ?? <String, dynamic>{};
-                    final groupName = _readText(group['groupName']);
-                    final topicTitle = _readText(topic['title']);
-                    final status = _readText(group['groupStatus'] ?? group['status']);
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 2),
-                          Text(topicTitle),
-                          const SizedBox(height: 2),
-                          Text('Trang thai: $status'),
-                          const SizedBox(height: 8),
-                          FilledButton.icon(
-                            onPressed: () => _confirmGroup(group),
-                            icon: const Icon(Icons.check_circle_outline),
-                            label: const Text('Chot nhom'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -355,26 +292,236 @@ class _RecentSubmissionSectionState extends State<_RecentSubmissionSection> {
             children: [
               Expanded(
                 child: Text(
-                  'Nop bai gan day (5 nhom)',
+                  'Recent Submissions (5 groups)',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               TextButton.icon(
                 onPressed: () => setState(() => _showAll = !_showAll),
                 icon: Icon(_showAll ? Icons.expand_less : Icons.expand_more),
-                label: Text(_showAll ? 'Thu gon' : 'Xem tat ca'),
+                label: Text(_showAll ? 'Collapse' : 'View all'),
               ),
             ],
           ),
           const SizedBox(height: 8),
           if (firstFive.isEmpty)
-            const Text('Chua co bai nop nao.')
+            const Text('No submissions yet.')
           else
             ...firstFive.map((item) => _SubmissionRow(item: item)),
           if (_showAll && widget.submissions.length > 5) ...[
             const Divider(height: 18),
             ...widget.submissions.skip(5).map((item) => _SubmissionRow(item: item)),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LecturerClassesPage extends StatefulWidget {
+  const _LecturerClassesPage();
+
+  @override
+  State<_LecturerClassesPage> createState() => _LecturerClassesPageState();
+}
+
+class _LecturerClassesPageState extends State<_LecturerClassesPage> {
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _classes = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _groups = const <Map<String, dynamic>>[];
+  int? _classFilterId;
+
+  int get _lecturerId => AppSession.instance.session?.userId ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await Future.wait<dynamic>([
+        ClassService.instance.getAll(lecturerId: _lecturerId),
+        GroupService.instance.getAll(),
+      ]);
+
+      final classes = results[0] as List<Map<String, dynamic>>;
+      final classIds = classes
+          .map((item) => int.tryParse(item['id']?.toString() ?? ''))
+          .whereType<int>()
+          .toSet();
+
+      final groups = (results[1] as List<Map<String, dynamic>>).where((item) {
+        final classMap = item['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final classId = int.tryParse(classMap['id']?.toString() ?? '') ?? int.tryParse(item['classId']?.toString() ?? '');
+        if (classIds.isEmpty) return true;
+        return classId != null && classIds.contains(classId);
+      }).toList(growable: false);
+
+      if (!mounted) return;
+      setState(() {
+        _classes = classes;
+        _groups = groups;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool _isActiveGroup(Map<String, dynamic> group) {
+    final status = (group['groupStatus'] ?? group['status'] ?? '').toString().toUpperCase();
+    return status == 'FORMING' || status == 'ACTIVE' || status == 'PENDING' || status == 'WAITING';
+  }
+
+  bool _isConfirmedGroup(Map<String, dynamic> group) {
+    final status = (group['groupStatus'] ?? group['status'] ?? '').toString().toUpperCase();
+    return status == 'CONFIRMED';
+  }
+
+  Future<void> _confirmGroup(Map<String, dynamic> group) async {
+    final id = int.tryParse(group['id']?.toString() ?? '') ?? 0;
+    if (id == 0) return;
+
+    try {
+      await GroupService.instance.confirmGroup(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Group confirmed successfully.')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  List<Map<String, dynamic>> _groupsByClass(int classId) {
+    return _groups.where((item) {
+      final classMap = item['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final id = int.tryParse(classMap['id']?.toString() ?? '') ?? int.tryParse(item['classId']?.toString() ?? '');
+      return id == classId;
+    }).toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final visibleClasses = _classFilterId == null
+        ? _classes
+        : _classes.where((item) => int.tryParse(item['id']?.toString() ?? '') == _classFilterId).toList(growable: false);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text(
+            'Classes Managed',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          const Text('List of classes and student groups under this lecturer.'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+              DropdownButton<int?>(
+                value: _classFilterId,
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
+                  ..._classes.map((item) {
+                    final id = int.tryParse(item['id']?.toString() ?? '');
+                    return DropdownMenuItem<int?>(value: id, child: Text(_readText(item['className'])));
+                  }),
+                ],
+                onChanged: (value) => setState(() => _classFilterId = value),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (visibleClasses.isEmpty)
+            const SectionCard(child: Text('No classes available.'))
+          else
+            ...visibleClasses.map((classItem) {
+              final classId = int.tryParse(classItem['id']?.toString() ?? '') ?? 0;
+              final className = _readText(classItem['className']);
+              final classGroups = _groupsByClass(classId);
+              final activeCount = classGroups.where(_isActiveGroup).length;
+
+              return SectionCard(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(className, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text('$activeCount active group${activeCount == 1 ? '' : 's'}'),
+                    const SizedBox(height: 8),
+                    if (classGroups.isEmpty)
+                      const Text('No groups in this class yet.')
+                    else
+                      ...classGroups.map((group) {
+                        final topic = group['topic'] as Map<String, dynamic>? ?? <String, dynamic>{};
+                        final groupName = _readText(group['groupName']);
+                        final topicTitle = _readText(topic['title']);
+                        final status = _readText(group['groupStatus'] ?? group['status']).toUpperCase();
+                        final memberCount = (group['members'] as List<dynamic>? ?? <dynamic>[]).length;
+                        final confirmed = _isConfirmedGroup(group);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(groupName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 2),
+                              Text(topicTitle),
+                              const SizedBox(height: 2),
+                              Text(confirmed ? 'Confirmed group' : 'Status: $status'),
+                              const SizedBox(height: 2),
+                              Text('Members: $memberCount'),
+                              const SizedBox(height: 8),
+                              if (confirmed)
+                                const Chip(label: Text('Confirmed'))
+                              else
+                                FilledButton.icon(
+                                  onPressed: () => _confirmGroup(group),
+                                  icon: const Icon(Icons.check_circle_outline),
+                                  label: const Text('Confirm Group'),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -411,16 +558,16 @@ class _SubmissionRow extends StatelessWidget {
         children: [
           Text('$groupName - $className', style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text('Loai bai nop: $submissionType'),
+          Text('Submission type: $submissionType'),
           const SizedBox(height: 2),
-          Text('Nguoi nop: $submittedBy'),
+          Text('Submitted by: $submittedBy'),
           const SizedBox(height: 2),
-          Text('Thoi gian: $submittedAt'),
+          Text('Time: $submittedAt'),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.visibility_outlined),
-            label: const Text('Xem chi tiet'),
+            label: const Text('View details'),
           ),
         ],
       ),
@@ -491,7 +638,7 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
 
     if (title.isEmpty || description.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui long nhap day du tieu de va mo ta de tai.')),
+        const SnackBar(content: Text('Please enter both title and description.')),
       );
       return;
     }
@@ -512,7 +659,7 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tao de tai thanh cong.')),
+        const SnackBar(content: Text('Topic created successfully.')),
       );
       await _load();
     } catch (e) {
@@ -532,7 +679,7 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
           child: Text(topic.description),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Dong')),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
         ],
       ),
     );
@@ -545,25 +692,25 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sua de tai'),
+        title: const Text('Edit topic'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Tieu de')),
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
               const SizedBox(height: 8),
               TextField(
                 controller: descController,
                 minLines: 2,
                 maxLines: 6,
-                decoration: const InputDecoration(labelText: 'Mo ta'),
+                decoration: const InputDecoration(labelText: 'Description'),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Luu')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
         ],
       ),
     );
@@ -586,11 +733,11 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xoa de tai'),
-        content: Text('Ban co chac muon xoa "${topic.title}"?'),
+        title: const Text('Delete topic'),
+        content: Text('Are you sure you want to delete "${topic.title}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Xoa')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
         ],
       ),
     );
@@ -633,27 +780,27 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '.Quan ly De tai',
+                  'Topic Management',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
-                const Text('Quan ly de tai va theo doi trang thai duyet'),
+                const Text('Manage topics and track approval status.'),
                 const SizedBox(height: 10),
-                TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Tieu de de tai')),
+                TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Topic title')),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _descriptionController,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(labelText: 'Mo ta'),
+                  decoration: const InputDecoration(labelText: 'Description'),
                 ),
                 const SizedBox(height: 8),
-                TextField(controller: _syllabusController, decoration: const InputDecoration(labelText: 'Syllabus URL (tuy chon)')),
+                TextField(controller: _syllabusController, decoration: const InputDecoration(labelText: 'Syllabus URL (optional)')),
                 const SizedBox(height: 10),
                 FilledButton.icon(
                   onPressed: _creating ? null : _createTopic,
                   icon: const Icon(Icons.add_circle_outline),
-                  label: Text(_creating ? 'Dang tao...' : 'Tao de tai'),
+                  label: Text(_creating ? 'Creating...' : 'Create topic'),
                 ),
               ],
             ),
@@ -666,7 +813,7 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
                   controller: _searchController,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
-                    hintText: 'Tim kiem theo tieu de hoac mo ta...',
+                    hintText: 'Search by title or description...',
                   ),
                 ),
               ),
@@ -674,7 +821,7 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
               DropdownButton<String>(
                 value: _statusFilter,
                 items: const [
-                  DropdownMenuItem(value: 'ALL', child: Text('Tat ca trang thai')),
+                  DropdownMenuItem(value: 'ALL', child: Text('All statuses')),
                   DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
                   DropdownMenuItem(value: 'APPROVED', child: Text('APPROVED')),
                   DropdownMenuItem(value: 'REJECTED', child: Text('REJECTED')),
@@ -688,7 +835,7 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
           ),
           const SizedBox(height: 10),
           if (_filteredTopics.isEmpty)
-            const SectionCard(child: Text('Khong tim thay de tai nao.'))
+            const SectionCard(child: Text('No topics found.'))
           else
             ..._filteredTopics.map((topic) {
               return Card(
@@ -702,9 +849,9 @@ class _LecturerTopicPageState extends State<_LecturerTopicPage> {
                       if (value == 'delete') _deleteTopic(topic);
                     },
                     itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'view', child: Text('Xem chi tiet')),
-                      PopupMenuItem(value: 'edit', child: Text('Sua')),
-                      PopupMenuItem(value: 'delete', child: Text('Xoa')),
+                      PopupMenuItem(value: 'view', child: Text('View details')),
+                      PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
                     ],
                   ),
                 ),
@@ -791,7 +938,7 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
       await QuestionService.instance.escalate(question.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da escalate len truong bo mon.')),
+        const SnackBar(content: Text('Question escalated to department head.')),
       );
       await _load();
     } catch (e) {
@@ -837,26 +984,26 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
         padding: const EdgeInsets.all(12),
         children: [
           Text(
-            '.Quan ly Hoi dap',
+            'Q&A Management',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text('Tra loi cau hoi cua sinh vien'),
+          const Text('Reply to student questions.'),
           const SizedBox(height: 10),
           TextField(
             controller: _searchController,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Tim kiem cau hoi...',
+              hintText: 'Search questions...',
             ),
           ),
           const SizedBox(height: 8),
           DropdownButton<String>(
             value: _statusFilter,
             items: const [
-              DropdownMenuItem(value: 'ALL', child: Text('Tat ca')),
-              DropdownMenuItem(value: 'UNANSWERED', child: Text('Chua tra loi')),
-              DropdownMenuItem(value: 'ANSWERED', child: Text('Da tra loi')),
+              DropdownMenuItem(value: 'ALL', child: Text('All')),
+              DropdownMenuItem(value: 'UNANSWERED', child: Text('Unanswered')),
+              DropdownMenuItem(value: 'ANSWERED', child: Text('Answered')),
               DropdownMenuItem(value: 'ESCALATED', child: Text('Escalated')),
             ],
             onChanged: (value) {
@@ -866,7 +1013,7 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
           ),
           const SizedBox(height: 8),
           if (_filteredQuestions.isEmpty)
-            const SectionCard(child: Text('Khong tim thay cau hoi nao.'))
+            const SectionCard(child: Text('No questions found.'))
           else
             ..._filteredQuestions.map((question) {
               final status = _normalizedStatus(question.status);
@@ -880,9 +1027,9 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
                       const SizedBox(height: 4),
                       Text(_readText(question.content), maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
-                      Text('Nguoi hoi: ${_readText(question.askerName)}'),
+                      Text('Asked by: ${_readText(question.askerName)}'),
                       const SizedBox(height: 4),
-                      Text('Trang thai: $status'),
+                      Text('Status: $status'),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -891,7 +1038,7 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
                           OutlinedButton.icon(
                             onPressed: () => _generateAiDraftAndReply(question),
                             icon: const Icon(Icons.auto_awesome_outlined),
-                            label: const Text('Tao nhap AI'),
+                            label: const Text('Create AI draft'),
                           ),
                           if (status == 'WAITING_LECTURER')
                             OutlinedButton.icon(
@@ -902,7 +1049,7 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
                           FilledButton.icon(
                             onPressed: () => _openReplyComposer(question),
                             icon: const Icon(Icons.reply_outlined),
-                            label: const Text('Tra loi'),
+                            label: const Text('Reply'),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -912,7 +1059,7 @@ class _LecturerQAPageState extends State<_LecturerQAPage> {
                               if (!mounted) return;
                               await _load();
                             },
-                            child: const Text('Xem chi tiet'),
+                            child: const Text('View details'),
                           ),
                         ],
                       ),
@@ -993,7 +1140,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
     final content = _answerController.text.trim();
     if (content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui long nhap noi dung tra loi.')),
+        const SnackBar(content: Text('Please enter answer content.')),
       );
       return;
     }
@@ -1010,7 +1157,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
       _answerController.clear();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da gui cau tra loi.')),
+        const SnackBar(content: Text('Answer sent successfully.')),
       );
       await _loadAnswers();
     } catch (e) {
@@ -1032,7 +1179,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Sua cau tra loi'),
+          title: const Text('Edit answer'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1041,7 +1188,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
                   controller: controller,
                   minLines: 3,
                   maxLines: 8,
-                  decoration: const InputDecoration(hintText: 'Noi dung tra loi'),
+                  decoration: const InputDecoration(hintText: 'Answer content'),
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile(
@@ -1054,8 +1201,8 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
-            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Luu')),
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
           ],
         ),
       ),
@@ -1079,11 +1226,11 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xoa cau tra loi'),
-        content: const Text('Ban co chac muon xoa cau tra loi nay?'),
+        title: const Text('Delete answer'),
+        content: const Text('Are you sure you want to delete this answer?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Xoa')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
         ],
       ),
     );
@@ -1108,7 +1255,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
         child: Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            title: Text('Tra loi #${widget.question.id}'),
+            title: Text('Reply #${widget.question.id}'),
             actions: [
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -1131,7 +1278,7 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Cau tra loi cua toi',
+                'My answers',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
@@ -1152,34 +1299,34 @@ class _ReplyComposerSheetState extends State<_ReplyComposerSheet> {
                           if (value == 'delete') _deleteAnswer(answer);
                         },
                         itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'edit', child: Text('Sua')),
-                          PopupMenuItem(value: 'delete', child: Text('Xoa')),
+                          PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          PopupMenuItem(value: 'delete', child: Text('Delete')),
                         ],
                       ),
                     ),
                   );
                 }),
               if (_answers.where(_isMyAnswer).isEmpty)
-                const SectionCard(child: Text('Ban chua co cau tra loi nao cho ticket nay.')),
+                const SectionCard(child: Text('You have no answers for this ticket yet.')),
               const SizedBox(height: 10),
               TextField(
                 controller: _answerController,
                 minLines: 3,
                 maxLines: 8,
-                decoration: const InputDecoration(hintText: 'Nhap cau tra loi...'),
+                decoration: const InputDecoration(hintText: 'Type your answer...'),
               ),
               const SizedBox(height: 6),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _isPublic,
                 onChanged: (value) => setState(() => _isPublic = value),
-                title: const Text('Public (hien cho tat ca)'),
+                title: const Text('Public (visible to everyone)'),
               ),
               const SizedBox(height: 6),
               FilledButton.icon(
                 onPressed: _sending ? null : _sendAnswer,
                 icon: const Icon(Icons.send_outlined),
-                label: Text(_sending ? 'Dang gui...' : 'Gui cau tra loi'),
+                label: Text(_sending ? 'Sending...' : 'Send answer'),
               ),
             ],
           ),
@@ -1274,7 +1421,7 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Cham Submission #$id'),
+        title: Text('Grade Submission #$id'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1282,21 +1429,21 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
               TextField(
                 controller: gradeController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Diem (0-10)'),
+                decoration: const InputDecoration(labelText: 'Score (0-10)'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: feedbackController,
                 minLines: 2,
                 maxLines: 6,
-                decoration: const InputDecoration(labelText: 'Nhan xet'),
+                decoration: const InputDecoration(labelText: 'Feedback'),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Luu')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
         ],
       ),
     );
@@ -1307,7 +1454,7 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
     if (grade == null || grade < 0 || grade > 10) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Diem khong hop le.')),
+        const SnackBar(content: Text('Invalid score.')),
       );
       return;
     }
@@ -1337,11 +1484,11 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
         padding: const EdgeInsets.all(12),
         children: [
           Text(
-            'Submission & Cham diem',
+            'Submission & Grading',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text('Giang vien xem bai nop theo lop phu trach va nhap diem truc tiep.'),
+          const Text('Review class submissions and enter grades directly.'),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -1350,12 +1497,12 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
               OutlinedButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Lam moi'),
+                label: const Text('Refresh'),
               ),
               DropdownButton<int?>(
                 value: _classIdFilter,
                 items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Tat ca lop')),
+                  const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
                   ..._classes.map((item) {
                     final id = int.tryParse(item['id']?.toString() ?? '');
                     return DropdownMenuItem<int?>(value: id, child: Text(_readText(item['className'])));
@@ -1367,7 +1514,7 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
           ),
           const SizedBox(height: 10),
           if (_filtered.isEmpty)
-            const SectionCard(child: Text('Chua co bai nop nao trong bo loc hien tai.'))
+            const SectionCard(child: Text('No submissions for this filter.'))
           else
             ..._filtered.map((item) {
               final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
@@ -1393,149 +1540,18 @@ class _LecturerSubmissionPageState extends State<_LecturerSubmissionPage> {
                       const SizedBox(height: 4),
                       Text(fileUrl),
                       const SizedBox(height: 4),
-                      Text(grade == null ? 'Chua cham' : 'Diem: $grade'),
+                      Text(grade == null ? 'Not graded yet' : 'Score: $grade'),
                       const SizedBox(height: 8),
                       FilledButton.icon(
                         onPressed: () => _grade(item),
                         icon: const Icon(Icons.edit_outlined),
-                        label: Text(grade == null ? 'Cham bai' : 'Cap nhat diem'),
+                        label: Text(grade == null ? 'Grade' : 'Update grade'),
                       ),
                     ],
                   ),
                 ),
               );
             }),
-        ],
-      ),
-    );
-  }
-}
-
-class _LecturerProfilePage extends StatefulWidget {
-  const _LecturerProfilePage();
-
-  @override
-  State<_LecturerProfilePage> createState() => _LecturerProfilePageState();
-}
-
-class _LecturerProfilePageState extends State<_LecturerProfilePage> {
-  bool _loading = true;
-  String? _error;
-
-  Map<String, dynamic> _user = const <String, dynamic>{};
-  List<Map<String, dynamic>> _classes = const <Map<String, dynamic>>[];
-  List<TopicItem> _topics = const <TopicItem>[];
-  List<QuestionItem> _questions = const <QuestionItem>[];
-  List<Map<String, dynamic>> _submissions = const <Map<String, dynamic>>[];
-
-  int get _lecturerId => AppSession.instance.session?.userId ?? 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final results = await Future.wait<dynamic>([
-        UserService.instance.getCurrentUser(),
-        ClassService.instance.getAll(lecturerId: _lecturerId),
-        TopicService.instance.getAll(),
-        QuestionService.instance.getAll(),
-        SubmissionService.instance.getAll(),
-      ]);
-
-      if (!mounted) return;
-      setState(() {
-        _user = results[0] as Map<String, dynamic>;
-        _classes = results[1] as List<Map<String, dynamic>>;
-        _topics = results[2] as List<TopicItem>;
-        _questions = results[3] as List<QuestionItem>;
-        _submissions = results[4] as List<Map<String, dynamic>>;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
-
-    final pendingTopics = _topics.where((item) => item.status.toUpperCase() == 'PENDING').length;
-    final waitingQuestions = _questions.where((item) {
-      final status = item.status.toUpperCase();
-      return status == 'WAITING_LECTURER' || status == 'WAITING';
-    }).length;
-    final needGrading = _submissions
-        .where((item) => _readText(item['status']).toUpperCase() == 'SUBMITTED')
-        .length;
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        children: [
-          SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Profile',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text('Ho ten: ${_readText(_user['fullName'] ?? AppSession.instance.session?.fullName)}'),
-                Text('Email: ${_readText(_user['email'] ?? AppSession.instance.session?.email)}'),
-                Text('Role: ${_readText(_user['role'] ?? AppSession.instance.session?.role)}'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              StatCard(label: 'Lop phu trach', value: _classes.length, icon: Icons.class_outlined),
-              StatCard(label: 'De tai cho duyet', value: pendingTopics, icon: Icons.pending_outlined),
-              StatCard(label: 'Hoi dap cho xu ly', value: waitingQuestions, icon: Icons.question_answer_outlined),
-              StatCard(label: 'Bai can cham', value: needGrading, icon: Icons.rate_review_outlined),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Danh sach lop',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                if (_classes.isEmpty)
-                  const Text('Chua co lop phu trach.')
-                else
-                  ..._classes.map((item) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.class_outlined),
-                        title: Text(_readText(item['className'])),
-                        subtitle: Text('ID: ${_readText(item['id'])}'),
-                      )),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -1550,10 +1566,10 @@ DateTime? _parseDate(dynamic value) {
 String _formatAgo(DateTime? time) {
   if (time == null) return 'N/A';
   final diff = DateTime.now().difference(time);
-  if (diff.inMinutes < 1) return 'Vua xong';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} phut truoc';
-  if (diff.inHours < 24) return '${diff.inHours} gio truoc';
-  return '${diff.inDays} ngay truoc';
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
+  if (diff.inHours < 24) return '${diff.inHours} hours ago';
+  return '${diff.inDays} days ago';
 }
 
 String _readText(Object? value) {
