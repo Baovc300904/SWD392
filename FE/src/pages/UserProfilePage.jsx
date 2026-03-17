@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import authService from '../services/auth.service';
 import userService from '../services/user.service';
 import userSettingsService from '../services/user-settings.service';
-import firebaseStorageService from '../services/firebase-storage.service';
+import cloudinaryStorageService from '../services/cloudinary-storage.service';
 import questionService from '../services/question.service';
 import topicService from '../services/topic.service';
 import groupService from '../services/group.service';
@@ -265,8 +265,8 @@ export function UserProfilePage({ onNavigate, onLogout }) {
     }, [role]);
 
     const handlePickAvatar = () => {
-        if (!firebaseStorageService.isEnabled()) {
-            toast.error('Firebase storage is not configured');
+        if (!cloudinaryStorageService.isEnabled()) {
+            toast.error('Cloudinary storage is not configured');
             return;
         }
         avatarInputRef.current?.click();
@@ -278,7 +278,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
 
         setAvatarUploading(true);
         try {
-            const uploaded = await firebaseStorageService.uploadFile(file, 'avatars');
+            const uploaded = await cloudinaryStorageService.uploadFile(file, 'avatars');
             await userService.updateUser(currentUser.userId, { avatarURL: uploaded.url });
             updateStoredUser({ avatarURL: uploaded.url, avatarUrl: uploaded.url, avatar_url: uploaded.url });
             toast.success('Avatar updated successfully');
@@ -593,13 +593,13 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                             <div className="px-6 py-5 space-y-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-semibold text-gray-800">Enable Firebase Upload</p>
-                                        <p className="text-xs text-gray-500">Upload images/files directly to Firebase if configured</p>
+                                        <p className="text-sm font-semibold text-gray-800">Enable Cloudinary Upload</p>
+                                        <p className="text-xs text-gray-500">Upload images/files directly to Cloudinary if configured</p>
                                     </div>
                                     <input
                                         type="checkbox"
-                                        checked={userSettings.enableFirebaseUpload}
-                                        onChange={(e) => handleSettingChange('enableFirebaseUpload', e.target.checked)}
+                                        checked={userSettings.enableCloudinaryUpload}
+                                        onChange={(e) => handleSettingChange('enableCloudinaryUpload', e.target.checked)}
                                     />
                                 </div>
 

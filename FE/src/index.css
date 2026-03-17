@@ -40,6 +40,26 @@
   }
 }
 
+/* ── Auth dark inputs: prevent Edge/Chrome autofill low-contrast text ── */
+.auth-dark-input,
+.auth-dark-input:-webkit-autofill,
+.auth-dark-input:-webkit-autofill:hover,
+.auth-dark-input:-webkit-autofill:focus,
+.auth-dark-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f3f4f6 !important;
+  caret-color: #f27125;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.auth-dark-input:-webkit-autofill,
+.auth-dark-input:-webkit-autofill:hover,
+.auth-dark-input:-webkit-autofill:focus,
+.auth-dark-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #1e2028 inset !important;
+  box-shadow: 0 0 0px 1000px #1e2028 inset !important;
+  border: 1px solid #2e3240 !important;
+}
+
 /* ── Animations ── */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(16px); }

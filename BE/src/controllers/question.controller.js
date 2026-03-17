@@ -4,61 +4,43 @@
  */
 
 const { Op } = require('sequelize');
-const { Question, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models');
-const MSG = require('../constants/messages');
-const pushService = require('../services/push.service');
+const { Question, QuestionDraft, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models'); const MSG = require('../constants/messages');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+const questionService = require("../services/question.service");
 
-const trimForNotification = (text, maxLength = 100) => {
-    const normalized = String(text || '').trim().replace(/\s+/g, ' ');
-    if (normalized.length <= maxLength) return normalized;
-    return `${normalized.slice(0, maxLength - 3)}...`;
-};
+/**
+ * @desc    Generate AI draft for question
+ * @route   POST /api/questions/:id/drafts/generate
+ * @access  Private (Lecturer/Manager)
+ */
+exports.generateDraft = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const lecturerId = getRequesterId(req) || 1;
+        const requesterRole = getRequesterRole(req);
 
-const notifyLecturerOnQuestionCreate = async ({ question, groupId, askedBy }) => {
-    if (!question?.id || !groupId || !askedBy) return;
-
-    const group = await StudentGroup.findByPk(groupId, {
-        include: [{
-            model: Class,
-            as: 'class',
-            attributes: ['lecturerId']
-        }]
-    });
-
-    const lecturerId = group?.class?.lecturerId;
-    if (!lecturerId) return;
-
-    // No self-notification in edge cases.
-    if (Number(lecturerId) === Number(askedBy)) return;
-
-    const lecturer = await User.findByPk(lecturerId, {
-        attributes: ['id', 'fcmToken']
-    });
-    if (!lecturer?.fcmToken) {
-        console.warn(`⚠️ Skip question notification: lecturer #${lecturerId} has no fcmToken`);
-        return;
-    }
-
-    const result = await pushService.sendPush(
-        lecturer.fcmToken,
-        'Co cau hoi moi tu sinh vien',
-        trimForNotification(question.title || question.content || 'Sinh vien vua tao cau hoi moi'),
-        {
-            type: 'question',
-            screen: 'question',
-            event: 'question_created',
-            questionId: question.id,
-            askedBy
+        if (!['lecturer', 'manager', 'admin'].includes(requesterRole)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'Only lecturer/manager/admin can generate AI draft'
+            });
         }
-    );
 
-    if (!result.success) {
-        console.warn(
-            `⚠️ Failed to send lecturer question notification for question #${question.id}: ${result.reason || result.error || result.code || 'unknown error'}`
-        );
+        const draft = await questionService.generateDraftForQuestion(id, lecturerId);
+
+        return res.status(201).json({
+            success: true,
+            message: "AI draft generated successfully",
+            data: draft
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || MSG.GENERAL.SERVER_ERROR
+        });
     }
 };
 
@@ -149,10 +131,23 @@ exports.getQuestionById = async (req, res) => {
                 { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
                 { model: StudentGroup, as: 'group', attributes: ['id', 'groupName'] },
                 {
-                    model: Answer, as: 'answers', include: [
+                    model: QuestionDraft,
+                    as: 'drafts',
+                    include: [
+                        { model: User, as: 'lecturer', attributes: ['id', 'fullName', 'email', 'avatarURL'] }
+                    ]
+                },
+                {
+                    model: Answer,
+                    as: 'answers',
+                    include: [
                         { model: User, as: 'answerer', attributes: ['id', 'fullName', 'role', 'avatarURL'] }
                     ]
                 }
+            ],
+            order: [
+                [{ model: QuestionDraft, as: 'drafts' }, 'createdAt', 'DESC'],
+                [{ model: Answer, as: 'answers' }, 'createdAt', 'ASC']
             ]
         });
 
@@ -198,19 +193,13 @@ exports.createQuestion = async (req, res) => {
             status: 'WAITING_LECTURER'
         });
 
-        // Best-effort push so assigned lecturer is notified immediately.
-        await notifyLecturerOnQuestionCreate({
-            question,
-            groupId,
-            askedBy
-        });
-
         res.status(201).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
             data: question
         });
     } catch (error) {
+        console.error('[createQuestion] Error:', error.name, error.message, error.parent?.message);
         res.status(500).json({
             success: false,
             message: MSG.GENERAL.SERVER_ERROR,
@@ -299,7 +288,7 @@ exports.askAIForQuestion = async (req, res) => {
                 as: 'group',
                 include: [
                     { model: Class, as: 'class', attributes: ['lecturerId', 'className'] },
-                    { model: Topic, as: 'topic', attributes: ['title', 'description', 'descriptionFile'] }
+                    { model: Topic, as: 'topic', attributes: ['title', 'description'] }
                 ]
             }]
         });
@@ -320,69 +309,45 @@ exports.askAIForQuestion = async (req, res) => {
             });
         }
 
-        const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            return res.status(400).json({
-                success: false,
-                message: MSG.GENERAL.BAD_REQUEST,
-                detail: 'AI key is not configured on backend'
-            });
-        }
-
-        const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-        const baseUrl = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-
-        const context = [
-            `Class: ${question.group?.class?.className || 'N/A'}`,
-            `Topic: ${question.group?.topic?.title || 'N/A'}`,
-            `Topic Description: ${question.group?.topic?.description || 'N/A'}`,
-            `Syllabus File URL: ${question.group?.topic?.descriptionFile || 'N/A'}`,
-            `Question Title: ${question.title || 'N/A'}`,
-            `Question Content: ${question.content || 'N/A'}`
-        ].join('\n');
-
-        const payload = {
-            contents: [{
-                role: 'user',
-                parts: [{ text: `Bạn là trợ lý cho giảng viên đại học. Hãy tạo bản nháp câu trả lời ngắn gọn, đúng ngữ cảnh môn học, tiếng Việt lịch sự.\n\n${context}` }]
-            }]
-        };
-
-        const response = await fetch(`${baseUrl}/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            return res.status(response.status).json({
-                success: false,
-                message: MSG.GENERAL.SERVER_ERROR,
-                detail: `AI request failed: ${errorText}`
-            });
-        }
-
-        const data = await response.json();
-        const draft = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-        if (!draft) {
-            return res.status(500).json({
-                success: false,
-                message: MSG.GENERAL.SERVER_ERROR,
-                detail: 'AI returned empty draft'
-            });
-        }
+        const draft = await questionService.generateDraftForQuestion(req.params.id, requesterId);
 
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            data: { draft }
+            data: {
+                id: draft.id,
+                questionId: draft.questionId,
+                lecturerId: draft.lecturerId,
+                draft: draft.draft,
+                createdAt: draft.createdAt,
+                updatedAt: draft.updatedAt
+            }
         });
     } catch (error) {
+        const status = Number(error?.status || error?.response?.status || 0);
+        const message = String(error?.message || '').toLowerCase();
+
+        if (status === 429 || message.includes('quota') || message.includes('resource_exhausted')) {
+            return res.status(429).json({
+                success: false,
+                message: 'AI quota exceeded. Vui lòng thử lại sau.',
+                detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+
+        if (status === 401 || message.includes('api key')) {
+            return res.status(400).json({
+                success: false,
+                message: 'AI key backend chưa cấu hình đúng.',
+                detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+
+        console.error('[askAIForQuestion] Error:', error.name, error.message);
         res.status(500).json({
             success: false,
             message: MSG.GENERAL.SERVER_ERROR,
+            detail: error.message,
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
@@ -443,6 +408,8 @@ exports.resolveQuestion = async (req, res) => {
         });
     }
 };
+
+
 
 /**
  * @desc    Delete question

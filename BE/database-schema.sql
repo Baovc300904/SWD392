@@ -88,9 +88,13 @@ CREATE TABLE student_groups (
     group_name VARCHAR(100) NOT NULL,
     class_id INT,
     topic_id INT NULL,
+    group_status ENUM('PENDING', 'CONFIRMED') DEFAULT 'PENDING',
+    confirmed_by INT NULL,
+    confirmed_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
-    FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE SET NULL
+    FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE SET NULL,
+    FOREIGN KEY (confirmed_by) REFERENCES users(id) ON DELETE SET NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Thành viên Nhóm (Nhiều-Nhiều giữa Sinh viên và Nhóm)
@@ -101,6 +105,18 @@ CREATE TABLE group_members (
     PRIMARY KEY (group_id, student_id),
     FOREIGN KEY (group_id) REFERENCES student_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Bảng Cài đặt người dùng
+CREATE TABLE user_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    enable_cloudinary_upload BOOLEAN DEFAULT TRUE,
+    enable_ai_assistant BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Bảng Câu hỏi Q&A
@@ -180,15 +196,37 @@ CREATE TABLE tasks (
 -- 2. INSERT MOCK DATA (Dữ liệu mẫu)
 -- ==========================================
 
--- Thêm Users (Password: 123456 - đã mã hóa bằng bcrypt)
-INSERT INTO users (id, student_code, full_name, email, password_hash, role) VALUES
-(1, NULL, 'Trưởng Bộ Môn (Manager)', 'manager@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'manager'),
-(2, NULL, 'Giảng Viên Nguyễn Văn A', 'gva@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
-(3, NULL, 'Giảng Viên Trần Thị B', 'gvb@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
-(4, 'SE171234', 'Sinh Viên Lê Văn C', 'sv1@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
-(5, 'SE171235', 'Sinh Viên Phạm Thị D', 'sv2@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
-(6, 'SE171236', 'Sinh Viên Hoàng Văn E', 'sv3@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
-(7, 'SE171237', 'Sinh Viên Vũ Thị F', 'sv4@fpt.edu.vn', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student');
+-- Thêm Users chi tiết (Password: 123456 - đã mã hóa bằng bcrypt)
+INSERT INTO users (id, student_code, full_name, email, avatar_url, password_hash, role) VALUES
+-- Cán bộ quản lý (Manager)
+(1, NULL, 'Nguyễn Minh Tiến', 'tiennm@fe.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'manager'),
+
+-- Giảng viên (Lecturers)
+(2, NULL, 'Trần Tấn Phát', 'phattt@fe.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(3, NULL, 'Nguyễn Thị Ngọc Uyên', 'uyenntn@fe.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(8, NULL, 'Lê Quang Huy', 'huylq@fe.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+(9, NULL, 'Phạm Tuấn Anh', 'anhpt@fe.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'lecturer'),
+
+-- Sinh viên (Students)
+(4, 'SE182669', 'Lâm Anh Khoa', 'khoalase182669@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(5, 'SE182683', 'Vũ Công Bảo', 'baovcse182683@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(6, 'SE182684', 'Nguyễn Văn Hùng', 'hungnvse182684@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(7, 'SA181122', 'Trần Thị Trà My', 'mytttsa181122@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(10, 'SE182685', 'Đinh Quốc Khánh', 'khanhdqse182685@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(11, 'SE182686', 'Phan Gia Bảo', 'baopgse182686@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(12, 'SE182687', 'Ngô Hoàng Long', 'longnhse182687@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(13, 'SE182688', 'Bùi Minh Quân', 'quanbmse182688@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(14, 'SE182689', 'Lưu Ngọc Ánh', 'anhlnse182689@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(15, 'SE182690', 'Võ Thành Nam', 'namvtse182690@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(16, 'SE182691', 'Đoàn Mỹ Linh', 'linhdmse182691@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(17, 'SE182692', 'Trịnh Gia Hân', 'hantgse182692@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(18, 'SE182693', 'Tạ Đức Thịnh', 'thinhtdse182693@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(19, 'SE182694', 'Nguyễn Hải Yến', 'yennhse182694@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
+(20, 'SE182695', 'Lâm Quốc Việt', 'vietlqse182695@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student');
+
+-- Seed User Settings mặc định
+INSERT INTO user_settings (user_id, enable_cloudinary_upload, enable_ai_assistant)
+SELECT id, TRUE, TRUE FROM users;
 
 -- Thêm Semesters (Học kỳ)
 INSERT INTO semesters (id, name, start_date, end_date, status) VALUES

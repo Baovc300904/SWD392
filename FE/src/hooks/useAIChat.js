@@ -200,14 +200,12 @@ export function useAIChat() {
         const settings = userSettingsService.getSettings();
 
         let replyContent = '';
-        const shouldUseRealAI = settings.enableAIAssistant && aiService.isConfigured();
 
-        if (shouldUseRealAI) {
+        if (settings.enableAIAssistant !== false) {
             try {
                 replyContent = await aiService.generateReply({
                     prompt: text,
                     context: options.context || '',
-                    model: settings.aiModel,
                 });
             } catch (error) {
                 replyContent = `${getMockResponse(text)}\n\n(Using fallback response because AI API failed: ${error.message})`;
