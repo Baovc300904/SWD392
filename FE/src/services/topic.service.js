@@ -1,5 +1,5 @@
 import api from '../config/api.config';
-import firebaseStorageService from './firebase-storage.service';
+import cloudinaryStorageService from './cloudinary-storage.service';
 
 /**
  * Topic Service
@@ -46,8 +46,8 @@ const topicService = {
     createTopic: async (topicData, syllabusFile = null) => {
         try {
             if (syllabusFile) {
-                if (firebaseStorageService.isEnabled()) {
-                    const uploaded = await firebaseStorageService.uploadFile(syllabusFile, 'topics/syllabus');
+                if (cloudinaryStorageService.isEnabled()) {
+                    const uploaded = await cloudinaryStorageService.uploadFile(syllabusFile, 'topics/syllabus');
                     const payload = {
                         ...topicData,
                         descriptionFile: uploaded.url,
@@ -82,8 +82,8 @@ const topicService = {
     updateTopic: async (id, topicData, syllabusFile = null) => {
         try {
             if (syllabusFile) {
-                if (firebaseStorageService.isEnabled()) {
-                    const uploaded = await firebaseStorageService.uploadFile(syllabusFile, 'topics/syllabus');
+                if (cloudinaryStorageService.isEnabled()) {
+                    const uploaded = await cloudinaryStorageService.uploadFile(syllabusFile, 'topics/syllabus');
                     const payload = {
                         ...topicData,
                         descriptionFile: uploaded.url,

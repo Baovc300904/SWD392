@@ -16,6 +16,7 @@ export function LecturerView({ onLogout, currentUser, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
   const [viewFilters, setViewFilters] = useState({ qa: 'ALL', topics: 'ALL' });
   const { notifications, unreadCount, loading, refreshNotifications } = usePortalNotifications('lecturer');
+  const avatarSrc = currentUser?.avatarURL || currentUser?.avatarUrl || currentUser?.avatar_url || '';
 
   const handlePortalAction = ({ view, filter }) => {
     if (view) setActiveView(view);
@@ -76,11 +77,19 @@ export function LecturerView({ onLogout, currentUser, onNavigate }) {
                 {currentUser?.role || 'LECTURER'}
               </div>
             </div>
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-xs">
-                {currentUser?.fullName?.charAt(0) || 'L'}
-              </span>
-            </div>
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={currentUser?.fullName || 'Lecturer'}
+                className="w-8 h-8 rounded-full object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xs">
+                  {currentUser?.fullName?.charAt(0) || 'L'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
