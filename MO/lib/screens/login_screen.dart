@@ -9,6 +9,7 @@ import '../services/notification_service.dart';
 import '../state/app_session.dart';
 
 enum _LoginRole { student, lecturer }
+enum _StaffRole { lecturer, manager }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSubmitting = false;
   String? _error;
   _LoginRole _loginRole = _LoginRole.student;
+  _StaffRole _staffRole = _StaffRole.lecturer;
 
   static const _charcoal = Color(0xFF1E2028);
   static const _border = Color(0xFF2E3240);
@@ -59,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
           : await AuthService.instance.adminLecturerLogin(
               email: _emailController.text.trim(),
               password: _passwordController.text,
-              role: 'lecturer',
+              role: _staffRole == _StaffRole.lecturer ? 'lecturer' : 'manager',
             );
 
       final roleLower = session.normalizedRole;
@@ -72,6 +74,16 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception(
           'Student accounts must use Student Portal.',
         );
+      }
+      if (_loginRole == _LoginRole.lecturer &&
+          _staffRole == _StaffRole.lecturer &&
+          roleLower != 'lecturer') {
+        throw Exception('This account is not a lecturer account.');
+      }
+      if (_loginRole == _LoginRole.lecturer &&
+          _staffRole == _StaffRole.manager &&
+          roleLower != 'manager') {
+        throw Exception('This account is not a manager account.');
       }
 
       await AppSession.instance.setSession(session);
@@ -408,6 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _formPanel() {
     final isLecturer = _loginRole == _LoginRole.lecturer;
+    final isManager = _staffRole == _StaffRole.manager;
 
     return Container(
       color: _bgRight,
@@ -458,6 +471,58 @@ class _LoginScreenState extends State<LoginScreen> {
                         : 'Sign in to continue to your workspace',
                     style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14),
                   ),
+                        if (isLecturer) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            height: 46,
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0x0DFFFFFF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0x1AFFFFFF)),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () => setState(() => _staffRole = _StaffRole.lecturer),
+                                    style: TextButton.styleFrom(
+                                      backgroundColor: !isManager ? const Color(0x22F27125) : Colors.transparent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Lecturer',
+                                      style: TextStyle(
+                                        color: !isManager ? _accent : const Color(0xFF6B7280),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () => setState(() => _staffRole = _StaffRole.manager),
+                                    style: TextButton.styleFrom(
+                                      backgroundColor: isManager ? const Color(0x22F27125) : Colors.transparent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Manager',
+                                      style: TextStyle(
+                                        color: isManager ? _accent : const Color(0xFF6B7280),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                   const SizedBox(height: 20),
                   if (_error != null)
                     Container(

@@ -24,7 +24,7 @@ void main() {
     // Switch to Q&A tab.
     await tester.tap(find.text('Q&A'));
     await tester.pumpAndSettle();
-    expect(find.text('Q&A Forum'), findsOneWidget);
+    expect(find.text('Ask questions and share knowledge'), findsOneWidget);
 
     // Switch to Account tab.
     await tester.tap(find.text('Account'));
