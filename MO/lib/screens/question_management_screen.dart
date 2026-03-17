@@ -2,25 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/question_item.dart';
+import 'create_question_screen.dart';
 import '../services/question_service.dart';
 import 'question_detail_screen.dart';
 
 class QuestionManagementScreen extends StatefulWidget {
-  const QuestionManagementScreen({super.key});
+  const QuestionManagementScreen({
+    super.key,
+    this.showCreateButton = false,
+    this.title = 'Q&A',
+    this.subtitle = 'Ask questions and share knowledge',
+  });
+
+  final bool showCreateButton;
+  final String title;
+  final String subtitle;
 
   @override
   State<QuestionManagementScreen> createState() => _QuestionManagementScreenState();
 }
 
 class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
+  final _searchController = TextEditingController();
+
   bool _loading = true;
   String? _error;
   List<QuestionItem> _questions = const <QuestionItem>[];
+  List<QuestionItem> _filtered = const <QuestionItem>[];
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -34,6 +53,7 @@ class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
       if (!mounted) return;
       setState(() {
         _questions = data;
+        _applyFilter(_searchController.text);
       });
     } catch (e) {
       if (!mounted) return;
@@ -47,6 +67,26 @@ class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
         });
       }
     }
+  }
+
+  void _applyFilter(String value) {
+    final query = value.trim().toLowerCase();
+    if (query.isEmpty) {
+      _filtered = _questions;
+      return;
+    }
+    _filtered = _questions.where((item) {
+      final source = '${item.title} ${item.content} ${item.askerName}'.toLowerCase();
+      return source.contains(query);
+    }).toList(growable: false);
+  }
+
+  Future<void> _openCreateQuestion() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CreateQuestionScreen()),
+    );
+    if (!mounted) return;
+    await _load();
   }
 
   Future<void> _confirmDelete(QuestionItem item) async {
@@ -102,38 +142,59 @@ class _QuestionManagementScreenState extends State<QuestionManagementScreen> {
               runSpacing: 10,
               children: [
                 Text(
-                  'Q&A Tickets',
+                  widget.title,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                 ),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reload'),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (widget.showCreateButton)
+                      FilledButton.icon(
+                        onPressed: _openCreateQuestion,
+                        icon: const Icon(Icons.add),
+                        label: const Text('New Question'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reload'),
+                    ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Text(
-              'Open a ticket, view details, and manage your questions in one place.',
+              widget.subtitle,
               style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _applyFilter(value)),
+              decoration: const InputDecoration(
+                hintText: 'Search questions...',
+                prefixIcon: Icon(Icons.search),
+              ),
             ),
             const SizedBox(height: 12),
             if (_loading)
               const Center(child: CircularProgressIndicator())
             else if (_error != null)
               Text(_error!, style: const TextStyle(color: Colors.red))
-            else if (_questions.isEmpty)
+            else if (_filtered.isEmpty)
               const Text('Chua co question nao.')
             else
-              ..._questions.map(
+              ..._filtered.map(
                 (item) => Card(
                   child: ListTile(
                     title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(
-                      'Status: ${item.status} - ${DateFormat('dd/MM HH:mm').format(DateTime.now())}',
+                      'By ${item.askerName} • ${item.answerCount} replies\n${DateFormat('M/d/yyyy, h:mm:ss a').format(item.createdAt ?? DateTime.now())} • ${item.status}',
                     ),
+                    isThreeLine: true,
                     trailing: Wrap(
                       spacing: 6,
                       children: [

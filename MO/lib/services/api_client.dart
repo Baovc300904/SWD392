@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -10,6 +11,7 @@ class ApiClient {
   ApiClient._();
 
   static final ApiClient instance = ApiClient._();
+  String? _activeBaseUrl;
 
   Future<Map<String, dynamic>> get(
     String path, {
@@ -59,48 +61,44 @@ class ApiClient {
     required bool auth,
     bool retryOnAuthError = true,
   }) async {
-    final base = Uri.parse(AppConfig.apiBaseUrl);
-    final requestPath = path.startsWith('/') ? path.substring(1) : path;
-    final uri = Uri(
-      scheme: base.scheme,
-      host: base.host,
-      port: base.hasPort ? base.port : null,
-      path: '${base.path.replaceFirst(RegExp(r'/$'), '')}/$requestPath',
-      queryParameters: query,
-    );
-
     final headers = <String, String>{'Content-Type': 'application/json'};
     final token = AppSession.instance.session?.accessToken;
     if (auth && token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
 
-    late http.Response response;
     final payload = body == null ? null : jsonEncode(body);
 
-    switch (method) {
-      case 'GET':
-        response = await http
-            .get(uri, headers: headers)
-            .timeout(AppConfig.requestTimeout);
-      case 'POST':
-        response = await http
-            .post(uri, headers: headers, body: payload)
-            .timeout(AppConfig.requestTimeout);
-      case 'PUT':
-        response = await http
-            .put(uri, headers: headers, body: payload)
-            .timeout(AppConfig.requestTimeout);
-      case 'PATCH':
-        response = await http
-            .patch(uri, headers: headers, body: payload)
-            .timeout(AppConfig.requestTimeout);
-      case 'DELETE':
-        response = await http
-            .delete(uri, headers: headers, body: payload)
-            .timeout(AppConfig.requestTimeout);
-      default:
-        throw Exception('Unsupported HTTP method: $method');
+    http.Response? response;
+    Object? lastNetworkError;
+    for (final baseUrl in _candidateBaseUrls()) {
+      final uri = _buildUri(baseUrl, path, query: query);
+      try {
+        response = await _sendRequest(
+          method,
+          uri,
+          headers: headers,
+          payload: payload,
+        );
+        _activeBaseUrl = baseUrl;
+        break;
+      } on SocketException catch (e) {
+        lastNetworkError = e;
+        continue;
+      } on HttpException catch (e) {
+        lastNetworkError = e;
+        continue;
+      } on http.ClientException catch (e) {
+        lastNetworkError = e;
+        continue;
+      }
+    }
+
+    if (response == null) {
+      if (lastNetworkError != null) {
+        throw Exception('Unable to connect to backend: $lastNetworkError');
+      }
+      throw Exception('Unable to connect to backend.');
     }
 
     final text = utf8.decode(response.bodyBytes);
@@ -140,52 +138,110 @@ class ApiClient {
     final current = AppSession.instance.session;
     if (current == null || current.refreshToken.isEmpty) return false;
 
-    final base = Uri.parse(AppConfig.apiBaseUrl);
-    final refreshUri = Uri(
+    for (final baseUrl in _candidateBaseUrls()) {
+      final refreshUri = _buildUri(baseUrl, '/auth/refresh');
+
+      try {
+        final response = await http
+            .post(
+              refreshUri,
+              headers: const <String, String>{'Content-Type': 'application/json'},
+              body: jsonEncode(<String, dynamic>{
+                'refreshToken': current.refreshToken,
+              }),
+            )
+            .timeout(AppConfig.requestTimeout);
+
+        if (response.statusCode >= 400) {
+          continue;
+        }
+
+        final text = utf8.decode(response.bodyBytes);
+        final map = text.isEmpty
+            ? <String, dynamic>{}
+            : (jsonDecode(text) as Map<String, dynamic>);
+        final normalizedMap = _normalizeResponseMap(map);
+        final data =
+            normalizedMap['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+        final nextAccessToken = data['accessToken']?.toString() ?? '';
+        if (nextAccessToken.isEmpty) {
+          continue;
+        }
+
+        final user = data['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final nextSession = AuthSession(
+          accessToken: nextAccessToken,
+          refreshToken: data['refreshToken']?.toString() ?? current.refreshToken,
+          userId: int.tryParse(user['id']?.toString() ?? '') ?? current.userId,
+          fullName: user['fullName']?.toString() ?? current.fullName,
+          email: user['email']?.toString() ?? current.email,
+          role: user['role']?.toString() ?? current.role,
+        );
+
+        await AppSession.instance.setSession(nextSession);
+        _activeBaseUrl = baseUrl;
+        return true;
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return false;
+  }
+
+  Uri _buildUri(String baseUrl, String path, {Map<String, String>? query}) {
+    final base = Uri.parse(baseUrl);
+    final requestPath = path.startsWith('/') ? path.substring(1) : path;
+    return Uri(
       scheme: base.scheme,
       host: base.host,
       port: base.hasPort ? base.port : null,
-      path: '${base.path.replaceFirst(RegExp(r'/$'), '')}/auth/refresh',
+      path: '${base.path.replaceFirst(RegExp(r'/$'), '')}/$requestPath',
+      queryParameters: query,
     );
+  }
 
-    try {
-      final response = await http
-          .post(
-            refreshUri,
-            headers: const <String, String>{'Content-Type': 'application/json'},
-            body: jsonEncode(<String, dynamic>{
-              'refreshToken': current.refreshToken,
-            }),
-          )
-          .timeout(AppConfig.requestTimeout);
+  List<String> _candidateBaseUrls() {
+    final candidates = <String>[];
+    if (_activeBaseUrl != null && _activeBaseUrl!.isNotEmpty) {
+      candidates.add(_activeBaseUrl!);
+    }
+    for (final baseUrl in AppConfig.apiBaseUrls) {
+      if (!candidates.contains(baseUrl)) {
+        candidates.add(baseUrl);
+      }
+    }
+    return candidates;
+  }
 
-      if (response.statusCode >= 400) return false;
-
-      final text = utf8.decode(response.bodyBytes);
-      final map = text.isEmpty
-          ? <String, dynamic>{}
-          : (jsonDecode(text) as Map<String, dynamic>);
-      final normalizedMap = _normalizeResponseMap(map);
-      final data =
-          normalizedMap['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-
-      final nextAccessToken = data['accessToken']?.toString() ?? '';
-      if (nextAccessToken.isEmpty) return false;
-
-      final user = data['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      final nextSession = AuthSession(
-        accessToken: nextAccessToken,
-        refreshToken: data['refreshToken']?.toString() ?? current.refreshToken,
-        userId: int.tryParse(user['id']?.toString() ?? '') ?? current.userId,
-        fullName: user['fullName']?.toString() ?? current.fullName,
-        email: user['email']?.toString() ?? current.email,
-        role: user['role']?.toString() ?? current.role,
-      );
-
-      await AppSession.instance.setSession(nextSession);
-      return true;
-    } catch (_) {
-      return false;
+  Future<http.Response> _sendRequest(
+    String method,
+    Uri uri, {
+    required Map<String, String> headers,
+    required String? payload,
+  }) {
+    switch (method) {
+      case 'GET':
+        return http.get(uri, headers: headers).timeout(AppConfig.requestTimeout);
+      case 'POST':
+        return http
+            .post(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
+      case 'PUT':
+        return http
+            .put(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
+      case 'PATCH':
+        return http
+            .patch(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
+      case 'DELETE':
+        return http
+            .delete(uri, headers: headers, body: payload)
+            .timeout(AppConfig.requestTimeout);
+      default:
+        throw Exception('Unsupported HTTP method: $method');
     }
   }
 

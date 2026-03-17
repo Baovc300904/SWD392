@@ -56,11 +56,12 @@ class QuestionService {
   }
 
   Future<Map<String, dynamic>> getAiSuggestion(int id) {
-    return ApiClient.instance.get('/questions/$id/ai-suggestion');
+    // BE exposes AI drafting via POST /questions/:id/ask-ai.
+    return ApiClient.instance.post('/questions/$id/ask-ai');
   }
 
   Future<Map<String, dynamic>> generateAiSuggestion(int id) {
-    return ApiClient.instance.post('/questions/$id/ai-suggestion');
+    return ApiClient.instance.post('/questions/$id/ask-ai');
   }
 }
 

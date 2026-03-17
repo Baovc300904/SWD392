@@ -16,8 +16,8 @@ class AiDraftService {
       final response = await QuestionService.instance.generateAiSuggestion(questionId);
       final data = response['data'];
       if (data is Map<String, dynamic>) {
-        final content = data['content']?.toString();
-        if (content != null && content.trim().isNotEmpty) return content;
+        final draft = data['draft']?.toString() ?? data['content']?.toString();
+        if (draft != null && draft.trim().isNotEmpty) return draft;
       }
       final text = response['message']?.toString();
       if (text != null && text.trim().isNotEmpty) return text;

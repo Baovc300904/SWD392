@@ -1,13 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../services/class_service.dart';
 import '../../services/group_service.dart';
 import '../../services/question_service.dart';
 import '../../services/semester_service.dart';
+import '../../services/submission_service.dart';
+import '../../services/task_service.dart';
 import '../../services/topic_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/ui_kit.dart';
 import '../profile_screen.dart';
+import '../question_detail_screen.dart';
 
 class ManagerShell extends StatefulWidget {
   const ManagerShell({super.key});
@@ -39,21 +44,27 @@ class _ManagerShellState extends State<ManagerShell> {
   static const _tabs = <NavigationDestination>[
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
     NavigationDestination(icon: Icon(Icons.groups_outlined), label: 'Users'),
-    NavigationDestination(icon: Icon(Icons.group_work_outlined), label: 'Groups'),
+    NavigationDestination(icon: Icon(Icons.approval_outlined), label: 'Topics'),
     NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: 'Semesters'),
     NavigationDestination(icon: Icon(Icons.class_outlined), label: 'Classes'),
-    NavigationDestination(icon: Icon(Icons.approval_outlined), label: 'Topics'),
-    NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
+    NavigationDestination(icon: Icon(Icons.group_work_outlined), label: 'Groups'),
+    NavigationDestination(icon: Icon(Icons.assignment_outlined), label: 'Submissions'),
+    NavigationDestination(icon: Icon(Icons.support_agent_outlined), label: 'Q&A'),
+    NavigationDestination(icon: Icon(Icons.checklist_outlined), label: 'Tasks'),
+    NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
   ];
 
   static const _titles = <String>[
-    'Manager Dashboard',
+    'Dashboard',
     'User Management',
-    'Group Management',
+    'Topic Approvals',
     'Semester Management',
     'Class Management',
-    'Topic Approvals',
-    'Account',
+    'Group Management',
+    'Submission Review',
+    'Q&A Oversight',
+    'Task Overview',
+    'My Profile',
   ];
 
   @override
@@ -61,15 +72,18 @@ class _ManagerShellState extends State<ManagerShell> {
     final pages = <Widget>[
       const _ManagerDashboardPage(),
       const _ManagerUsersPage(),
-      const _ManagerGroupsPage(),
+      const _ManagerTopicApprovalsPage(),
       const _ManagerSemestersPage(),
       const _ManagerClassesPage(),
-      const _ManagerTopicApprovalsPage(),
+      const _ManagerGroupsPage(),
+      const _ManagerSubmissionReviewPage(),
+      const _ManagerEscalatedQuestionPage(),
+      const _ManagerTaskOverviewPage(),
       const ProfileScreen(),
     ];
 
     return Scaffold(
-      appBar: _index == 6 ? null : AppBar(title: Text(_titles[_index])),
+      appBar: _index == 9 ? null : AppBar(title: Text(_titles[_index])),
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: _buildBottomNav(context),
     );
@@ -87,15 +101,10 @@ class _ManagerDashboardPageState extends State<_ManagerDashboardPage> {
   bool _loading = true;
   String? _error;
   int _users = 0;
-  int _semesters = 0;
-  int _classes = 0;
-  int _groups = 0;
-  int _topics = 0;
-  int _questions = 0;
-  String _activeSemesterLabel = '-';
-  int _waiting = 0;
-  int _resolved = 0;
+  int _activeTopics = 0;
   int _escalated = 0;
+  int _gradedSubmissions = 0;
+  List<Map<String, String>> _recentActivities = const <Map<String, String>>[];
 
   @override
   void initState() {
@@ -112,34 +121,114 @@ class _ManagerDashboardPageState extends State<_ManagerDashboardPage> {
     try {
       final r = await Future.wait<dynamic>([
         UserService.instance.getAllUsers(),
-        SemesterService.instance.getAll(),
-        ClassService.instance.getAll(),
-        GroupService.instance.getAll(),
         TopicService.instance.getAll(),
         QuestionService.instance.getAll(),
+        GroupService.instance.getAll(),
+        SubmissionService.instance.getAll(),
+        TaskService.instance.getAll(),
       ]);
 
-      Map<String, dynamic> activeSemester = <String, dynamic>{};
-      try {
-        activeSemester = await SemesterService.instance.getActive();
-      } catch (_) {
-        // Keep dashboard usable when there is no active semester or endpoint fails.
-      }
       if (!mounted) return;
+      final users = r[0] as List<Map<String, dynamic>>;
+      final topics = r[1] as List<dynamic>;
+      final questions = r[2] as List<dynamic>;
+      final groups = r[3] as List<Map<String, dynamic>>;
+      final submissions = r[4] as List<Map<String, dynamic>>;
+      final tasks = r[5] as List<Map<String, dynamic>>;
+
+      final userById = <int, Map<String, dynamic>>{
+        for (final u in users)
+          if (int.tryParse(u['id']?.toString() ?? '') != null)
+            int.parse(u['id'].toString()): u,
+      };
+
+      final events = <Map<String, dynamic>>[];
+
+      for (final t in topics) {
+        final status = (t.status ?? '').toString();
+        events.add(<String, dynamic>{
+          'type': 'Topic',
+          'user': 'System',
+          'email': '-',
+          'action': 'Topic: ${_safeText((t.title ?? '').toString())}',
+          'time': t.createdAt,
+          'status': status,
+        });
+      }
+
+      for (final q in questions) {
+        events.add(<String, dynamic>{
+          'type': 'Q&A',
+          'user': _safeText(q.askerName),
+          'email': '-',
+          'action': 'Question: ${_safeText(q.title)}',
+          'time': q.createdAt,
+          'status': q.status,
+        });
+      }
+
+      for (final g in groups) {
+        events.add(<String, dynamic>{
+          'type': 'Group',
+          'user': 'System',
+          'email': '-',
+          'action': 'Group: ${_safeText(g['groupName']?.toString() ?? '')}',
+          'time': DateTime.tryParse(g['createdAt']?.toString() ?? ''),
+          'status': _safeText(g['status']?.toString() ?? 'Active'),
+        });
+      }
+
+      for (final s in submissions) {
+        final submitter = s['submitter'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final milestone = s['milestoneName']?.toString() ?? 'Submission';
+        events.add(<String, dynamic>{
+          'type': 'Submission',
+          'user': _safeText(submitter['fullName']?.toString() ?? 'Unknown'),
+          'email': submitter['email']?.toString() ?? '-',
+          'action': 'Submitted: ${_safeText(milestone)}',
+          'time': DateTime.tryParse(s['submittedAt']?.toString() ?? ''),
+          'status': _safeText(s['status']?.toString() ?? 'SUBMITTED'),
+        });
+      }
+
+      for (final t in tasks) {
+        final assigneeId = int.tryParse(t['assigneeId']?.toString() ?? '');
+        final assignee = assigneeId == null ? null : userById[assigneeId];
+        events.add(<String, dynamic>{
+          'type': 'Task',
+          'user': _safeText(assignee?['fullName']?.toString() ?? 'System'),
+          'email': assignee?['email']?.toString() ?? '-',
+          'action': 'Task: ${_safeText(t['title']?.toString() ?? '')}',
+          'time': DateTime.tryParse(t['updatedAt']?.toString() ?? t['createdAt']?.toString() ?? ''),
+          'status': _safeText(t['status']?.toString() ?? 'TODO'),
+        });
+      }
+
+      events.sort((a, b) {
+        final ta = a['time'] as DateTime?;
+        final tb = b['time'] as DateTime?;
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb.compareTo(ta);
+      });
+
       setState(() {
-        _users = (r[0] as List).length;
-        _semesters = (r[1] as List).length;
-        _classes = (r[2] as List).length;
-        _groups = (r[3] as List).length;
-        _topics = (r[4] as List).length;
-        _questions = (r[5] as List).length;
-        _activeSemesterLabel = activeSemester['name']?.toString() ??
-            activeSemester['semesterName']?.toString() ??
-            'None';
-        final questions = r[5] as List<dynamic>;
-        _waiting = questions.where((q) => q.status == 'WAITING_LECTURER').length;
-        _resolved = questions.where((q) => q.status == 'RESOLVED').length;
+        _users = users.length;
+        _activeTopics = topics.where((t) => (t.status ?? '').toString().toUpperCase() == 'APPROVED').length;
         _escalated = questions.where((q) => q.status == 'ESCALATED_TO_MANAGER').length;
+        _gradedSubmissions = submissions.where((s) => (s['status']?.toString().toUpperCase() ?? '') == 'GRADED').length;
+        _recentActivities = events
+            .take(10)
+            .map((e) => <String, String>{
+                  'type': e['type']?.toString() ?? '-',
+                  'user': e['user']?.toString() ?? '-',
+                  'email': e['email']?.toString() ?? '-',
+                  'action': e['action']?.toString() ?? '-',
+                  'time': _formatDateTime(e['time'] as DateTime?),
+                  'status': e['status']?.toString() ?? '-',
+                })
+            .toList(growable: false);
       });
     } catch (e) {
       if (!mounted) return;
@@ -160,8 +249,8 @@ class _ManagerDashboardPageState extends State<_ManagerDashboardPage> {
         padding: const EdgeInsets.all(16),
         children: [
           const DashboardHero(
-            title: 'Manager Control Center',
-            subtitle: 'Review core resources, monitor Q&A queues, and approve or reject topic proposals.',
+            title: 'Dashboard',
+            subtitle: 'Latest overview of users, topics, escalations, submissions and activities.',
             icon: Icons.admin_panel_settings_outlined,
           ),
           const SizedBox(height: 14),
@@ -169,35 +258,66 @@ class _ManagerDashboardPageState extends State<_ManagerDashboardPage> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _CountCard(label: 'Users', value: _users, icon: Icons.groups_outlined),
-              _CountCard(label: 'Semesters', value: _semesters, icon: Icons.calendar_month_outlined),
-              _CountCard(label: 'Classes', value: _classes, icon: Icons.class_outlined),
-              _CountCard(label: 'Groups', value: _groups, icon: Icons.group_work_outlined),
-              _CountCard(label: 'Topics', value: _topics, icon: Icons.topic_outlined),
-              _CountCard(label: 'Questions', value: _questions, icon: Icons.quiz_outlined),
-              _CountCard(label: 'WAITING', value: _waiting, icon: Icons.schedule_outlined),
-              _CountCard(label: 'RESOLVED', value: _resolved, icon: Icons.task_alt_outlined),
-              _CountCard(label: 'ESCALATED', value: _escalated, icon: Icons.trending_up_outlined),
+              _CountCard(label: 'Total Users', value: _users, icon: Icons.groups_outlined),
+              _CountCard(label: 'Active Topics', value: _activeTopics, icon: Icons.topic_outlined),
+              _CountCard(label: 'Escalated Q&A', value: _escalated, icon: Icons.support_agent_outlined),
+              _CountCard(label: 'Graded Submissions', value: _gradedSubmissions, icon: Icons.assignment_turned_in_outlined),
             ],
           ),
           const SizedBox(height: 12),
           SectionCard(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.event_available_outlined),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Active semester: $_activeSemesterLabel',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                Text(
+                  'Recent Activity',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  'Latest events from topics, Q&A, groups, submissions, and tasks',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 10),
+                if (_recentActivities.isEmpty)
+                  const Text('No recent activities.')
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('User')),
+                        DataColumn(label: Text('Email')),
+                        DataColumn(label: Text('Action')),
+                        DataColumn(label: Text('Time')),
+                        DataColumn(label: Text('Status')),
+                      ],
+                      rows: _recentActivities
+                          .map(
+                            (a) => DataRow(cells: [
+                              DataCell(Text(a['type'] ?? '-')),
+                              DataCell(Text(a['user'] ?? '-')),
+                              DataCell(Text(a['email'] ?? '-')),
+                              DataCell(SizedBox(width: 220, child: Text(a['action'] ?? '-'))),
+                              DataCell(Text(a['time'] ?? '-')),
+                              DataCell(Text(a['status'] ?? '-')),
+                            ]),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDateTime(DateTime? value) {
+    if (value == null) return '-';
+    return '${value.day}/${value.month}/${value.year} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -214,6 +334,11 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
   List<Map<String, dynamic>> _items = const [];
   final TextEditingController _searchController = TextEditingController();
   String? _searchQuery;
+  String _roleFilter = 'All Roles';
+  String _statusFilter = 'All Statuses';
+
+  static const List<String> _roles = <String>['All Roles', 'student', 'lecturer', 'manager'];
+  static const List<String> _statuses = <String>['All Statuses', 'Online', 'Offline', 'Away'];
 
   @override
   void initState() {
@@ -493,11 +618,19 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
       final studentCode = user['studentCode']?.toString().toLowerCase() ?? '';
       final role = user['role']?.toString().toLowerCase() ?? '';
       final status = user['status']?.toString().toLowerCase() ?? '';
-      return fullName.contains(query) ||
+        final rolePass = _roleFilter == 'All Roles' || role == _roleFilter.toLowerCase();
+        final normalizedStatus = status.isEmpty
+          ? ((user['isOnline'] == true) ? 'online' : 'offline')
+          : status;
+        final statusPass = _statusFilter == 'All Statuses' || normalizedStatus == _statusFilter.toLowerCase();
+
+        final searchPass = fullName.contains(query) ||
           email.contains(query) ||
           studentCode.contains(query) ||
           role.contains(query) ||
           status.contains(query);
+
+        return searchPass && rolePass && statusPass;
     }).toList(growable: false);
   }
 
@@ -598,7 +731,7 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: const Text(
-              'Users',
+              'Manage students and lecturers',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -621,6 +754,36 @@ class _ManagerUsersPageState extends State<_ManagerUsersPage> {
                         icon: const Icon(Icons.clear),
                       ),
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                DropdownButton<String>(
+                  value: _roleFilter,
+                  items: _roles
+                      .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _roleFilter = value);
+                  },
+                ),
+                DropdownButton<String>(
+                  value: _statusFilter,
+                  items: _statuses
+                      .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _statusFilter = value);
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -1257,6 +1420,7 @@ class _ManagerGroupsPageState extends State<_ManagerGroupsPage> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
+              scrollable: true,
               title: const Text('New Group'),
               content: SingleChildScrollView(
                 child: Column(
@@ -1264,10 +1428,11 @@ class _ManagerGroupsPageState extends State<_ManagerGroupsPage> {
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Group Name'),
+                      decoration: const InputDecoration(labelText: 'Group Name', isDense: true),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: selectedClassId,
                       hint: const Text('Select class'),
                       items: _classes
@@ -1279,10 +1444,11 @@ class _ManagerGroupsPageState extends State<_ManagerGroupsPage> {
                           .cast<DropdownMenuItem<int>>()
                           .toList(growable: false),
                       onChanged: (value) => setStateDialog(() => selectedClassId = value),
-                      decoration: const InputDecoration(labelText: 'Class'),
+                      decoration: const InputDecoration(labelText: 'Class', isDense: true),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: selectedTopicId,
                       hint: const Text('Select topic'),
                       items: _topics
@@ -1294,20 +1460,20 @@ class _ManagerGroupsPageState extends State<_ManagerGroupsPage> {
                           .cast<DropdownMenuItem<int>>()
                           .toList(growable: false),
                       onChanged: (value) => setStateDialog(() => selectedTopicId = value),
-                      decoration: const InputDecoration(labelText: 'Topic'),
+                      decoration: const InputDecoration(labelText: 'Topic', isDense: true),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: maxMembersController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Max Members'),
+                      decoration: const InputDecoration(labelText: 'Max Members', isDense: true),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: descriptionController,
                       minLines: 2,
                       maxLines: 4,
-                      decoration: const InputDecoration(labelText: 'Description'),
+                      decoration: const InputDecoration(labelText: 'Description', isDense: true),
                     ),
                   ],
                 ),
@@ -2018,6 +2184,7 @@ class _ManagerClassesPageState extends State<_ManagerClassesPage> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
+              scrollable: true,
               title: const Text('New Class'),
               content: SingleChildScrollView(
                 child: Column(
@@ -2025,12 +2192,13 @@ class _ManagerClassesPageState extends State<_ManagerClassesPage> {
                   children: [
                     TextField(
                       controller: classNameController,
-                      decoration: const InputDecoration(labelText: 'Class'),
+                      decoration: const InputDecoration(labelText: 'Class', isDense: true),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: selectedSemesterId,
-                      hint: const Text('Select Semester (optional)'),
+                      hint: const Text('Select Semester'),
                       items: _semesterNames.entries
                           .map((e) => DropdownMenuItem<int>(
                                 value: e.key,
@@ -2038,10 +2206,11 @@ class _ManagerClassesPageState extends State<_ManagerClassesPage> {
                               ))
                           .toList(growable: false),
                       onChanged: (value) => setStateDialog(() => selectedSemesterId = value),
-                      decoration: const InputDecoration(labelText: 'Semester'),
+                      decoration: const InputDecoration(labelText: 'Semester', isDense: true),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: selectedLecturerId,
                       hint: const Text('Select Lecturer'),
                       items: _lecturers
@@ -2053,7 +2222,7 @@ class _ManagerClassesPageState extends State<_ManagerClassesPage> {
                           .cast<DropdownMenuItem<int>>()
                           .toList(growable: false),
                       onChanged: (value) => setStateDialog(() => selectedLecturerId = value),
-                      decoration: const InputDecoration(labelText: 'Lecturer'),
+                      decoration: const InputDecoration(labelText: 'Lecturer', isDense: true),
                     ),
                   ],
                 ),
@@ -2413,11 +2582,19 @@ class _ManagerTopicApprovalsPageState extends State<_ManagerTopicApprovalsPage> 
   bool _loading = true;
   String? _error;
   List<dynamic> _items = const [];
+  final TextEditingController _searchController = TextEditingController();
+  String _statusFilter = 'Tất cả';
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -2450,6 +2627,7 @@ class _ManagerTopicApprovalsPageState extends State<_ManagerTopicApprovalsPage> 
       context: context,
       builder: (context) {
         return AlertDialog(
+          scrollable: true,
           title: const Text('Reject Topic'),
           content: TextField(
             controller: reasonController,
@@ -2483,37 +2661,485 @@ class _ManagerTopicApprovalsPageState extends State<_ManagerTopicApprovalsPage> 
     );
   }
 
+  Future<void> _viewDetail(dynamic topic) async {
+    try {
+      final detail = await TopicService.instance.getById(topic.id as int);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text(_safeText(detail.title)),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Status: ${_safeText(detail.status.toUpperCase())}'),
+                    const SizedBox(height: 8),
+                    Text(_safeText(detail.description.isEmpty ? '(No description)' : detail.description)),
+                    const SizedBox(height: 8),
+                    Text('Topic ID: ${detail.id}'),
+                    if (detail.createdAt != null)
+                      Text('Created: ${detail.createdAt}'),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  List<dynamic> get _filtered {
+    final query = _searchController.text.trim().toLowerCase();
+    return _items.where((t) {
+      final status = (t.status ?? '').toString().toUpperCase();
+      final statusPass = _statusFilter == 'Tất cả' || status == _statusFilter;
+      final title = (t.title ?? '').toString().toLowerCase();
+      final desc = (t.description ?? '').toString().toLowerCase();
+      final searchPass = query.isEmpty || title.contains(query) || desc.contains(query);
+      return statusPass && searchPass;
+    }).toList(growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final total = _items.length;
+    final pending = _items.where((t) => (t.status ?? '').toString().toUpperCase() == 'PENDING').length;
+    final approved = _items.where((t) => (t.status ?? '').toString().toUpperCase() == 'APPROVED').length;
+    final rejected = _items.where((t) => (t.status ?? '').toString().toUpperCase() == 'REJECTED').length;
+
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
-        itemCount: _items.length,
-        itemBuilder: (_, i) {
-          final topic = _items[i];
-          return Card(
-            child: ListTile(
-              title: Text(topic.title),
-              subtitle: Text('Status: ${topic.status}'),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  IconButton(
-                    onPressed: () => _approve(topic.id),
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-                  ),
-                  IconButton(
-                    onPressed: () => _reject(topic.id),
-                    icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                  ),
-                ],
-              ),
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text('Duyệt Topic', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('$pending topic đang chờ duyệt'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Làm mới')),
+              _smallCountChip('$total', 'Tất cả'),
+              _smallCountChip('$pending', 'Chờ duyệt'),
+              _smallCountChip('$approved', 'Đã duyệt'),
+              _smallCountChip('$rejected', 'Từ chối'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              hintText: 'Tìm kiếm theo tên hoặc mô tả...',
+              prefixIcon: Icon(Icons.search),
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 8),
+          DropdownButton<String>(
+            value: _statusFilter,
+            items: const [
+              DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả')),
+              DropdownMenuItem(value: 'PENDING', child: Text('Chờ duyệt')),
+              DropdownMenuItem(value: 'APPROVED', child: Text('Đã duyệt')),
+              DropdownMenuItem(value: 'REJECTED', child: Text('Từ chối')),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _statusFilter = value);
+            },
+          ),
+          const SizedBox(height: 8),
+          ..._filtered.map((topic) {
+            final status = (topic.status ?? '').toString().toUpperCase();
+            final isPending = status == 'PENDING';
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_safeText(topic.title?.toString() ?? ''), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(status),
+                    const SizedBox(height: 6),
+                    Text(_safeText(topic.description?.toString() ?? '')),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _viewDetail(topic),
+                          child: const Text('Chi tiết'),
+                        ),
+                        OutlinedButton(
+                          onPressed: isPending ? () => _reject(topic.id) : null,
+                          child: const Text('Từ chối'),
+                        ),
+                        FilledButton(
+                          onPressed: isPending ? () => _approve(topic.id) : null,
+                          child: const Text('Duyệt'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _smallCountChip(String value, String label) {
+    return Chip(label: Text('$value $label'));
+  }
+}
+
+class _ManagerEscalatedQuestionPage extends StatefulWidget {
+  const _ManagerEscalatedQuestionPage();
+
+  @override
+  State<_ManagerEscalatedQuestionPage> createState() => _ManagerEscalatedQuestionPageState();
+}
+
+class _ManagerEscalatedQuestionPageState extends State<_ManagerEscalatedQuestionPage> {
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _items = const [];
+  String _statusFilter = 'Tất cả';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final questions = await QuestionService.instance.getAll();
+      if (!mounted) return;
+      setState(() => _items = questions);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final filtered = _items.where((q) {
+      final status = (q.status ?? '').toString().toUpperCase();
+      if (_statusFilter == 'Tất cả') return true;
+      return status == _statusFilter;
+    }).toList(growable: false);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        children: [
+          Text(
+            'Q&A Oversight',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text('Manager theo dõi ticket đã escalated và đóng các câu hỏi đã xử lý xong.',
+              style: TextStyle(color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            children: [
+              OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Làm mới')),
+              DropdownButton<String>(
+                value: _statusFilter,
+                items: const [
+                  DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả')),
+                  DropdownMenuItem(value: 'ESCALATED_TO_MANAGER', child: Text('ESCALATED_TO_MANAGER')),
+                  DropdownMenuItem(value: 'WAITING_LECTURER', child: Text('WAITING_LECTURER')),
+                  DropdownMenuItem(value: 'RESOLVED', child: Text('RESOLVED')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _statusFilter = value);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (filtered.isEmpty)
+            const SectionCard(child: Text('Chưa có ticket nào.'))
+          else
+            ...filtered.map((item) {
+              final questionId = int.tryParse(item.id?.toString() ?? '') ?? 0;
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_safeText(item.title?.toString() ?? ''), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(_safeText(item.status?.toString() ?? '')),
+                      const SizedBox(height: 4),
+                      Text(_safeText(item.content?.toString() ?? ''), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Text('Người hỏi: ${_safeText(item.askerName ?? 'Unknown')}'),
+                      const SizedBox(height: 8),
+                      if (questionId != 0)
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => QuestionDetailScreen(questionId: questionId),
+                                  ),
+                                );
+                                if (!mounted) return;
+                                await _load();
+                              },
+                              child: const Text('Trả lời ticket'),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManagerSubmissionReviewPage extends StatefulWidget {
+  const _ManagerSubmissionReviewPage();
+
+  @override
+  State<_ManagerSubmissionReviewPage> createState() => _ManagerSubmissionReviewPageState();
+}
+
+class _ManagerSubmissionReviewPageState extends State<_ManagerSubmissionReviewPage> {
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _items = const <Map<String, dynamic>>[];
+  String _classFilter = 'Tất cả lớp';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final items = await SubmissionService.instance.getAll();
+      if (!mounted) return;
+      setState(() => _items = items);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<String> get _classes {
+    final values = <String>{'Tất cả lớp'};
+    for (final item in _items) {
+      final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final className = classMap['className']?.toString();
+      if (className != null && className.trim().isNotEmpty) values.add(className);
+    }
+    return values.toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final filtered = _items.where((item) {
+      if (_classFilter == 'Tất cả lớp') return true;
+      final className = (((item['group'] as Map<String, dynamic>?)?['class'] as Map<String, dynamic>?)?['className'] ?? '').toString();
+      return className == _classFilter;
+    }).toList(growable: false);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text('Submission Review', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          const Text('Manager theo dõi bài nộp toàn hệ thống và có thể chấm lại khi cần.'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Làm mới')),
+              DropdownButton<String>(
+                value: _classFilter,
+                items: _classes.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _classFilter = value);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (filtered.isEmpty)
+            const SectionCard(child: Text('Không có bài nộp nào trong phạm vi lọc hiện tại.'))
+          else
+            ...filtered.map((item) {
+              final group = item['group'] as Map<String, dynamic>? ?? <String, dynamic>{};
+              final classMap = group['class'] as Map<String, dynamic>? ?? <String, dynamic>{};
+              return Card(
+                child: ListTile(
+                  title: Text(_safeText(item['milestoneName']?.toString() ?? 'Submission')),
+                  subtitle: Text(
+                    '${_safeText(group['groupName']?.toString() ?? '-')} · ${_safeText(classMap['className']?.toString() ?? '-')}',
+                  ),
+                  trailing: Text(_safeText(item['status']?.toString() ?? '-')),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManagerTaskOverviewPage extends StatefulWidget {
+  const _ManagerTaskOverviewPage();
+
+  @override
+  State<_ManagerTaskOverviewPage> createState() => _ManagerTaskOverviewPageState();
+}
+
+class _ManagerTaskOverviewPageState extends State<_ManagerTaskOverviewPage> {
+  bool _loading = true;
+  String? _error;
+  String _statusFilter = 'Tất cả';
+  List<Map<String, dynamic>> _items = const <Map<String, dynamic>>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final items = await TaskService.instance.getAll();
+      if (!mounted) return;
+      setState(() => _items = items);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+
+    final filtered = _items.where((task) {
+      if (_statusFilter == 'Tất cả') return true;
+      return (task['status']?.toString().toUpperCase() ?? '') == _statusFilter;
+    }).toList(growable: false);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text('Task Overview', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          const Text('Manager chỉ theo dõi tiến độ task do giảng viên tạo cho từng nhóm.'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Làm mới')),
+              DropdownButton<String>(
+                value: _statusFilter,
+                items: const [
+                  DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả')),
+                  DropdownMenuItem(value: 'TODO', child: Text('TODO')),
+                  DropdownMenuItem(value: 'IN_PROGRESS', child: Text('IN_PROGRESS')),
+                  DropdownMenuItem(value: 'DONE', child: Text('DONE')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _statusFilter = value);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (filtered.isEmpty)
+            const SectionCard(child: Text('Chưa có task nào'))
+          else
+            ...filtered.map((task) => Card(
+                  child: ListTile(
+                    title: Text(_safeText(task['title']?.toString() ?? 'Task')),
+                    subtitle: Text('Group #${task['groupId'] ?? '-'} • Priority: ${task['priority'] ?? 'MEDIUM'}'),
+                    trailing: Text(_safeText(task['status']?.toString() ?? 'TODO')),
+                  ),
+                )),
+        ],
       ),
     );
   }
@@ -2529,5 +3155,17 @@ class _CountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StatCard(label: label, value: value, icon: icon);
+  }
+}
+
+String _safeText(String value) {
+  if (value.isEmpty) return value;
+  const suspiciousMarkers = ['Ã', 'Â', 'Ä', 'áº', 'á»', 'Æ', 'Ð', 'Ñ'];
+  final looksBroken = suspiciousMarkers.any(value.contains);
+  if (!looksBroken) return value;
+  try {
+    return utf8.decode(latin1.encode(value));
+  } catch (_) {
+    return value;
   }
 }

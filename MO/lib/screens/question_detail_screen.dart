@@ -27,6 +27,13 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   String get _role => AppSession.instance.session?.normalizedRole ?? 'student';
   bool get _canModerate => _role == 'lecturer' || _role == 'manager';
+  bool get _canEscalate => _role == 'lecturer' && _question?.status == 'WAITING_LECTURER';
+  bool get _canResolve => _canModerate && _question?.status != 'RESOLVED';
+  bool get _canAnswer {
+    if (_role == 'lecturer') return _question?.status != 'RESOLVED';
+    if (_role == 'manager') return _question?.status == 'ESCALATED_TO_MANAGER';
+    return false;
+  }
 
   @override
   void initState() {
@@ -81,6 +88,14 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   }
 
   Future<void> _escalate() async {
+    if (!_canEscalate) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chi giang vien moi duoc escalate ticket dang WAITING_LECTURER.')),
+      );
+      return;
+    }
+
     try {
       await QuestionService.instance.escalate(widget.questionId);
       await _load();
@@ -294,13 +309,13 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                                     visualDensity: VisualDensity.compact,
                                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
-                                  if (_canModerate)
+                                  if (_canEscalate)
                                     OutlinedButton.icon(
                                       onPressed: _escalate,
                                       icon: const Icon(Icons.north_outlined),
                                       label: const Text('Escalate'),
                                     ),
-                                  if (_canModerate)
+                                  if (_canResolve)
                                     FilledButton(
                                       onPressed: _resolve,
                                       child: const Text('Resolve'),
@@ -351,7 +366,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                               ),
                             ),
                           ),
-                        if (_canModerate) ...[
+                        if (_canAnswer) ...[
                           const SizedBox(height: 14),
                           SectionCard(
                             child: Column(

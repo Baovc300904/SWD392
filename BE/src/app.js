@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger.config');
-const { sequelize, testConnection, User, Topic, Question, Answer } = require('./models');
+const { sequelize, testConnection, User, Topic, Question, Answer, Submission, Task } = require('./models');
 const { Op, DataTypes } = require('sequelize');
 
 // Import routes
@@ -244,12 +244,34 @@ async function ensureUsersTableCompatibility() {
     }
 }
 
+async function ensureAcademicWorkflowTablesCompatibility() {
+    // Some local databases were initialized with an older schema
+    // and miss workflow tables required by Manager dashboard.
+    const queryInterface = sequelize.getQueryInterface();
+    const allTablesRaw = await queryInterface.showAllTables();
+    const allTables = allTablesRaw.map((t) => {
+        if (typeof t === 'string') return t;
+        return Object.values(t)[0];
+    });
+
+    if (!allTables.includes('submissions')) {
+        await Submission.sync();
+        console.log('✅ Created missing table submissions');
+    }
+
+    if (!allTables.includes('tasks')) {
+        await Task.sync();
+        console.log('✅ Created missing table tasks');
+    }
+}
+
 // Connect to MySQL and create default admin
 testConnection().then(async () => {
     try {
         await ensureUsersTableCompatibility();
+        await ensureAcademicWorkflowTablesCompatibility();
     } catch (err) {
-        console.error('❌ Failed to ensure users table compatibility:', err.message);
+        console.error('❌ Failed to ensure database compatibility:', err.message);
     }
 
     // Sync database (optional - use migrations in production)
