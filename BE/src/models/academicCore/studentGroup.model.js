@@ -37,6 +37,26 @@ const StudentGroup = sequelize.define('StudentGroup', {
         },
         field: 'topic_id'
     },
+    groupStatus: {
+        type: DataTypes.ENUM('PENDING', 'CONFIRMED'),
+        allowNull: false,
+        defaultValue: 'PENDING',
+        field: 'group_status'
+    },
+    confirmedBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'users',
+            key: 'id'
+        },
+        field: 'confirmed_by'
+    },
+    confirmedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'confirmed_at'
+    },
     createdAt: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW,
@@ -47,7 +67,8 @@ const StudentGroup = sequelize.define('StudentGroup', {
     timestamps: false,
     indexes: [
         { fields: ['class_id'] },
-        { fields: ['topic_id'] }
+        { fields: ['topic_id'] },
+        { fields: ['group_status'] }
     ]
 });
 
