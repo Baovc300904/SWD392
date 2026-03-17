@@ -86,13 +86,13 @@ export function QAManagementView({ initialStatusFilter = 'ALL' }) {
       const response = await questionService.askAI(questionId);
       const aiText = response?.data?.draft || response?.draft || '';
       if (!aiText) {
-        alert('AI không trả về nội dung gợi ý.');
+        alert('AI không tạo được bản nháp.');
         return;
       }
       setAnswer(aiText);
       setSelectedQuestion(selected || null);
     } catch (error) {
-      alert('Không thể lấy gợi ý AI: ' + (error?.message || 'Unknown error'));
+      alert('Không thể tạo bản nháp AI: ' + (error?.message || 'Unknown error'));
     } finally {
       setAiLoadingId(null);
     }
@@ -174,7 +174,6 @@ export function QAManagementView({ initialStatusFilter = 'ALL' }) {
               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                 {[
                   { value: 'ALL', label: 'Tất cả' },
-                  { value: 'ESCALATED', label: 'Escalated' },
                   { value: 'UNANSWERED', label: 'Chưa trả lời' },
                   { value: 'ANSWERED', label: 'Đã trả lời' }
                 ].map((option) => (
@@ -248,7 +247,7 @@ export function QAManagementView({ initialStatusFilter = 'ALL' }) {
                             className="flex items-center gap-1 px-3 py-2 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-xs font-medium rounded-lg transition-colors"
                           >
                             <Sparkles className="w-3.5 h-3.5" />
-                            {aiLoadingId === question.id ? 'Đang hỏi AI' : 'Hỏi AI'}
+                              {aiLoadingId === question.id ? 'Đang tạo nháp' : 'Tạo nháp AI'}
                           </button>
                           {question.status === 'WAITING_LECTURER' && (
                             <button
