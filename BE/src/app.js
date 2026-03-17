@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger.config');
-const { sequelize, testConnection, User, Topic, Question, Answer, Submission, Task } = require('./models');
+const { sequelize, testConnection, User, Topic, Question, QuestionDraft, Answer, Submission, Task } = require('./models');
 const { Op, DataTypes } = require('sequelize');
 
 // Import routes
@@ -292,6 +292,11 @@ async function ensureAcademicWorkflowTablesCompatibility() {
     if (!allTables.includes('tasks')) {
         await Task.sync();
         console.log('✅ Created missing table tasks');
+    }
+
+    if (!allTables.includes('question_drafts')) {
+        await QuestionDraft.sync();
+        console.log('✅ Created missing table question_drafts');
     }
 }
 

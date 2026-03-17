@@ -291,11 +291,16 @@ class _StudentTopicSelectionPageState extends State<_StudentTopicSelectionPage> 
 
       if (!mounted) return;
       final groups = result[1] as List<Map<String, dynamic>>;
+      final currentExists = _activeGroupId != null &&
+          groups.any((item) => int.tryParse(item['id']?.toString() ?? '') == _activeGroupId);
+      final nextGroupId = currentExists
+          ? _activeGroupId
+          : (groups.isEmpty ? null : int.tryParse(groups.first['id']?.toString() ?? ''));
       setState(() {
         _topics = result[0] as List<TopicItem>;
         _groups = groups;
         _classes = result[2] as List<Map<String, dynamic>>;
-        _activeGroupId ??= groups.isEmpty ? null : int.tryParse(groups.first['id']?.toString() ?? '');
+        _activeGroupId = nextGroupId;
       });
     } catch (e) {
       if (!mounted) return;
@@ -479,22 +484,16 @@ class _StudentTopicSelectionPageState extends State<_StudentTopicSelectionPage> 
                 if (_groups.isEmpty)
                   const Text('Bạn chưa có nhóm. Hãy tạo nhóm trước khi chọn đề tài.')
                 else
-                  DropdownButtonFormField<int>(
-                    initialValue: _activeGroupId,
-                    items: _groups
-                        .map(
-                          (g) => DropdownMenuItem<int>(
-                            value: int.tryParse(g['id']?.toString() ?? ''),
-                            child: Text(_safe(g['groupName']?.toString() ?? 'Group')),
-                          ),
-                        )
-                        .where((item) => item.value != null)
-                        .cast<DropdownMenuItem<int>>()
-                        .toList(growable: false),
-                    onChanged: (value) => setState(() => _activeGroupId = value),
-                    decoration: const InputDecoration(
-                      labelText: 'Nhóm',
-                      isDense: true,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: colorScheme.outlineVariant),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Nhóm của bạn: ${_safe(group?['groupName']?.toString() ?? 'N/A')}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
               ],
@@ -588,8 +587,11 @@ class _StudentGroupTaskPageState extends State<_StudentGroupTaskPage> {
 
     try {
       final groups = await GroupService.instance.getAll();
-      final selected = _selectedGroupId ??
-          (groups.isEmpty ? null : int.tryParse(groups.first['id']?.toString() ?? ''));
+      final currentExists = _selectedGroupId != null &&
+        groups.any((item) => int.tryParse(item['id']?.toString() ?? '') == _selectedGroupId);
+      final selected = currentExists
+        ? _selectedGroupId
+        : (groups.isEmpty ? null : int.tryParse(groups.first['id']?.toString() ?? ''));
       final tasks = selected == null
           ? const <Map<String, dynamic>>[]
           : await TaskService.instance.getAll(groupId: selected);
@@ -974,8 +976,11 @@ class _StudentSubmissionPageState extends State<_StudentSubmissionPage> {
 
     try {
       final groups = await GroupService.instance.getAll();
-      final selected = _activeGroupId ??
-          (groups.isEmpty ? null : int.tryParse(groups.first['id']?.toString() ?? ''));
+      final currentExists = _activeGroupId != null &&
+        groups.any((item) => int.tryParse(item['id']?.toString() ?? '') == _activeGroupId);
+      final selected = currentExists
+        ? _activeGroupId
+        : (groups.isEmpty ? null : int.tryParse(groups.first['id']?.toString() ?? ''));
       final submissions = selected == null
           ? const <Map<String, dynamic>>[]
           : await SubmissionService.instance.getAll(groupId: selected);

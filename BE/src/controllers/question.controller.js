@@ -64,6 +64,19 @@ exports.getAllQuestions = async (req, res) => {
             classWhere.lecturerId = requesterId;
         }
 
+        if (requesterRole === 'student' && groupId) {
+            const membership = await GroupMember.findOne({
+                where: { groupId, studentId: requesterId }
+            });
+            if (!membership) {
+                return res.status(403).json({
+                    success: false,
+                    message: MSG.AUTHORIZATION.FORBIDDEN,
+                    detail: 'You can only view questions from your own groups'
+                });
+            }
+        }
+
         if (requesterRole === 'student' && !groupId) {
             const memberships = await GroupMember.findAll({
                 where: { studentId: requesterId },
@@ -126,6 +139,8 @@ exports.getAllQuestions = async (req, res) => {
  */
 exports.getQuestionById = async (req, res) => {
     try {
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const question = await Question.findByPk(req.params.id, {
             include: [
                 { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
@@ -159,6 +174,20 @@ exports.getQuestionById = async (req, res) => {
             });
         }
 
+        if (requesterRole === 'student') {
+            const isOwner = Number(question.askedBy) === Number(requesterId);
+            const membership = await GroupMember.findOne({
+                where: { groupId: question.groupId, studentId: requesterId }
+            });
+            if (!isOwner && !membership) {
+                return res.status(403).json({
+                    success: false,
+                    message: MSG.AUTHORIZATION.FORBIDDEN,
+                    detail: 'You can only view questions from your own groups'
+                });
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
@@ -184,6 +213,17 @@ exports.createQuestion = async (req, res) => {
     try {
         const { title, content, groupId } = req.body;
         const askedBy = getRequesterId(req);
+
+        const membership = await GroupMember.findOne({
+            where: { groupId, studentId: askedBy }
+        });
+        if (!membership) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You can only ask questions for your own groups'
+            });
+        }
 
         const question = await Question.create({
             title,
@@ -418,6 +458,8 @@ exports.resolveQuestion = async (req, res) => {
  */
 exports.deleteQuestion = async (req, res) => {
     try {
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const question = await Question.findByPk(req.params.id);
 
         if (!question) {
@@ -427,6 +469,17 @@ exports.deleteQuestion = async (req, res) => {
                 detail: 'Question not found'
             });
         }
+
+        if (requesterRole === 'student' && Number(question.askedBy) !== Number(requesterId)) {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You can only delete your own questions'
+            });
+        }
+
+        await Answer.destroy({ where: { questionId: question.id } });
+        await QuestionDraft.destroy({ where: { questionId: question.id } });
 
         await question.destroy();
 

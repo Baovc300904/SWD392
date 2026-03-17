@@ -44,12 +44,15 @@ class _CreateQuestionScreenState extends State<CreateQuestionScreen> {
       final groups = await GroupService.instance.getAll();
       if (!mounted) return;
 
+      final currentExists = _selectedGroupId != null &&
+          groups.any((item) => int.tryParse(item['id']?.toString() ?? '') == _selectedGroupId);
+      final firstId = groups.isEmpty
+          ? null
+          : int.tryParse(groups.first['id']?.toString() ?? '');
+
       setState(() {
         _groups = groups;
-        final firstId = groups.isEmpty
-            ? null
-            : int.tryParse(groups.first['id']?.toString() ?? '');
-        _selectedGroupId ??= firstId;
+        _selectedGroupId = currentExists ? _selectedGroupId : firstId;
       });
     } catch (_) {
       if (!mounted) return;
