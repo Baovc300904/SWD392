@@ -23,7 +23,7 @@ function AuthInput({ icon: Icon, type = 'text', rightEl, label, ...props }) {
           style={{ color: focused ? '#F27125' : '#4b5563' }} />
         <input
           type={type}
-          className="w-full pl-10 pr-10 py-3.5 rounded-xl text-sm text-gray-100 focus:outline-none transition-all duration-200 placeholder-gray-400"
+          className="auth-dark-input w-full pl-10 pr-10 py-3.5 rounded-xl text-sm text-gray-100 focus:outline-none transition-all duration-200 placeholder-gray-400"
           style={{
             background: CHARCOAL,
             border: `1px solid ${focused ? '#F27125' : BORDER}`,

@@ -1,5 +1,5 @@
 import api from '../config/api.config';
-import firebaseStorageService from './firebase-storage.service';
+import cloudinaryStorageService from './cloudinary-storage.service';
 import userSettingsService from './user-settings.service';
 
 /**
@@ -124,27 +124,27 @@ export const messageService = {
   uploadAttachment: async (file, onProgress) => {
     const settings = userSettingsService.getSettings();
 
-    if (settings.enableFirebaseUpload && firebaseStorageService.isEnabled()) {
+    if (settings.enableCloudinaryUpload && cloudinaryStorageService.isEnabled()) {
       try {
         onProgress?.(10);
-        const uploaded = await firebaseStorageService.uploadFile(file, 'chat/attachments');
+        const uploaded = await cloudinaryStorageService.uploadFile(file, 'chat/attachments');
         onProgress?.(100);
 
         return {
           success: true,
           data: {
-            id: uploaded.filePath,
+            id: uploaded.publicId,
             fileName: file.name,
-            filePath: uploaded.filePath,
+            filePath: uploaded.publicId,
             fileUrl: uploaded.url,
             url: uploaded.url,
             mimeType: file.type,
             size: file.size,
-            provider: 'firebase',
+            provider: 'cloudinary',
           }
         };
       } catch (error) {
-        console.warn('Firebase upload failed, falling back to API upload:', error.message);
+        console.warn('Cloudinary upload failed, falling back to API upload:', error.message);
       }
     }
 

@@ -23,12 +23,13 @@ function AuthInput({ icon: Icon, type = 'text', rightEl, label, ...props }) {
           style={{ color: focused ? '#F27125' : '#4b5563' }} />
         <input
           type={type}
-          className="w-full pl-10 pr-10 py-3.5 rounded-xl text-sm text-white focus:outline-none transition-all duration-200"
+          className="auth-dark-input w-full pl-10 pr-10 py-3.5 rounded-xl text-sm text-white focus:outline-none transition-all duration-200"
           style={{
             background: CHARCOAL,
             border: `1px solid ${focused ? '#F27125' : BORDER}`,
             boxShadow: focused ? '0 0 0 3px rgba(242,113,37,0.12), 0 0 20px rgba(242,113,37,0.06)' : 'none',
             caretColor: '#F27125',
+            WebkitTextFillColor: '#f3f4f6',
           }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
