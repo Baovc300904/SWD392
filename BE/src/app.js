@@ -244,6 +244,36 @@ async function ensureUsersTableCompatibility() {
     }
 }
 
+async function ensureStudentGroupsTableCompatibility() {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('student_groups');
+
+    if (!columns.group_status) {
+        await queryInterface.addColumn('student_groups', 'group_status', {
+            type: DataTypes.ENUM('PENDING', 'CONFIRMED'),
+            allowNull: false,
+            defaultValue: 'PENDING'
+        });
+        console.log('✅ Added missing column student_groups.group_status');
+    }
+
+    if (!columns.confirmed_by) {
+        await queryInterface.addColumn('student_groups', 'confirmed_by', {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        });
+        console.log('✅ Added missing column student_groups.confirmed_by');
+    }
+
+    if (!columns.confirmed_at) {
+        await queryInterface.addColumn('student_groups', 'confirmed_at', {
+            type: DataTypes.DATE,
+            allowNull: true
+        });
+        console.log('✅ Added missing column student_groups.confirmed_at');
+    }
+}
+
 async function ensureAcademicWorkflowTablesCompatibility() {
     // Some local databases were initialized with an older schema
     // and miss workflow tables required by Manager dashboard.
@@ -269,6 +299,7 @@ async function ensureAcademicWorkflowTablesCompatibility() {
 testConnection().then(async () => {
     try {
         await ensureUsersTableCompatibility();
+        await ensureStudentGroupsTableCompatibility();
         await ensureAcademicWorkflowTablesCompatibility();
     } catch (err) {
         console.error('❌ Failed to ensure database compatibility:', err.message);
