@@ -25,6 +25,40 @@ const formatAgo = (dateValue) => {
   return `${diffDays} ngày trước`;
 };
 
+const normalizeToken = (value) => String(value ?? '').trim().toLowerCase();
+
+const buildSemesterTokens = (semester) => {
+  if (!semester) return new Set();
+  const raw = [
+    semester.id,
+    semester.semesterId,
+    semester.name,
+    semester.semesterName,
+    semester.code,
+    semester.semesterCode,
+  ];
+  return new Set(raw.map(normalizeToken).filter(Boolean));
+};
+
+const extractTopicSemesterTokens = (topic) => {
+  const semester = topic?.semester || topic?.class?.semester || null;
+  const raw = [
+    topic?.semesterId,
+    topic?.semester_id,
+    topic?.semester?.id,
+    topic?.semester?.semesterId,
+    topic?.class?.semesterId,
+    topic?.class?.semester_id,
+    topic?.class?.semester?.id,
+    topic?.class?.semester?.semesterId,
+    semester?.name,
+    semester?.semesterName,
+    semester?.code,
+    semester?.semesterCode,
+  ];
+  return new Set(raw.map(normalizeToken).filter(Boolean));
+};
+
 export function DashboardView() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -57,21 +91,16 @@ export function DashboardView() {
       const tasks = toArray(tasksRes);
       const activeSemester = activeSemesterRes?.data?.data || activeSemesterRes?.data || null;
 
-      const normalizeId = (value) => {
-        const n = Number(value);
-        return Number.isNaN(n) ? String(value || '') : n;
-      };
-
-      const activeSemesterId = activeSemester?.id != null ? normalizeId(activeSemester.id) : null;
+      const activeSemesterTokens = buildSemesterTokens(activeSemester);
       setActiveSemesterName(activeSemester?.name || activeSemester?.semesterName || activeSemester?.semesterCode || 'Không có');
 
       const activeTopics = topics.filter((item) => {
         const status = String(item.status || '').toUpperCase();
-        const isActiveStatus = status === 'ACTIVE' || status === 'APPROVED';
+        const isActiveStatus = status === 'ACTIVE';
         if (!isActiveStatus) return false;
-        if (activeSemesterId == null) return false;
-        const topicSemesterId = item.semesterId ?? item.semester?.id;
-        return topicSemesterId != null && normalizeId(topicSemesterId) === activeSemesterId;
+        if (activeSemesterTokens.size === 0) return false;
+        const topicSemesterTokens = extractTopicSemesterTokens(item);
+        return [...topicSemesterTokens].some((token) => activeSemesterTokens.has(token));
       }).length;
       const escalatedQuestions = questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length;
       const gradedSubmissions = submissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED').length;

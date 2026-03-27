@@ -133,12 +133,8 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       if (duplicateByCode || duplicateByMessage) {
         alert('Tiêu đề đề tài đã tồn tại trong học kỳ này. Vui lòng nhập tiêu đề khác.');
       } else {
-<<<<<<< Updated upstream
-        alert('Lỗi khi tạo đề tài: ' + (error.message || 'Unknown error'));
-=======
         const serverDetail = error?.data?.detail || error?.response?.data?.detail;
         alert('Lỗi khi tạo đề tài: ' + (serverDetail || error.message || 'Lỗi không xác định'));
->>>>>>> Stashed changes
       }
     } finally {
       setCreating(false);
@@ -200,12 +196,8 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       } else if (statusCode === 403) {
         alert(error?.response?.data?.detail || 'Bạn chỉ có thể chỉnh sửa đề tài chưa được duyệt.');
       } else {
-<<<<<<< Updated upstream
-        alert('Lỗi khi cập nhật đề tài: ' + (error?.response?.data?.message || error.message || 'Unknown error'));
-=======
         const serverDetail = error?.data?.detail || error?.response?.data?.detail;
         alert('Lỗi khi cập nhật đề tài: ' + (serverDetail || error?.response?.data?.message || error.message || 'Lỗi không xác định'));
->>>>>>> Stashed changes
       }
     } finally {
       setUpdating(false);
