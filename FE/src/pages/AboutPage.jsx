@@ -1,25 +1,25 @@
 import { ArrowLeft, Target, Users, Heart, Zap, Code2, Palette, Brain, GraduationCap, ArrowRight } from 'lucide-react';
 
 const TEAM = [
-  { name: 'Nguyen Van A', role: 'Lead Developer', seed: 'DevA', color: '#F27125' },
-  { name: 'Tran Thi B', role: 'UI/UX Designer', seed: 'DevB', color: '#a855f7' },
-  { name: 'Le Van C', role: 'Backend Developer', seed: 'DevC', color: '#3b82f6' },
-  { name: 'Pham Thi D', role: 'AI Engineer', seed: 'DevD', color: '#10b981' },
+  { name: 'Nguyen Van A', role: 'Trưởng nhóm phát triển', seed: 'DevA', color: '#F27125' },
+  { name: 'Tran Thi B', role: 'Nhà thiết kế UI/UX', seed: 'DevB', color: '#a855f7' },
+  { name: 'Le Van C', role: 'Lập trình viên Backend', seed: 'DevC', color: '#3b82f6' },
+  { name: 'Pham Thi D', role: 'Kỹ sư AI', seed: 'DevD', color: '#10b981' },
 ];
 const MENTORS = [
-  { name: 'Dr. Tran Minh', role: 'Technical Mentor', seed: 'MentorA', color: '#F27125' },
-  { name: 'Dr. Nguyen Duc D', role: 'Project Advisor', seed: 'MentorB', color: '#a855f7' },
+  { name: 'Dr. Tran Minh', role: 'Cố vấn kỹ thuật', seed: 'MentorA', color: '#F27125' },
+  { name: 'Dr. Nguyen Duc D', role: 'Cố vấn dự án', seed: 'MentorB', color: '#a855f7' },
 ];
 const STATS = [
-  { label: 'Students Served', value: '2,400+' },
-  { label: 'Groups Formed', value: '480+' },
-  { label: 'Topics Approved', value: '1,200+' },
-  { label: 'AI Queries/Day', value: '8,000+' },
+  { label: 'Sinh viên đã hỗ trợ', value: '2,400+' },
+  { label: 'Nhóm đã tạo', value: '480+' },
+  { label: 'Đề tài đã duyệt', value: '1,200+' },
+  { label: 'Lượt hỏi AI mỗi ngày', value: '8,000+' },
 ];
 const VALUES = [
-  { icon: Target, title: 'Our Mission', color: '#F27125', text: 'To provide students with intelligent tools that simplify project management and enhance learning through AI-powered assistance.' },
-  { icon: Users, title: 'Our Vision', color: '#a855f7', text: 'To become the go-to platform for university project collaboration, fostering innovation and excellence in software education.' },
-  { icon: Heart, title: 'Our Values', color: '#10b981', text: 'Innovation, collaboration, and student success are at the heart of everything we do. We believe in empowering the next generation.' },
+  { icon: Target, title: 'Sứ mệnh', color: '#F27125', text: 'Mang đến cho sinh viên những công cụ thông minh giúp đơn giản hóa quản lý đồ án và nâng cao hiệu quả học tập nhờ trợ lý AI.' },
+  { icon: Users, title: 'Tầm nhìn', color: '#a855f7', text: 'Trở thành nền tảng hàng đầu cho cộng tác đồ án đại học, thúc đẩy đổi mới và chất lượng trong giáo dục phần mềm.' },
+  { icon: Heart, title: 'Giá trị cốt lõi', color: '#10b981', text: 'Đổi mới, hợp tác và thành công của sinh viên là trung tâm trong mọi điều chúng tôi xây dựng.' },
 ];
 
 function Navbar({ onNavigate }) {
@@ -27,13 +27,13 @@ function Navbar({ onNavigate }) {
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 h-14 border-b"
       style={{ background: 'rgba(10,11,15,0.85)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.06)' }}>
       <button onClick={() => onNavigate('landing', { replace: true })} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
-        <ArrowLeft className="w-4 h-4" /> Back to Home
+        <ArrowLeft className="w-4 h-4" /> Quay về trang chủ
       </button>
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#F27125,#d96420)' }}>S</div>
         <span className="font-bold text-white">SWP Hub</span>
       </div>
-      <button onClick={() => onNavigate('login')} className="text-sm text-[#F27125] border border-[#F27125]/30 px-4 py-1.5 rounded-lg hover:bg-[#F27125]/10 transition-all">Sign In</button>
+      <button onClick={() => onNavigate('login')} className="text-sm text-[#F27125] border border-[#F27125]/30 px-4 py-1.5 rounded-lg hover:bg-[#F27125]/10 transition-all">Đăng nhập</button>
     </nav>
   );
 }
@@ -51,13 +51,13 @@ export function AboutPage({ onNavigate }) {
           <div className="absolute bottom-10 right-1/4 w-72 h-72 rounded-full opacity-10 blur-3xl" style={{ background: '#a855f7', animation: 'pulse 8s infinite 2s' }} />
         </div>
         <div className="relative max-w-4xl mx-auto px-6 text-center">
-          <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#F27125] bg-[#F27125]/10 border border-[#F27125]/20 px-3 py-1.5 rounded-full mb-6">Our Story</span>
+          <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#F27125] bg-[#F27125]/10 border border-[#F27125]/20 px-3 py-1.5 rounded-full mb-6">Câu chuyện của chúng tôi</span>
           <h1 className="text-5xl md:text-6xl font-bold leading-tight tracking-tight mb-6">
-            Empowering FPT Students<br />
-            <span style={{ background: 'linear-gradient(90deg,#F27125,#f59e0b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>to Succeed Together</span>
+            Đồng hành cùng sinh viên FPT<br />
+            <span style={{ background: 'linear-gradient(90deg,#F27125,#f59e0b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>thành công trong mỗi dự án</span>
           </h1>
           <p className="text-gray-400 text-lg leading-relaxed max-w-2xl mx-auto">
-            SWP Hub was born from the vision of making Software Project management easier, more collaborative, and more successful for every FPT University student.
+            SWP Hub ra đời với mong muốn giúp việc quản lý đồ án phần mềm trở nên dễ dàng hơn, hợp tác hơn và hiệu quả hơn cho mọi sinh viên FPT.
           </p>
         </div>
       </section>
@@ -78,8 +78,8 @@ export function AboutPage({ onNavigate }) {
       <section className="py-24">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-white mb-3">What We Stand For</h2>
-            <p className="text-gray-500">The principles that guide everything we build</p>
+            <h2 className="text-3xl font-bold text-white mb-3">Giá trị chúng tôi theo đuổi</h2>
+            <p className="text-gray-500">Những nguyên tắc định hướng mọi sản phẩm SWP Hub</p>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {VALUES.map(({ icon: Icon, title, color, text }, i) => (
@@ -100,12 +100,12 @@ export function AboutPage({ onNavigate }) {
       {/* ── Story ────────────────────────────────────────────────── */}
       <section className="py-20 border-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-white mb-10 text-center">Our Story</h2>
+          <h2 className="text-3xl font-bold text-white mb-10 text-center">Hành trình phát triển</h2>
           <div className="space-y-6">
             {[
-              { year: '2024', text: 'SWP Hub was created by a team of FPT University students who experienced firsthand the challenges of managing software projects. From finding the right teammates to getting quick answers about project requirements, we knew there had to be a better way.' },
-              { year: '2025', text: 'Combining our passion for technology with the latest in AI and collaborative tools, we built SWP Hub to be the platform we wished we had when we were working on our own projects.' },
-              { year: '2026', text: 'Today, SWP Hub serves thousands of students, helping them collaborate more effectively, learn more efficiently, and achieve better outcomes in their software projects. And we\'re just getting started.' },
+              { year: '2024', text: 'SWP Hub được tạo ra bởi nhóm sinh viên FPT từng trực tiếp gặp khó khăn khi làm đồ án phần mềm: từ tìm đồng đội phù hợp đến tra cứu nhanh yêu cầu môn học.' },
+              { year: '2025', text: 'Kết hợp đam mê công nghệ với AI và các công cụ cộng tác hiện đại, chúng tôi xây dựng SWP Hub thành nền tảng mà chính mình từng mong có khi làm dự án.' },
+              { year: '2026', text: 'Hiện nay, SWP Hub đang hỗ trợ hàng nghìn sinh viên cộng tác hiệu quả hơn, học tập tốt hơn và đạt kết quả cao hơn trong đồ án. Và đây mới chỉ là khởi đầu.' },
             ].map((item, i) => (
               <div key={i} className="flex gap-5">
                 <div className="flex flex-col items-center">
@@ -128,11 +128,11 @@ export function AboutPage({ onNavigate }) {
       <section className="py-24">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-white mb-3">Meet the Team</h2>
-            <p className="text-gray-500">The passionate individuals behind SWP Hub</p>
+            <h2 className="text-3xl font-bold text-white mb-3">Đội ngũ phát triển</h2>
+            <p className="text-gray-500">Những con người đứng sau SWP Hub</p>
           </div>
 
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-5">Development Team</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-5">Nhóm phát triển</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-12">
             {TEAM.map((m, i) => (
               <div key={i} className="group text-center rounded-2xl p-6 border transition-all duration-300 hover:border-opacity-50"
@@ -148,7 +148,7 @@ export function AboutPage({ onNavigate }) {
             ))}
           </div>
 
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-5">Mentors</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-5">Giảng viên cố vấn</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
             {MENTORS.map((m, i) => (
               <div key={i} className="group text-center rounded-2xl p-6 border transition-all duration-300 hover:border-opacity-50"
@@ -169,18 +169,18 @@ export function AboutPage({ onNavigate }) {
       {/* ── CTA ──────────────────────────────────────────────────── */}
       <section className="py-20 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to join us?</h2>
-          <p className="text-gray-400 mb-8">Be part of a community that's transforming how students learn and collaborate.</p>
+          <h2 className="text-3xl font-bold text-white mb-4">Sẵn sàng đồng hành cùng SWP Hub?</h2>
+          <p className="text-gray-400 mb-8">Trở thành một phần của cộng đồng đang thay đổi cách sinh viên học tập và cộng tác.</p>
           <div className="flex items-center justify-center gap-4">
             <button onClick={() => onNavigate('register')}
               className="flex items-center gap-2 text-white font-semibold px-7 py-3 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg"
               style={{ background: 'linear-gradient(135deg,#F27125,#d96420)' }}>
-              Get Started <ArrowRight className="w-4 h-4" />
+              Bắt đầu ngay <ArrowRight className="w-4 h-4" />
             </button>
             <button onClick={() => onNavigate('contact')}
               className="text-gray-400 hover:text-white font-semibold px-7 py-3 rounded-xl border transition-all hover:bg-white/5"
               style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              Contact Us
+              Liên hệ
             </button>
           </div>
         </div>

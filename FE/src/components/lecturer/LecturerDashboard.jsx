@@ -23,10 +23,10 @@ const toArray = (value) => {
 };
 
 const formatAgo = (dateValue) => {
-  if (!dateValue) return 'N/A';
+  if (!dateValue) return 'Không có';
   const now = Date.now();
   const then = new Date(dateValue).getTime();
-  if (Number.isNaN(then)) return 'N/A';
+  if (Number.isNaN(then)) return 'Không có';
   const minutes = Math.max(1, Math.floor((now - then) / 60000));
   if (minutes < 60) return `${minutes} phút trước`;
   const hours = Math.floor(minutes / 60);
@@ -102,11 +102,11 @@ export function LecturerDashboard({ onAction }) {
         .map((submission) => ({
           id: submission.id,
           groupName: submission.group?.groupName || `Group #${submission.groupId || 'N/A'}`,
-          className: submission.group?.class?.className || 'N/A',
-          submissionType: submission.milestone?.name || submission.title || 'Submission',
-          submittedBy: submission.submitter?.fullName || submission.student?.fullName || 'N/A',
+          className: submission.group?.class?.className || 'Không có',
+          submissionType: submission.milestone?.name || submission.title || 'Bài nộp',
+          submittedBy: submission.submitter?.fullName || submission.student?.fullName || 'Không có',
           submittedAt: formatAgo(submission.submittedAt || submission.createdAt),
-          status: String(submission.status || '').toUpperCase() || 'SUBMITTED'
+          status: String(submission.status || '').toUpperCase() || 'ĐÃ_NỘP'
         }));
 
       setAllRecentSubmissions(scopedSubmissions);
@@ -141,8 +141,8 @@ export function LecturerDashboard({ onAction }) {
     <div className="flex-1 bg-[#F3F4F6] overflow-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-600 mt-1">Overview of topics, questions, and group activities</p>
+        <h1 className="text-2xl font-bold text-gray-900">Bảng điều khiển</h1>
+        <p className="text-sm text-gray-600 mt-1">Tổng quan đề tài, câu hỏi và hoạt động nhóm</p>
       </div>
 
       {/* Stats Cards */}
@@ -161,7 +161,7 @@ export function LecturerDashboard({ onAction }) {
             onClick={() => onAction?.({ view: 'qa', filter: 'UNANSWERED' })}
           />
           <StatCard
-            title="Câu hỏi Escalate"
+            title="Câu hỏi chuyển cấp"
             value={stats.escalatedQuestions}
             icon={AlertTriangle}
             highlight={true}
@@ -257,7 +257,7 @@ export function LecturerDashboard({ onAction }) {
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Tất cả bài nộp gần đây</h3>
-                <p className="text-sm text-gray-500 mt-1">Danh sách submission thuộc các lớp bạn đang phụ trách.</p>
+                <p className="text-sm text-gray-500 mt-1">Danh sách bài nộp thuộc các lớp bạn đang phụ trách.</p>
               </div>
               <button onClick={() => setShowAllSubmissions(false)} className="text-gray-400 hover:text-gray-700">
                 <X className="w-5 h-5" />
@@ -266,7 +266,7 @@ export function LecturerDashboard({ onAction }) {
 
             <div className="max-h-[70vh] overflow-y-auto divide-y divide-gray-100">
               {allRecentSubmissions.length === 0 ? (
-                <div className="px-6 py-12 text-center text-sm text-gray-500">Chưa có submission nào trong phạm vi phụ trách.</div>
+                <div className="px-6 py-12 text-center text-sm text-gray-500">Chưa có bài nộp nào trong phạm vi phụ trách.</div>
               ) : allRecentSubmissions.map((submission) => (
                 <div key={submission.id} className="px-6 py-4 flex items-start justify-between gap-4 hover:bg-gray-50">
                   <div className="min-w-0 flex-1">

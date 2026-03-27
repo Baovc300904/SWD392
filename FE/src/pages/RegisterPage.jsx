@@ -120,7 +120,7 @@ function Countdown({ seconds, onExpire }) {
 
 /* ── Step indicator ── */
 function StepIndicator({ current }) {
-  const steps = ['Details', 'Verify', 'Done'];
+  const steps = ['Thông tin', 'Xác thực', 'Hoàn tất'];
   return (
     <div className="flex items-center gap-0 mb-8">
       {steps.map((label, i) => {
@@ -185,21 +185,21 @@ function LeftPanel() {
 
         <div className="mt-auto mb-8">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4 auth-fade-in-delay-1"
-            style={{ color: '#F27125' }}>Start your journey</p>
+            style={{ color: '#F27125' }}>Bắt đầu hành trình</p>
           <h2 className="text-[2.6rem] font-extrabold leading-[1.15] tracking-tight mb-4 auth-fade-in-delay-1">
-            Join thousands of<br />
-            <span className="gradient-text">FPT students.</span>
+            Đồng hành cùng hàng ngàn<br />
+            <span className="gradient-text">sinh viên FPT.</span>
           </h2>
           <p className="text-gray-500 text-sm leading-relaxed max-w-xs auth-fade-in-delay-2">
-            Create your account and access AI-powered tools, smart team matching, and project management.
+            Tạo tài khoản để sử dụng công cụ AI, ghép nhóm thông minh và quản lý đồ án.
           </p>
         </div>
 
         <div className="space-y-2.5 mb-8">
           {[
-            { icon: '🤖', label: 'AI Mentor Bot', desc: 'Instant answers from your syllabus', delay: 200 },
-            { icon: '👥', label: 'Smart Group Matching', desc: 'Find teammates by skill & interest', delay: 300 },
-            { icon: '✅', label: 'Topic Management', desc: 'Submit, track and get approved fast', delay: 400 },
+            { icon: '🤖', label: 'Trợ lý AI', desc: 'Trả lời nhanh từ syllabus', delay: 200 },
+            { icon: '👥', label: 'Ghép nhóm thông minh', desc: 'Tìm đồng đội theo kỹ năng & sở thích', delay: 300 },
+            { icon: '✅', label: 'Quản lý đề tài', desc: 'Nộp, theo dõi và duyệt nhanh', delay: 400 },
           ].map((f, i) => (
             <div key={i} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl auth-fade-in"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', animationDelay: `${f.delay}ms` }}>
@@ -216,7 +216,7 @@ function LeftPanel() {
         <div className="h-px mb-6"
           style={{ background: 'linear-gradient(90deg,rgba(242,113,37,0.5),rgba(255,255,255,0.06),transparent)' }} />
         <div className="grid grid-cols-3 gap-3">
-          {[{ val: '2,400+', label: 'Students' }, { val: '480+', label: 'Groups' }, { val: '8k', label: 'AI / day' }].map((s, i) => (
+          {[{ val: '2,400+', label: 'Sinh viên' }, { val: '480+', label: 'Nhóm' }, { val: '8k', label: 'Lượt AI/ngày' }].map((s, i) => (
             <div key={i} className="text-center px-3 py-3 rounded-2xl"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
               <p className="text-lg font-bold text-white leading-none">{s.val}</p>
@@ -245,9 +245,9 @@ export function RegisterPage({ onNavigate, onLogin }) {
 
   const handleRegister = async (e) => {
     e.preventDefault(); setError('');
-    if (formData.password !== formData.confirmPassword) return setError('Passwords do not match!');
-    if (!/^(SE\d{6}|AD\d{4})$/.test(formData.studentCode)) return setError('Code must be SE + 6 digits or AD + 4 digits');
-    if (formData.password.length < 6) return setError('Password must be at least 6 characters');
+    if (formData.password !== formData.confirmPassword) return setError('Mật khẩu xác nhận không khớp!');
+    if (!/^(SE\d{6}|AD\d{4})$/.test(formData.studentCode)) return setError('Mã phải theo dạng SE + 6 số hoặc AD + 4 số');
+    if (formData.password.length < 6) return setError('Mật khẩu phải có ít nhất 6 ký tự');
     setLoading(true);
     try {
       const res = await authService.register(formData);
@@ -257,19 +257,19 @@ export function RegisterPage({ onNavigate, onLogin }) {
       } else {
         setStep(2); setOtpExpired(false);
       }
-    } catch (err) { setError(err.message || 'Registration failed.'); }
+    } catch (err) { setError(err.message || 'Đăng ký thất bại.'); }
     finally { setLoading(false); }
   };
 
   const handleVerifyOTP = async (e) => {
     e.preventDefault(); setError('');
-    if (otp.length < 6) return setError('Please enter all 6 digits');
+    if (otp.length < 6) return setError('Vui lòng nhập đủ 6 chữ số');
     setLoading(true);
     try {
       await authService.verifyOTP({ email: formData.email, otp });
       setStep(3);
       setTimeout(() => onNavigate('login', { replace: true }), 2500);
-    } catch (err) { setError(err.message || 'Invalid OTP. Please try again.'); }
+    } catch (err) { setError(err.message || 'OTP không hợp lệ. Vui lòng thử lại.'); }
     finally { setLoading(false); }
   };
 
@@ -280,7 +280,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
       await authService.resendOTP(formData.email);
       setOtpExpired(false); setOtp(''); setResendCooldown(60);
       const cd = setInterval(() => setResendCooldown(c => { if (c <= 1) { clearInterval(cd); return 0; } return c - 1; }), 1000);
-    } catch (err) { setError(err.message || 'Failed to resend OTP'); }
+    } catch (err) { setError(err.message || 'Không thể gửi lại OTP'); }
     finally { setLoading(false); }
   };
 
@@ -296,7 +296,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
             onClick={() => step === 2 ? setStep(1) : onNavigate('landing', { replace: true })}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-200 mb-8 transition-colors duration-200 text-sm group">
             <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" />
-            {step === 2 ? 'Back to form' : 'Back to Home'}
+            {step === 2 ? 'Quay lại biểu mẫu' : 'Quay về trang chủ'}
           </button>
 
           <StepIndicator current={step} />
@@ -305,8 +305,8 @@ export function RegisterPage({ onNavigate, onLogin }) {
           {step === 1 && (
             <div className="auth-fade-in">
               <div className="mb-7">
-                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Create Account</h1>
-                <p className="text-gray-600 text-sm">Join SWP Hub and start your journey</p>
+                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Tạo tài khoản</h1>
+                <p className="text-gray-600 text-sm">Tham gia SWP Hub và bắt đầu hành trình</p>
               </div>
 
               {error && (
@@ -317,23 +317,23 @@ export function RegisterPage({ onNavigate, onLogin }) {
               )}
 
               <form onSubmit={handleRegister} className="space-y-4">
-                <AuthInput icon={IdCard} label="Student / Admin Code"
+                <AuthInput icon={IdCard} label="Mã Sinh viên / Quản trị"
                   value={formData.studentCode} onChange={e => set('studentCode', e.target.value)}
                   placeholder="SE150001 or AD0000" required />
 
-                <AuthInput icon={User} label="Full Name"
+                <AuthInput icon={User} label="Họ và tên"
                   value={formData.fullName} onChange={e => set('fullName', e.target.value)}
                   placeholder="Nguyen Van A" required />
 
-                <AuthInput icon={Mail} label="Email Address" type="email"
+                <AuthInput icon={Mail} label="Địa chỉ email" type="email"
                   value={formData.email} onChange={e => set('email', e.target.value)}
                   placeholder="your.email@gmail.com" required
-                  hint="Use @gmail.com · Admin accounts skip verification" />
+                  hint="Dùng @gmail.com · Tài khoản quản trị bỏ qua xác thực" />
 
-                <AuthInput icon={Lock} label="Password"
+                <AuthInput icon={Lock} label="Mật khẩu"
                   type={showPw ? 'text' : 'password'}
                   value={formData.password} onChange={e => set('password', e.target.value)}
-                  placeholder="Min. 6 characters" required
+                  placeholder="Tối thiểu 6 ký tự" required
                   rightEl={
                     <button type="button" onClick={() => setShowPw(p => !p)}
                       className="text-gray-600 hover:text-gray-300 transition-colors">
@@ -341,10 +341,10 @@ export function RegisterPage({ onNavigate, onLogin }) {
                     </button>
                   } />
 
-                <AuthInput icon={Lock} label="Confirm Password"
+                <AuthInput icon={Lock} label="Xác nhận mật khẩu"
                   type={showCpw ? 'text' : 'password'}
                   value={formData.confirmPassword} onChange={e => set('confirmPassword', e.target.value)}
-                  placeholder="Re-enter your password" required
+                  placeholder="Nhập lại mật khẩu" required
                   rightEl={
                     <button type="button" onClick={() => setShowCpw(p => !p)}
                       className="text-gray-600 hover:text-gray-300 transition-colors">
@@ -356,10 +356,10 @@ export function RegisterPage({ onNavigate, onLogin }) {
                   <input type="checkbox" id="terms" style={{ accentColor: '#F27125' }}
                     className="w-4 h-4 rounded mt-0.5 flex-shrink-0" required />
                   <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
-                    I agree to the{' '}
-                    <span className="text-[#F27125] hover:text-[#f59e0b] transition-colors cursor-pointer">Terms of Service</span>
-                    {' '}and{' '}
-                    <span className="text-[#F27125] hover:text-[#f59e0b] transition-colors cursor-pointer">Privacy Policy</span>
+                    Tôi đồng ý với{' '}
+                    <span className="text-[#F27125] hover:text-[#f59e0b] transition-colors cursor-pointer">Điều khoản dịch vụ</span>
+                    {' '}và{' '}
+                    <span className="text-[#F27125] hover:text-[#f59e0b] transition-colors cursor-pointer">Chính sách quyền riêng tư</span>
                   </label>
                 </div>
 
@@ -372,12 +372,12 @@ export function RegisterPage({ onNavigate, onLogin }) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Creating Account...
+                      Đang tạo tài khoản...
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
                       <Sparkles className="w-4 h-4" />
-                      Create Account →
+                      Tạo tài khoản →
                     </span>
                   )}
                 </button>
@@ -388,7 +388,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
                   <div className="w-full" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-4 text-gray-700" style={{ background: BG_RIGHT }}>Already have an account?</span>
+                  <span className="px-4 text-gray-700" style={{ background: BG_RIGHT }}>Đã có tài khoản?</span>
                 </div>
               </div>
 
@@ -397,7 +397,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
                 style={{ background: CHARCOAL, border: `1px solid ${BORDER}` }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; e.currentTarget.style.background = '#252830'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.background = CHARCOAL; }}>
-                Sign In instead
+                Đăng nhập thay thế
               </button>
             </div>
           )}
@@ -409,11 +409,11 @@ export function RegisterPage({ onNavigate, onLogin }) {
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4"
                   style={{ color: '#F27125', background: 'rgba(242,113,37,0.1)', border: '1px solid rgba(242,113,37,0.2)' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#F27125] animate-pulse" />
-                  Email Verification
+                  Xác thực email
                 </span>
-                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Check your inbox</h1>
+                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Kiểm tra hộp thư của bạn</h1>
                 <p className="text-gray-600 text-sm">
-                  We sent a 6-digit code to{' '}
+                  Chúng tôi đã gửi mã 6 chữ số tới{' '}
                   <span className="text-white font-semibold">{formData.email}</span>
                 </p>
               </div>
@@ -422,7 +422,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
                 <div className="mb-5 px-4 py-3 rounded-xl text-xs flex items-center gap-2.5"
                   style={{ background: 'rgba(242,113,37,0.07)', border: '1px solid rgba(242,113,37,0.15)', color: '#9ca3af' }}>
                   <span className="text-base">💡</span>
-                  <span><strong className="text-[#F27125]">Dev mode:</strong> Check the backend console for your OTP code</span>
+                  <span><strong className="text-[#F27125]">Chế độ dev:</strong> Kiểm tra console backend để lấy mã OTP</span>
                 </div>
               )}
 
@@ -435,7 +435,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
 
               <form onSubmit={handleVerifyOTP}>
                 <label className="block text-[11px] font-semibold uppercase tracking-widest text-gray-600 mb-3">
-                  Enter 6-Digit OTP
+                  Nhập OTP 6 chữ số
                 </label>
 
                 <OtpBoxes value={otp} onChange={setOtp} />
@@ -453,13 +453,13 @@ export function RegisterPage({ onNavigate, onLogin }) {
                     {otpExpired ? (
                       <span className="text-red-400 font-medium">Code expired</span>
                     ) : (
-                      <>Expires in <Countdown seconds={600} onExpire={() => setOtpExpired(true)} /></>
+                      <>Hết hạn sau <Countdown seconds={600} onExpire={() => setOtpExpired(true)} /></>
                     )}
                   </span>
                   <button type="button" onClick={handleResend} disabled={resendCooldown > 0 || loading}
                     className="text-xs font-semibold transition-colors disabled:opacity-40"
                     style={{ color: resendCooldown > 0 ? '#6b7280' : '#F27125' }}>
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : '↺ Resend OTP'}
+                    {resendCooldown > 0 ? `Gửi lại sau ${resendCooldown}s` : '↺ Gửi lại OTP'}
                   </button>
                 </div>
 
@@ -472,17 +472,17 @@ export function RegisterPage({ onNavigate, onLogin }) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Verifying...
+                      Đang xác thực...
                     </span>
-                  ) : `Verify Code (${otp.length}/6)`}
+                  ) : `Xác thực mã (${otp.length}/6)`}
                 </button>
               </form>
 
               <p className="text-xs text-gray-700 text-center mt-5">
-                Wrong email?{' '}
+                Sai email?{' '}
                 <button onClick={() => { setStep(1); setOtp(''); setError(''); }}
                   className="text-[#F27125] hover:text-[#f59e0b] font-medium transition-colors">
-                  Change email
+                  Đổi email
                 </button>
               </p>
             </div>
@@ -498,8 +498,8 @@ export function RegisterPage({ onNavigate, onLogin }) {
                   <CheckCircle className="w-12 h-12" style={{ color: '#4ade80' }} />
                 </div>
               </div>
-              <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">You're all set!</h1>
-              <p className="text-gray-600 text-sm mb-6">Account verified. Redirecting to login...</p>
+              <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Hoàn tất!</h1>
+              <p className="text-gray-600 text-sm mb-6">Tài khoản đã được xác thực. Đang chuyển đến trang đăng nhập...</p>
               <div className="w-full h-1 rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.07)' }}>
                 <div className="h-full rounded-full"
                   style={{ background: 'linear-gradient(90deg,#F27125,#f59e0b)', animation: 'progress 2.5s linear forwards' }} />
@@ -510,7 +510,7 @@ export function RegisterPage({ onNavigate, onLogin }) {
                 style={{ color: '#F27125' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#f59e0b'}
                 onMouseLeave={e => e.currentTarget.style.color = '#F27125'}>
-                Go to Sign In →
+                Đi đến Đăng nhập →
               </button>
             </div>
           )}

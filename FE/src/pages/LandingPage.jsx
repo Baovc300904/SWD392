@@ -81,7 +81,7 @@ export function LandingPage({ onNavigate }) {
           <button
             className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition"
             onClick={() => setMobileMenuOpen(o => !o)}
-            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}>
+            aria-label={mobileMenuOpen ? 'Đóng menu' : 'Mở menu'}>
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
@@ -122,10 +122,10 @@ export function LandingPage({ onNavigate }) {
 
         <div className="relative max-w-7xl mx-auto px-6 text-center">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-            Monitor & Manage the Complete<br />Student Project Experience
+            Quản lý toàn diện<br />hành trình làm đồ án của sinh viên
           </h1>
           <p className="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto">
-            The all-in-one platform for FPT students to manage topics, form groups, and get instant answers.
+            Nền tảng all-in-one giúp sinh viên FPT quản lý đề tài, lập nhóm và nhận phản hồi tức thời.
           </p>
 
           <div className="flex items-center justify-center gap-4 mb-16">
@@ -133,7 +133,7 @@ export function LandingPage({ onNavigate }) {
               onClick={() => onNavigate('register')}
               className="bg-[#F27125] hover:bg-[#d96420] text-white px-8 py-4 rounded-lg font-bold text-lg flex items-center gap-2 transition shadow-lg hover:shadow-xl"
             >
-              Get Started
+              Bắt đầu ngay
               <ArrowRight className="w-5 h-5" />
             </button>
             <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-8 py-4 rounded-lg font-bold text-lg flex items-center gap-2 transition border border-white/30"
@@ -181,23 +181,23 @@ export function LandingPage({ onNavigate }) {
                       {/* Channel List */}
                       <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
                         <div className="text-gray-500 text-xs font-semibold px-2 py-1.5 uppercase tracking-wider">
-                          Channels
+                          Kênh
                         </div>
                         <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-white/5 transition text-sm">
                           <span className="text-gray-500">#</span>
-                          <span>general-chat</span>
+                          <span>trò-chuyện-chung</span>
                         </button>
                         <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-[#F27125] text-white transition text-sm">
                           <span className="opacity-80">#</span>
-                          <span className="font-medium">project-tasks</span>
+                          <span className="font-medium">nhiệm-vụ-dự-án</span>
                         </button>
                         <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-white/5 transition text-sm">
                           <span className="text-gray-500">🤖</span>
-                          <span>ai-mentor-bot</span>
+                          <span>bot-cố-vấn-ai</span>
                         </button>
                         <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-white/5 transition text-sm">
                           <span className="text-gray-500">📁</span>
-                          <span>resources-files</span>
+                          <span>tài-liệu-tệp</span>
                         </button>
                       </div>
 
@@ -209,7 +209,7 @@ export function LandingPage({ onNavigate }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-white text-sm font-medium truncate">Nguyen A</div>
-                            <div className="text-gray-500 text-xs truncate">Online</div>
+                            <div className="text-gray-500 text-xs truncate">Trực tuyến</div>
                           </div>
                         </div>
                       </div>
@@ -220,9 +220,9 @@ export function LandingPage({ onNavigate }) {
                       {/* Chat Header */}
                       <div className="h-14 border-b border-gray-200 flex items-center justify-between px-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-800 font-bold text-base"># project-tasks</span>
+                          <span className="text-gray-800 font-bold text-base"># nhiệm-vụ-dự-án</span>
                           <span className="text-gray-500 text-sm">•</span>
-                          <span className="text-gray-500 text-xs">4 members</span>
+                          <span className="text-gray-500 text-xs">4 thành viên</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button className="p-1.5 hover:bg-gray-100 rounded">
@@ -246,7 +246,7 @@ export function LandingPage({ onNavigate }) {
                               <span className="text-xs text-gray-500">10:23 AM</span>
                             </div>
                             <p className="text-sm text-gray-800 leading-relaxed">
-                              Hey team! I've finished the database design. Should I push it to the repo?
+                              Chào mọi người, mình vừa hoàn thành thiết kế cơ sở dữ liệu. Mình push lên repo nhé?
                             </p>
                           </div>
                         </div>
@@ -262,7 +262,7 @@ export function LandingPage({ onNavigate }) {
                               <span className="text-xs text-gray-500">10:25 AM</span>
                             </div>
                             <p className="text-sm text-gray-800 leading-relaxed">
-                              Nice! Yeah go ahead. I'll review it this afternoon 👍
+                              Tuyệt vời, cứ push đi nhé. Chiều nay mình sẽ review 👍
                             </p>
                           </div>
                         </div>
@@ -274,7 +274,7 @@ export function LandingPage({ onNavigate }) {
                           <div className="flex-1 flex items-center gap-2 px-3 py-2 border-2 border-gray-300 rounded-lg bg-white">
                             <input
                               type="text"
-                              placeholder="Message #project-tasks"
+                              placeholder="Nhắn tin #nhiệm-vụ-dự-án"
                               className="flex-1 text-sm outline-none"
                               disabled
                             />
@@ -300,8 +300,8 @@ export function LandingPage({ onNavigate }) {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Why Choose SWP Hub?</h2>
-            <p className="text-xl text-gray-600">Everything you need to succeed in your Software Project</p>
+            <h2 className="text-4xl font-bold mb-4">Vì sao nên chọn SWP Hub?</h2>
+            <p className="text-xl text-gray-600">Mọi thứ bạn cần để thành công trong đồ án phần mềm</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -310,22 +310,22 @@ export function LandingPage({ onNavigate }) {
               <div className="w-14 h-14 bg-[#F27125]/10 rounded-xl flex items-center justify-center mb-6">
                 <Brain className="w-7 h-7 text-[#F27125]" />
               </div>
-              <h3 className="text-2xl font-bold mb-3">AI-Powered Answers</h3>
+              <h3 className="text-2xl font-bold mb-3">Giải đáp bằng AI</h3>
               <p className="text-gray-600 leading-relaxed">
-                Get syllabus-based suggestions instantly. Our AI assistant analyzes your questions and provides accurate answers based on course materials.
+                Nhận gợi ý dựa trên đề cương ngay lập tức. Trợ lý AI phân tích câu hỏi và trả lời chính xác theo tài liệu môn học.
               </p>
               <ul className="mt-4 space-y-2">
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Instant Q&A responses
+                  Phản hồi hỏi đáp tức thì
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Syllabus-trained AI
+                  AI huấn luyện theo đề cương
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  24/7 availability
+                  Hỗ trợ 24/7
                 </li>
               </ul>
             </div>
@@ -335,22 +335,22 @@ export function LandingPage({ onNavigate }) {
               <div className="w-14 h-14 bg-[#F27125]/20 rounded-xl flex items-center justify-center mb-6">
                 <Users className="w-7 h-7 text-[#d96420]" />
               </div>
-              <h3 className="text-2xl font-bold mb-3">Smart Group Matching</h3>
+              <h3 className="text-2xl font-bold mb-3">Ghép nhóm thông minh</h3>
               <p className="text-gray-600 leading-relaxed">
-                Find teammates that match your skill set. Our intelligent algorithm helps you form balanced, effective project teams.
+                Tìm đồng đội phù hợp với kỹ năng của bạn. Thuật toán thông minh giúp tạo nhóm cân bằng và hiệu quả.
               </p>
               <ul className="mt-4 space-y-2">
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Skill-based matching
+                  Ghép nhóm theo kỹ năng
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Easy team formation
+                  Tạo nhóm nhanh chóng
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Collaboration tools
+                  Công cụ cộng tác đầy đủ
                 </li>
               </ul>
             </div>
@@ -360,22 +360,22 @@ export function LandingPage({ onNavigate }) {
               <div className="w-14 h-14 bg-[#F27125]/30 rounded-xl flex items-center justify-center mb-6">
                 <Shield className="w-7 h-7 text-[#c5601f]" />
               </div>
-              <h3 className="text-2xl font-bold mb-3">Topic Management</h3>
+              <h3 className="text-2xl font-bold mb-3">Quản lý đề tài</h3>
               <p className="text-gray-600 leading-relaxed">
-                Streamlined approval workflow for Lecturers. Efficiently manage topic submissions, group assignments, and project milestones.
+                Luồng duyệt tối ưu cho giảng viên. Quản lý hiệu quả đề tài, phân công nhóm và các mốc tiến độ dự án.
               </p>
               <ul className="mt-4 space-y-2">
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Quick approvals
+                  Duyệt nhanh
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Automated notifications
+                  Thông báo tự động
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-700">
                   <Check className="w-4 h-4 text-green-600" />
-                  Progress tracking
+                  Theo dõi tiến độ
                 </li>
               </ul>
             </div>
@@ -386,15 +386,15 @@ export function LandingPage({ onNavigate }) {
       {/* CTA Section */}
       <section className="py-20 bg-[#1a1d21] text-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to start your journey?</h2>
+          <h2 className="text-4xl font-bold mb-6">Sẵn sàng bắt đầu hành trình của bạn?</h2>
           <p className="text-xl text-gray-300 mb-8">
-            Join thousands of FPT students already using SWP Hub to ace their projects.
+            Tham gia cùng hàng nghìn sinh viên FPT đang dùng SWP Hub để bứt phá trong đồ án.
           </p>
           <button
             onClick={() => onNavigate('register')}
             className="bg-[#F27125] hover:bg-[#d96420] text-white px-10 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl"
           >
-            Get Started for Free
+            Bắt đầu miễn phí
           </button>
         </div>
       </section>
@@ -411,36 +411,36 @@ export function LandingPage({ onNavigate }) {
                 <span className="font-bold text-white text-xl">SWP Hub</span>
               </div>
               <p className="text-sm text-gray-400">
-                Empowering FPT students to excel in their Software Projects.
+                Đồng hành cùng sinh viên FPT chinh phục đồ án phần mềm.
               </p>
             </div>
             <div>
-              <h4 className="font-semibold text-white mb-3">About Us</h4>
+              <h4 className="font-semibold text-white mb-3">Về chúng tôi</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => onNavigate('about')} className="hover:text-white transition">Our Story</button></li>
-                <li><span className="text-gray-600 cursor-not-allowed" title="Coming soon">Team</span></li>
-                <li><span className="text-gray-600 cursor-not-allowed" title="Coming soon">Careers</span></li>
+                <li><button onClick={() => onNavigate('about')} className="hover:text-white transition">Câu chuyện</button></li>
+                <li><span className="text-gray-600 cursor-not-allowed" title="Sắp ra mắt">Đội ngũ</span></li>
+                <li><span className="text-gray-600 cursor-not-allowed" title="Sắp ra mắt">Tuyển dụng</span></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-white mb-3">Contact</h4>
+              <h4 className="font-semibold text-white mb-3">Liên hệ</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => onNavigate('contact')} className="hover:text-white transition">Support</button></li>
+                <li><button onClick={() => onNavigate('contact')} className="hover:text-white transition">Hỗ trợ</button></li>
                 <li><button onClick={() => onNavigate('faq')} className="hover:text-white transition">FAQ</button></li>
-                <li><a href="mailto:support@swphub.fpt.edu.vn" className="hover:text-white transition">Email Us</a></li>
+                <li><a href="mailto:support@swphub.fpt.edu.vn" className="hover:text-white transition">Gửi email</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-white mb-3">Legal</h4>
+              <h4 className="font-semibold text-white mb-3">Pháp lý</h4>
               <ul className="space-y-2 text-sm">
-                <li><span className="text-gray-600 cursor-not-allowed" title="Coming soon">Terms of Service</span></li>
-                <li><span className="text-gray-600 cursor-not-allowed" title="Coming soon">Privacy Policy</span></li>
-                <li><span className="text-gray-600 cursor-not-allowed" title="Coming soon">Cookie Policy</span></li>
+                <li><span className="text-gray-600 cursor-not-allowed" title="Sắp ra mắt">Điều khoản dịch vụ</span></li>
+                <li><span className="text-gray-600 cursor-not-allowed" title="Sắp ra mắt">Chính sách bảo mật</span></li>
+                <li><span className="text-gray-600 cursor-not-allowed" title="Sắp ra mắt">Chính sách cookie</span></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-white/10 pt-8 text-center text-sm text-gray-500">
-            © 2026 FPT University. All rights reserved.
+            © 2026 FPT University. Bảo lưu mọi quyền.
           </div>
         </div>
       </footer>

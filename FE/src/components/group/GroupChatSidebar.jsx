@@ -175,14 +175,14 @@ export function GroupChatSidebar({ activeChannel, onChannelChange, onLogout, gro
       <div className="p-3 border-t border-white/10 space-y-1">
         <button className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-white/5 rounded transition">
           <Settings className="w-4 h-4" />
-          Settings
+          Cài đặt
         </button>
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-red-500/20 hover:text-red-400 rounded transition"
         >
           <LogOut className="w-4 h-4" />
-          Log out
+          Đăng xuất
         </button>
       </div>
     </div>

@@ -133,6 +133,7 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       if (duplicateByCode || duplicateByMessage) {
         alert('Tiêu đề đề tài đã tồn tại trong học kỳ này. Vui lòng nhập tiêu đề khác.');
       } else {
+        alert('Lỗi khi tạo đề tài: ' + (error.message || 'Unknown error'));
         const serverDetail = error?.data?.detail || error?.response?.data?.detail;
         alert('Lỗi khi tạo đề tài: ' + (serverDetail || error.message || 'Unknown error'));
       }
@@ -196,6 +197,7 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       } else if (statusCode === 403) {
         alert(error?.response?.data?.detail || 'Bạn chỉ có thể chỉnh sửa đề tài chưa được duyệt.');
       } else {
+        alert('Lỗi khi cập nhật đề tài: ' + (error?.response?.data?.message || error.message || 'Unknown error'));
         const serverDetail = error?.data?.detail || error?.response?.data?.detail;
         alert('Lỗi khi cập nhật đề tài: ' + (serverDetail || error?.response?.data?.message || error.message || 'Unknown error'));
       }
@@ -210,7 +212,7 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       loadTopics(); // Reload list
     } catch (error) {
       console.error('Failed to approve topic:', error);
-      alert('Lỗi khi duyệt đề tài: ' + (error.message || 'Unknown error'));
+      alert('Lỗi khi duyệt đề tài: ' + (error.message || 'Lỗi không xác định'));
     }
   };
 
@@ -223,7 +225,7 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       loadTopics();
     } catch (error) {
       console.error('Failed to reject topic:', error);
-      alert('Lỗi khi từ chối đề tài: ' + (error.message || 'Unknown error'));
+      alert('Lỗi khi từ chối đề tài: ' + (error.message || 'Lỗi không xác định'));
     }
   };
 

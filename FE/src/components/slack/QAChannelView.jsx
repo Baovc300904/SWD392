@@ -123,7 +123,7 @@ export function QAChannelView({ groupId }) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search questions..."
+              placeholder="Tìm câu hỏi..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-[#F27125] focus:ring-2 focus:ring-[#F27125]/20 transition"
@@ -136,9 +136,9 @@ export function QAChannelView({ groupId }) {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="text-sm font-medium text-gray-700 bg-transparent outline-none"
             >
-              <option value="ALL">All</option>
-              <option value="PENDING">Pending</option>
-              <option value="RESOLVED">Resolved</option>
+              <option value="ALL">Tất cả</option>
+              <option value="PENDING">Chờ phản hồi</option>
+              <option value="RESOLVED">Đã giải quyết</option>
             </select>
           </div>
         </div>
@@ -201,15 +201,15 @@ export function QAChannelView({ groupId }) {
                     <p className="text-sm text-gray-600 mt-1 line-clamp-2">{q.content}</p>
                   </div>
                   <div className={`px-3 py-1 rounded-lg text-xs font-bold ${q.status === 'RESOLVED' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                    {q.status === 'RESOLVED' ? 'Resolved' : q.status || 'WAITING'}
+                    {q.status === 'RESOLVED' ? 'Đã giải quyết' : q.status || 'ĐANG CHỜ'}
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-gray-500">
                   <div>
-                    {q.asker?.fullName || 'Unknown'} • {new Date(q.createdAt).toLocaleString()}
+                    {q.asker?.fullName || 'Không rõ'} • {new Date(q.createdAt).toLocaleString()}
                   </div>
-                  <div className="font-medium">{getVisibleAnswers(q).length} answers</div>
+                  <div className="font-medium">{getVisibleAnswers(q).length} câu trả lời</div>
                 </div>
 
                 {getVisibleAnswers(q).length > 0 && (

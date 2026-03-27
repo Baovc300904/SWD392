@@ -28,7 +28,7 @@ const authService = {
             if (response.success) {
                 return response.data;
             }
-            throw new Error(response.message || 'Registration failed');
+            throw new Error(response.message || 'Đăng ký thất bại');
         } catch (error) {
             throw error;
         }
@@ -60,7 +60,7 @@ const authService = {
                 return userData;
             }
 
-            throw new Error(response.message || 'Login failed');
+            throw new Error(response.message || 'Đăng nhập thất bại');
         } catch (error) {
             throw error;
         }
@@ -205,7 +205,7 @@ const authService = {
                 return userData;
             }
 
-            throw new Error(response.message || 'Login failed');
+            throw new Error(response.message || 'Đăng nhập thất bại');
         } catch (error) {
             console.error('Admin/Lecturer login error:', error);
             throw error;

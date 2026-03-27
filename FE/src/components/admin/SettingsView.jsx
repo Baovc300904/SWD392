@@ -14,8 +14,8 @@ export function SettingsView() {
   });
 
   const handleSave = () => {
-    console.log('Saving settings:', settings);
-    alert('Settings saved successfully!');
+    console.log('Đang lưu cài đặt:', settings);
+    alert('Lưu cài đặt thành công!');
   };
 
   return (
@@ -27,15 +27,15 @@ export function SettingsView() {
             <Calendar className="w-5 h-5 text-[#F27125]" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Semester Configuration</h2>
-            <p className="text-sm text-gray-600">Set up the current academic semester</p>
+            <h2 className="text-lg font-bold text-gray-900">Cấu hình học kỳ</h2>
+            <p className="text-sm text-gray-600">Thiết lập học kỳ hiện tại</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Semester Start Date
+              Ngày bắt đầu học kỳ
             </label>
             <input
               type="date"
@@ -47,7 +47,7 @@ export function SettingsView() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Semester End Date
+              Ngày kết thúc học kỳ
             </label>
             <input
               type="date"
@@ -59,7 +59,7 @@ export function SettingsView() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Current Semester Code
+              Mã học kỳ hiện tại
             </label>
             <div className="relative">
               <Code className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -67,7 +67,7 @@ export function SettingsView() {
                 type="text"
                 value={settings.semesterCode}
                 onChange={(e) => setSettings({ ...settings, semesterCode: e.target.value })}
-                placeholder="e.g., SP26"
+                placeholder="VD: SP26"
                 className="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F27125] focus:border-transparent"
               />
             </div>
@@ -82,16 +82,16 @@ export function SettingsView() {
             <Zap className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Feature Toggles</h2>
-            <p className="text-sm text-gray-600">Enable or disable platform features</p>
+            <h2 className="text-lg font-bold text-gray-900">Bật/tắt tính năng</h2>
+            <p className="text-sm text-gray-600">Kích hoạt hoặc vô hiệu hóa các tính năng hệ thống</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <div className="font-medium text-gray-900">Allow Topic Registration</div>
-              <div className="text-sm text-gray-600">Students can submit new project topics</div>
+              <div className="font-medium text-gray-900">Cho phép đăng ký đề tài</div>
+              <div className="text-sm text-gray-600">Sinh viên có thể gửi đề tài mới</div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -110,8 +110,8 @@ export function SettingsView() {
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <div className="font-medium text-gray-900">Enable AI Support</div>
-              <div className="text-sm text-gray-600">AI-powered question answering system</div>
+              <div className="font-medium text-gray-900">Bật hỗ trợ AI</div>
+              <div className="text-sm text-gray-600">Hệ thống hỏi đáp được hỗ trợ bởi AI</div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -128,8 +128,8 @@ export function SettingsView() {
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <div className="font-medium text-gray-900">Public Registration Mode</div>
-              <div className="text-sm text-gray-600">Allow public access without approval</div>
+              <div className="font-medium text-gray-900">Chế độ đăng ký công khai</div>
+              <div className="text-sm text-gray-600">Cho phép truy cập công khai không cần duyệt</div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -155,8 +155,8 @@ export function SettingsView() {
             <Bell className="w-5 h-5 text-orange-600" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Notification Settings</h2>
-            <p className="text-sm text-gray-600">Configure how you receive alerts</p>
+            <h2 className="text-lg font-bold text-gray-900">Cài đặt thông báo</h2>
+            <p className="text-sm text-gray-600">Cấu hình cách bạn nhận thông báo</p>
           </div>
         </div>
 
@@ -169,8 +169,8 @@ export function SettingsView() {
               className="w-5 h-5 text-[#F27125] border-gray-300 rounded focus:ring-[#F27125]"
             />
             <div className="flex-1">
-              <div className="font-medium text-gray-900">Email Alerts</div>
-              <div className="text-sm text-gray-600">Receive notifications via email</div>
+              <div className="font-medium text-gray-900">Thông báo qua email</div>
+              <div className="text-sm text-gray-600">Nhận thông báo qua thư điện tử</div>
             </div>
           </label>
 
@@ -182,8 +182,8 @@ export function SettingsView() {
               className="w-5 h-5 text-[#F27125] border-gray-300 rounded focus:ring-[#F27125]"
             />
             <div className="flex-1">
-              <div className="font-medium text-gray-900">Push Notifications</div>
-              <div className="text-sm text-gray-600">Real-time browser notifications</div>
+              <div className="font-medium text-gray-900">Thông báo đẩy</div>
+              <div className="text-sm text-gray-600">Thông báo thời gian thực trên trình duyệt</div>
             </div>
           </label>
         </div>
@@ -196,7 +196,7 @@ export function SettingsView() {
           className="flex items-center gap-2 px-6 py-3 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg font-semibold transition shadow-lg hover:shadow-xl"
         >
           <Save className="w-5 h-5" />
-          Save Changes
+          Lưu thay đổi
         </button>
       </div>
     </div>

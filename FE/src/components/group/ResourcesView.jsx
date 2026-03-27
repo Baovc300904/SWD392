@@ -182,7 +182,7 @@ export function ResourcesView({ groupId }) {
             className="inline-flex items-center gap-2 bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-60"
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {uploading ? 'Uploading...' : 'Upload File'}
+            {uploading ? 'Đang tải lên...' : 'Tải tệp lên'}
           </button>
           <input ref={inputRef} type="file" className="hidden" onChange={handleUploadFile} />
         </div>
