@@ -11,10 +11,10 @@ import { ContactPage } from './pages/ContactPage';
 import { FAQPage } from './pages/FAQPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { DocumentationPage } from './pages/DocumentationPage';
-import { SlackChat } from './components/slack/SlackChat';
 import { LecturerView } from './components/lecturer/LecturerView';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { GroupSidebar } from './components/group/GroupSidebar';
+import { ChatChannelView } from './components/group/ChatChannelView';
 import { GroupDashboardView } from './components/group/GroupDashboardView';
 import { TaskBoardView } from './components/group/TaskBoardView';
 import { QAForumView } from './components/group/QAForumView';
@@ -91,7 +91,7 @@ function StudentGroupWorkspace({ currentGroupId, onLogout, onNavigate }) {
         case 'submissions':  return <StudentSubmissionView groupId={currentGroupId} />;
         case 'ai-assistant': return <AIAssistantView groupId={currentGroupId} />;
         case 'resources':    return <ResourcesView groupId={currentGroupId} />;
-        case 'chat':         return <SlackChat channel={activeChannel} channelId={activeChannelId} groupId={currentGroupId} />;
+        case 'chat':         return <ChatChannelView channel={activeChannel} />;
         default:             
           return (
             <div className="p-8 bg-white">
