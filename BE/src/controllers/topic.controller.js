@@ -10,6 +10,7 @@ const { uploadBuffer } = require('../services/cloudinary.service');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+const isCloudinaryStrictMode = () => String(process.env.CLOUDINARY_STRICT || '').toLowerCase() === 'true';
 const MAX_TOPICS_PER_SEMESTER = 8;
 const COUNTED_TOPIC_STATUSES = ['PENDING', 'APPROVED'];
 
@@ -299,13 +300,19 @@ const createTopic = async (req, res) => {
         if (req.syllabusFile?.buffer) {
             try {
                 const uploadResult = await uploadBuffer(req.syllabusFile.buffer, {
-                    public_id: `topic_${Date.now()}_${proposedById}`,
                     resource_type: 'raw',
                     original_filename: req.syllabusFile.originalname,
                     mimetype: req.syllabusFile.mimetype
                 });
                 syllabusUrl = uploadResult?.secure_url || uploadResult?.url || null;
             } catch (uploadError) {
+                if (isCloudinaryStrictMode()) {
+                    return res.status(502).json({
+                        success: false,
+                        message: 'Cloudinary upload failed',
+                        detail: uploadError.message
+                    });
+                }
                 uploadWarning = 'Syllabus upload failed. Topic was created without uploaded file.';
                 console.warn('[createTopic] syllabus upload failed:', uploadError.message);
                 if (req.body?.syllabusUrl) {
@@ -448,13 +455,19 @@ const updateTopic = async (req, res) => {
         if (req.syllabusFile?.buffer) {
             try {
                 const uploadResult = await uploadBuffer(req.syllabusFile.buffer, {
-                    public_id: `topic_${topic.id || Date.now()}_${requesterId || 'user'}`,
                     resource_type: 'raw',
                     original_filename: req.syllabusFile.originalname,
                     mimetype: req.syllabusFile.mimetype
                 });
                 updates.syllabusUrl = uploadResult?.secure_url || uploadResult?.url || null;
             } catch (uploadError) {
+                if (isCloudinaryStrictMode()) {
+                    return res.status(502).json({
+                        success: false,
+                        message: 'Cloudinary upload failed',
+                        detail: uploadError.message
+                    });
+                }
                 uploadWarning = 'Syllabus upload failed. Topic was updated without changing uploaded file.';
                 console.warn('[updateTopic] syllabus upload failed:', uploadError.message);
                 if (Object.prototype.hasOwnProperty.call(updates, 'syllabusUrl')) {
