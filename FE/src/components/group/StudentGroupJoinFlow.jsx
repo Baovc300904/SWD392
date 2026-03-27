@@ -60,7 +60,7 @@ export function StudentGroupJoinFlow({ onGroupJoined, onLogout }) {
 
       const [classData, groupsData, topicsData] = await Promise.all([
         classService.getAllClasses(),
-        groupService.getAllGroups(),
+        groupService.getAllGroups({ joinable: true }),
         topicService.getAllTopics({ status: 'APPROVED' })
       ]);
 

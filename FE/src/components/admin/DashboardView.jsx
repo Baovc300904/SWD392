@@ -67,13 +67,19 @@ export function DashboardView() {
 
       const activities = [
         ...topics.map((topic) => ({
+          topicStatus: String(topic.status || '').toUpperCase(),
           id: `topic_${topic.id}`,
           type: 'submission',
           user: topic.proposer?.fullName || 'Unknown',
           email: topic.proposer?.email || 'N/A',
           action: `Submitted topic: ${topic.title || 'Untitled'}`,
           timestampRaw: topic.createdAt,
-          status: String(topic.status || '').toUpperCase() === 'APPROVED' ? 'success' : 'pending'
+          status:
+            String(topic.status || '').toUpperCase() === 'APPROVED'
+              ? 'success'
+              : String(topic.status || '').toUpperCase() === 'REJECTED'
+                ? 'rejected'
+                : 'pending'
         })),
         ...questions.map((question) => ({
           id: `question_${question.id}`,
@@ -228,6 +234,8 @@ export function DashboardView() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {activity.status === 'success' ? (
                         <div className="flex items-center gap-1.5 text-green-600"><CheckCircle className="w-4 h-4" /><span className="text-xs font-medium">Success</span></div>
+                      ) : activity.status === 'rejected' ? (
+                        <div className="flex items-center gap-1.5 text-red-600"><Clock className="w-4 h-4" /><span className="text-xs font-medium">Rejected</span></div>
                       ) : (
                         <div className="flex items-center gap-1.5 text-orange-600"><Clock className="w-4 h-4" /><span className="text-xs font-medium">Pending</span></div>
                       )}

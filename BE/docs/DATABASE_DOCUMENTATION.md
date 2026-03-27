@@ -45,7 +45,7 @@ Handles real-time messaging and collaboration.
 mysql -u root -p
 
 # Create database
-source database-schema.sql
+source database/database-schema.sql
 ```
 
 ### 2. Environment Configuration

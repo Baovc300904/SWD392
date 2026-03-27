@@ -6,6 +6,12 @@
 const { Answer, Question, User, GroupMember, StudentGroup, Class } = require('../models');
 const MSG = require('../constants/messages');
 const pushService = require('../services/push.service');
+const {
+    isPrivilegedRole,
+    buildStudentVisibilityScope,
+    canStudentViewQuestion,
+    canStudentViewAnswer
+} = require('../utils/qa-visibility');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
@@ -14,6 +20,18 @@ const trimForNotification = (text, maxLength = 120) => {
     const normalized = String(text || '').trim().replace(/\s+/g, ' ');
     if (normalized.length <= maxLength) return normalized;
     return `${normalized.slice(0, maxLength - 1)}…`;
+};
+
+const withVisibilityMeta = (answer) => {
+    const isPublic = Boolean(answer?.isPublic);
+    return {
+        ...answer,
+        visibility: {
+            value: isPublic ? 'PUBLIC' : 'PRIVATE',
+            label: isPublic ? 'Public' : 'Private',
+            badgeTone: isPublic ? 'success' : 'muted'
+        }
+    };
 };
 
 const notifyQuestionAskerOnAnswer = async ({ question, answer, requesterRole }) => {
@@ -60,13 +78,57 @@ exports.getAnswersByQuestion = async (req, res) => {
         const userId = getRequesterId(req);
         const userRole = getRequesterRole(req);
 
-        // Lấy thông tin câu hỏi để biết groupId và askedBy
-        const question = await Question.findByPk(questionId);
+        const question = await Question.findByPk(questionId, {
+            attributes: ['id', 'groupId', 'askedBy', 'isPublic'],
+            include: [{
+                model: StudentGroup,
+                as: 'group',
+                attributes: ['id', 'topicId']
+            }]
+        });
+
         if (!question) {
             return res.status(404).json({ success: false, message: 'Question not found' });
         }
 
-        // Lấy tất cả answers của câu hỏi
+        if (!isPrivilegedRole(userRole) && userRole !== 'student') {
+            return res.status(403).json({
+                success: false,
+                message: MSG.AUTHORIZATION.FORBIDDEN,
+                detail: 'You cannot view answers for this question'
+            });
+        }
+
+        let studentScope = null;
+        if (userRole === 'student') {
+            const memberships = await GroupMember.findAll({
+                where: { studentId: userId },
+                attributes: ['groupId'],
+                include: [{
+                    model: StudentGroup,
+                    as: 'group',
+                    attributes: ['id', 'topicId']
+                }]
+            });
+
+            studentScope = buildStudentVisibilityScope(memberships);
+
+            const canSeeQuestion = canStudentViewQuestion({
+                questionIsPublic: Boolean(question.isPublic),
+                askingGroupId: question.groupId,
+                askingTopicId: question.group?.topicId,
+                studentScope
+            });
+
+            if (!canSeeQuestion) {
+                return res.status(403).json({
+                    success: false,
+                    message: MSG.AUTHORIZATION.FORBIDDEN,
+                    detail: 'You cannot view answers for this question'
+                });
+            }
+        }
+
         const answers = await Answer.findAll({
             where: { questionId },
             include: [
@@ -75,26 +137,20 @@ exports.getAnswersByQuestion = async (req, res) => {
             order: [['createdAt', 'ASC']]
         });
 
-        // Lọc answers theo quyền truy cập
-        const membership = question.groupId && userRole === 'student'
-            ? await GroupMember.findOne({ where: { groupId: question.groupId, studentId: userId } })
-            : null;
-
-        const filteredAnswers = answers.filter(ans => {
-            if (ans.isPublic) return true; // Public: ai cũng thấy
-            // Private: chỉ thành viên nhóm, người hỏi, người trả lời, lecturer/manager
-            if (!userId) return false;
-            if (userId === question.askedBy) return true;
-            if (userId === ans.answeredBy) return true;
-            if (userRole === 'lecturer' || userRole === 'manager') return true;
-            return Boolean(membership);
-        });
+        const filteredAnswers = userRole === 'student'
+            ? answers.filter((answer) => canStudentViewAnswer({
+                answerIsPublic: Boolean(answer.isPublic),
+                askingGroupId: question.groupId,
+                askingTopicId: question.group?.topicId,
+                studentScope
+            }))
+            : answers;
 
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
             count: filteredAnswers.length,
-            data: filteredAnswers
+            data: filteredAnswers.map((answer) => withVisibilityMeta(answer.toJSON()))
         });
     } catch (error) {
         res.status(500).json({
@@ -163,7 +219,7 @@ exports.createAnswer = async (req, res) => {
         res.status(201).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            data: answer
+            data: withVisibilityMeta(answer.toJSON())
         });
     } catch (error) {
         res.status(500).json({
@@ -209,7 +265,7 @@ exports.updateAnswer = async (req, res) => {
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            data: answer
+            data: withVisibilityMeta(answer.toJSON())
         });
     } catch (error) {
         res.status(500).json({
@@ -251,7 +307,7 @@ exports.toggleAnswerVisibility = async (req, res) => {
         res.status(200).json({
             success: true,
             message: `Answer is now ${answer.isPublic ? 'public' : 'private'}`,
-            data: answer
+            data: withVisibilityMeta(answer.toJSON())
         });
     } catch (error) {
         res.status(500).json({
@@ -309,13 +365,36 @@ exports.deleteAnswer = async (req, res) => {
  */
 exports.getPublicAnswers = async (req, res) => {
     try {
-        const answers = await Answer.findAll({
+        const userRole = getRequesterRole(req);
+        const userId = getRequesterId(req);
+        let studentScope = null;
+
+        if (userRole === 'student') {
+            const memberships = await GroupMember.findAll({
+                where: { studentId: userId },
+                attributes: ['groupId'],
+                include: [{
+                    model: StudentGroup,
+                    as: 'group',
+                    attributes: ['id', 'topicId']
+                }]
+            });
+
+            studentScope = buildStudentVisibilityScope(memberships);
+        }
+
+        let answers = await Answer.findAll({
             where: { isPublic: true },
             include: [
                 {
                     model: Question,
                     as: 'question',
-                    attributes: ['id', 'title', 'content']
+                    attributes: ['id', 'title', 'content', 'groupId'],
+                    include: [{
+                        model: StudentGroup,
+                        as: 'group',
+                        attributes: ['id', 'topicId']
+                    }]
                 },
                 {
                     model: User,
@@ -326,10 +405,19 @@ exports.getPublicAnswers = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        if (userRole === 'student') {
+            answers = answers.filter((answer) => canStudentViewAnswer({
+                answerIsPublic: true,
+                askingGroupId: answer.question?.groupId,
+                askingTopicId: answer.question?.group?.topicId,
+                studentScope
+            }));
+        }
+
         res.status(200).json({
             success: true,
             count: answers.length,
-            data: answers
+            data: answers.map((answer) => withVisibilityMeta(answer.toJSON()))
         });
     } catch (error) {
         res.status(500).json({

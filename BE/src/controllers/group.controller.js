@@ -26,9 +26,10 @@ const memberInclude = {
  */
 const getAllGroups = async (req, res) => {
     try {
-        const { classId, topicId, lecturerId, search } = req.query;
+        const { classId, topicId, lecturerId, search, joinable } = req.query;
         const requesterRole = getRequesterRole(req);
         const requesterId = getRequesterId(req);
+        const joinableMode = String(joinable || '').toLowerCase() === 'true';
 
         let whereClause = {};
         const classWhere = {};
@@ -43,7 +44,7 @@ const getAllGroups = async (req, res) => {
             whereClause.groupName = { [Op.like]: `%${search}%` };
         }
 
-        if (requesterRole === 'student') {
+        if (requesterRole === 'student' && !joinableMode) {
             const memberships = await GroupMember.findAll({
                 where: { studentId: requesterId },
                 attributes: ['groupId']
@@ -71,11 +72,21 @@ const getAllGroups = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        let responseGroups = groups;
+
+        if (requesterRole === 'student' && joinableMode) {
+            responseGroups = groups.filter((group) => {
+                const members = Array.isArray(group.members) ? group.members : [];
+                const alreadyJoined = members.some((member) => Number(member.id) === Number(requesterId));
+                return !alreadyJoined && members.length < 5;
+            });
+        }
+
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            count: groups.length,
-            data: groups
+            count: responseGroups.length,
+            data: responseGroups
         });
     } catch (error) {
         console.error('Error fetching groups:', error);
@@ -166,7 +177,8 @@ const getGroupById = async (req, res) => {
                 },
                 {
                     model: Topic,
-                    as: 'topic'
+                    as: 'topic',
+                    attributes: ['id', 'title', 'status']
                 },
                 memberInclude
             ]
@@ -238,7 +250,9 @@ const createGroup = async (req, res) => {
         }
 
         // Verify topic exists and is approved
-        const topic = await Topic.findByPk(topicId);
+        const topic = await Topic.findByPk(topicId, {
+            attributes: ['id', 'status']
+        });
         if (!topic) {
             return res.status(404).json({
                 success: false,

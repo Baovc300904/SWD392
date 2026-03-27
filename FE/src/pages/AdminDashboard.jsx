@@ -29,7 +29,7 @@ import { usePortalNotifications } from '../hooks/usePortalNotifications';
 
 export function AdminDashboard({ onLogout, onNavigate }) {
   const [activeView, setActiveView] = useState('dashboard');
-  const [adminUser, setAdminUser] = useState({ fullName: 'Admin', email: '' });
+  const [adminUser, setAdminUser] = useState({ fullName: 'Manager', email: '' });
   const [viewFilters, setViewFilters] = useState({ qa: 'ALL', topics: 'all', users: 'all' });
   const { notifications, unreadCount, loading, refreshNotifications } = usePortalNotifications('manager');
 
@@ -74,7 +74,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
             </div>
             <div>
               <div className="font-bold text-lg">SWP Hub</div>
-              <div className="text-xs text-gray-400">Admin Portal</div>
+              <div className="text-xs text-gray-400">Manager Portal</div>
             </div>
           </div>
         </div>
@@ -223,7 +223,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 {activeView === 'settings' && 'Settings'}
               </h1>
               <p className="text-gray-600 mt-1">
-                {activeView === 'dashboard' && 'Welcome back, Admin. Here\'s what\'s happening today.'}
+                {activeView === 'dashboard' && 'Welcome back, Manager. Here\'s what\'s happening today.'}
                 {activeView === 'users' && 'Manage students and lecturers'}
                 {activeView === 'topics' && 'Review and approve project topics'}
                 {activeView === 'semesters' && 'Create and manage academic semesters'}
