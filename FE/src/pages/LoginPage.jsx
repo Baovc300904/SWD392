@@ -94,12 +94,12 @@ export function LoginPage({ onNavigate, onLogin }) {
       const user = await authService.login(email, password, rememberMe);
       const roleLower = user.role.toLowerCase();
       if (loginRole === 'student' && roleLower !== 'student') {
-        setError('This account is not a student account. Please use the Lecturer Portal tab.');
+        setError('Tài khoản này không phải tài khoản sinh viên. Vui lòng dùng tab Giảng viên/Quản lý.');
         setLoading(false);
         return;
       }
       if (loginRole === 'lecturer' && roleLower === 'student') {
-        setError('Student accounts must use the Student Portal tab on the left.');
+        setError('Tài khoản sinh viên phải dùng tab Cổng Sinh viên ở bên trái.');
         setLoading(false);
         return;
       }
@@ -107,7 +107,7 @@ export function LoginPage({ onNavigate, onLogin }) {
       else if (roleLower === 'lecturer') onLogin('lecturer');
       else onLogin('student');
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
     } finally {
       setLoading(false);
     }
@@ -167,22 +167,22 @@ export function LoginPage({ onNavigate, onLogin }) {
           <div className="mt-auto mb-8">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4 auth-fade-in-delay-1"
               style={{ color: '#F27125' }}>
-              Trusted by FPT Students
+              Được sinh viên FPT tin dùng
             </p>
             <h2 className="text-[2.6rem] font-extrabold leading-[1.15] tracking-tight mb-4 auth-fade-in-delay-1">
-              The platform built<br />
-              <span className="gradient-text">for your project.</span>
+              Nền tảng được tạo ra<br />
+              <span className="gradient-text">cho đồ án của bạn.</span>
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed max-w-xs auth-fade-in-delay-2">
-              Everything you need to manage topics, form teams, and collaborate — in one AI‑powered workspace.
+              Mọi thứ bạn cần để quản lý đề tài, lập nhóm và cộng tác - trong một không gian làm việc có AI hỗ trợ.
             </p>
           </div>
 
           {/* Feature highlights */}
           <div className="space-y-2.5 mb-8">
-            <FeatureCard icon="🤖" label="AI Mentor Bot" desc="Instant answers from your syllabus" delay={200} />
-            <FeatureCard icon="👥" label="Smart Group Matching" desc="Find teammates by skill & interest" delay={300} />
-            <FeatureCard icon="✅" label="Topic Management" desc="Submit, track and get approved fast" delay={400} />
+            <FeatureCard icon="🤖" label="Trợ lý AI" desc="Trả lời nhanh từ syllabus" delay={200} />
+            <FeatureCard icon="👥" label="Ghép nhóm thông minh" desc="Tìm đồng đội theo kỹ năng & sở thích" delay={300} />
+            <FeatureCard icon="✅" label="Quản lý đề tài" desc="Nộp, theo dõi và duyệt nhanh" delay={400} />
           </div>
 
           {/* Divider */}
@@ -191,9 +191,9 @@ export function LoginPage({ onNavigate, onLogin }) {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mb-7">
-            <StatTile val="2,400+" label="Students" />
-            <StatTile val="480+" label="Groups" />
-            <StatTile val="8k" label="AI / day" />
+            <StatTile val="2,400+" label="Sinh viên" />
+            <StatTile val="480+" label="Nhóm" />
+            <StatTile val="8k" label="Lượt AI/ngày" />
           </div>
 
           {/* Testimonial */}
@@ -210,7 +210,7 @@ export function LoginPage({ onNavigate, onLogin }) {
               ))}
             </div>
             <p className="text-[13px] text-gray-400 leading-relaxed mb-4">
-              &ldquo;SWP Hub completely transformed how our team collaborated. The AI assistant saved us countless hours during sprint weeks!&rdquo;
+              &ldquo;SWP Hub đã thay đổi hoàn toàn cách nhóm của mình cộng tác. Trợ lý AI giúp tiết kiệm rất nhiều thời gian trong các tuần chạy sprint!&rdquo;
             </p>
             <div className="flex items-center gap-3">
               <div className="relative flex-shrink-0">
@@ -240,7 +240,7 @@ export function LoginPage({ onNavigate, onLogin }) {
             onClick={() => onNavigate('landing', { replace: true })}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-200 mb-10 transition-colors duration-200 text-sm group">
             <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" />
-            Back to Home
+            Quay về trang chủ
           </button>
 
           {/* Role tab switcher — pill style */}
@@ -260,7 +260,7 @@ export function LoginPage({ onNavigate, onLogin }) {
                 className="relative flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-colors duration-200 z-10"
                 style={{ color: loginRole === 'student' ? '#F27125' : '#6b7280' }}>
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Student
+                Sinh viên
               </button>
               <button
                 type="button"
@@ -268,7 +268,7 @@ export function LoginPage({ onNavigate, onLogin }) {
                 className="relative flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-colors duration-200 z-10"
                 style={{ color: loginRole === 'lecturer' ? '#F27125' : '#6b7280' }}>
                 <Users className="w-3.5 h-3.5" />
-                Lecturer / Manager
+                Giảng viên / Quản lý
               </button>
             </div>
           </div>
@@ -276,12 +276,12 @@ export function LoginPage({ onNavigate, onLogin }) {
           {/* Heading */}
           <div className="mb-8 auth-fade-in-delay-1">
             <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">
-              {loginRole === 'lecturer' ? 'Lecturer Portal' : 'Student Portal'}
+              {loginRole === 'lecturer' ? 'Cổng Giảng viên' : 'Cổng Sinh viên'}
             </h1>
             <p className="text-gray-600 text-sm">
               {loginRole === 'lecturer'
-                ? 'Sign in with your lecturer or manager credentials'
-                : 'Sign in to continue to your workspace'}
+                ? 'Đăng nhập bằng tài khoản giảng viên hoặc quản lý'
+                : 'Đăng nhập để tiếp tục vào không gian làm việc'}
             </p>
           </div>
 
@@ -299,7 +299,7 @@ export function LoginPage({ onNavigate, onLogin }) {
 
             <AuthInput
               icon={Mail}
-              label="Email Address"
+              label="Địa chỉ email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -309,11 +309,11 @@ export function LoginPage({ onNavigate, onLogin }) {
 
             <AuthInput
               icon={Lock}
-              label="Password"
+              label="Mật khẩu"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Nhập mật khẩu"
               required
               rightEl={
                 <button
@@ -337,7 +337,7 @@ export function LoginPage({ onNavigate, onLogin }) {
                   }}>
                   {rememberMe && <CheckSquare className="w-3 h-3 text-white" />}
                 </div>
-                <span className="text-sm text-gray-600 select-none">Remember me</span>
+                <span className="text-sm text-gray-600 select-none">Ghi nhớ đăng nhập</span>
               </label>
               <button
                 type="button"
@@ -346,7 +346,7 @@ export function LoginPage({ onNavigate, onLogin }) {
                 style={{ color: '#F27125' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#f59e0b'}
                 onMouseLeave={e => e.currentTarget.style.color = '#F27125'}>
-                Forgot Password?
+                Quên mật khẩu?
               </button>
             </div>
 
@@ -365,12 +365,12 @@ export function LoginPage({ onNavigate, onLogin }) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Signing In...
+                  Đang đăng nhập...
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  Sign In
+                  Đăng nhập
                 </span>
               )}
             </button>
@@ -381,7 +381,7 @@ export function LoginPage({ onNavigate, onLogin }) {
                 <div className="w-full" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-4 text-gray-700" style={{ background: BG_RIGHT }}>Or continue with</span>
+                <span className="px-4 text-gray-700" style={{ background: BG_RIGHT }}>Hoặc tiếp tục với</span>
               </div>
             </div>
 
@@ -407,20 +407,20 @@ export function LoginPage({ onNavigate, onLogin }) {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
-              Sign in with FPT Google
+              Đăng nhập bằng Google FPT
             </button>
           </form>
 
           {/* Sign up link */}
           <p className="mt-8 text-center text-sm text-gray-700">
-            Don&apos;t have an account?{' '}
+            Chưa có tài khoản?{' '}
             <button
               onClick={() => onNavigate('register')}
               className="font-semibold transition-colors duration-200"
               style={{ color: '#F27125' }}
               onMouseEnter={e => e.currentTarget.style.color = '#f59e0b'}
               onMouseLeave={e => e.currentTarget.style.color = '#F27125'}>
-              Sign up now
+              Đăng ký ngay
             </button>
           </p>
 

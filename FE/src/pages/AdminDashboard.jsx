@@ -74,7 +74,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
             </div>
             <div>
               <div className="font-bold text-lg">SWP Hub</div>
-              <div className="text-xs text-gray-400">Manager Portal</div>
+              <div className="text-xs text-gray-400">Cổng Quản lý</div>
             </div>
           </div>
         </div>
@@ -90,7 +90,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <LayoutDashboard className="w-5 h-5" />
-              Dashboard
+              Bảng điều khiển
             </button>
             <button
               onClick={() => setActiveView('users')}
@@ -100,7 +100,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <Users className="w-5 h-5" />
-              User Management
+              Quản lý người dùng
             </button>
             <button
               onClick={() => setActiveView('topics')}
@@ -110,7 +110,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <FileCheck className="w-5 h-5" />
-              Topic Approvals
+              Duyệt đề tài
             </button>
             <button
               onClick={() => setActiveView('semesters')}
@@ -120,7 +120,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <Calendar className="w-5 h-5" />
-              Semesters
+              Học kỳ
             </button>
             <button
               onClick={() => setActiveView('classes')}
@@ -130,7 +130,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <School className="w-5 h-5" />
-              Classes
+              Lớp học
             </button>
             <button
               onClick={() => setActiveView('groups')}
@@ -140,7 +140,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <UsersRound className="w-5 h-5" />
-              Groups
+              Nhóm
             </button>
             <button
               onClick={() => setActiveView('submissions')}
@@ -150,7 +150,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <ClipboardCheck className="w-5 h-5" />
-              Submissions
+              Bài nộp
             </button>
             <button
               onClick={() => setActiveView('qa')}
@@ -160,7 +160,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <MessageSquare className="w-5 h-5" />
-              Q&A Oversight
+              Giám sát Hỏi đáp
             </button>
             <button
               onClick={() => setActiveView('tasks')}
@@ -170,7 +170,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <ListTodo className="w-5 h-5" />
-              Task Overview
+              <span className="whitespace-nowrap">Tổng quan task</span>
             </button>
             <button
               onClick={() => setActiveView('settings')}
@@ -180,7 +180,7 @@ export function AdminDashboard({ onLogout, onNavigate }) {
                 }`}
             >
               <Settings className="w-5 h-5" />
-              Settings
+              Cài đặt
             </button>
           </div>
         </nav>
@@ -192,14 +192,14 @@ export function AdminDashboard({ onLogout, onNavigate }) {
             className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-white/10 rounded-lg font-medium transition"
           >
             <UserCircle className="w-5 h-5" />
-            <span>My Profile</span>
+            <span>Hồ sơ của tôi</span>
           </button>
           <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg font-medium transition"
           >
             <LogOut className="w-5 h-5" />
-            <span>Log out</span>
+            <span>Đăng xuất</span>
           </button>
         </div>
       </div>
@@ -211,28 +211,28 @@ export function AdminDashboard({ onLogout, onNavigate }) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                {activeView === 'dashboard' && 'Dashboard Overview'}
-                {activeView === 'users' && 'User Management'}
-                {activeView === 'topics' && 'Topic Approvals'}
-                {activeView === 'semesters' && 'Semester Management'}
-                {activeView === 'classes' && 'Class Management'}
-                {activeView === 'groups' && 'Group Oversight'}
-                {activeView === 'submissions' && 'Submission Review'}
-                {activeView === 'qa' && 'Q&A Oversight'}
-                {activeView === 'tasks' && 'Task Overview'}
-                {activeView === 'settings' && 'Settings'}
+                {activeView === 'dashboard' && 'Tổng quan bảng điều khiển'}
+                {activeView === 'users' && 'Quản lý người dùng'}
+                {activeView === 'topics' && 'Duyệt đề tài'}
+                {activeView === 'semesters' && 'Quản lý học kỳ'}
+                {activeView === 'classes' && 'Quản lý lớp học'}
+                {activeView === 'groups' && 'Giám sát nhóm'}
+                {activeView === 'submissions' && 'Duyệt bài nộp'}
+                {activeView === 'qa' && 'Giám sát Hỏi đáp'}
+                {activeView === 'tasks' && 'Tổng quan công việc'}
+                {activeView === 'settings' && 'Cài đặt'}
               </h1>
               <p className="text-gray-600 mt-1">
-                {activeView === 'dashboard' && 'Welcome back, Manager. Here\'s what\'s happening today.'}
-                {activeView === 'users' && 'Manage students and lecturers'}
-                {activeView === 'topics' && 'Review and approve project topics'}
-                {activeView === 'semesters' && 'Create and manage academic semesters'}
-                {activeView === 'classes' && 'Manage classes and student enrollment'}
-                {activeView === 'groups' && 'Monitor groups, members, and assigned topics'}
-                {activeView === 'submissions' && 'Review and grade submissions across all classes'}
-                {activeView === 'qa' && 'Handle escalated questions and resolve platform-wide Q&A'}
-                {activeView === 'tasks' && 'Track lecturer-created task progress per group'}
-                {activeView === 'settings' && 'Configure system settings'}
+                {activeView === 'dashboard' && 'Chào mừng quay lại, Quản lý. Đây là tình hình hôm nay.'}
+                {activeView === 'users' && 'Quản lý tài khoản sinh viên và giảng viên'}
+                {activeView === 'topics' && 'Xem xét và duyệt đề tài đồ án'}
+                {activeView === 'semesters' && 'Tạo và quản lý học kỳ'}
+                {activeView === 'classes' && 'Quản lý lớp học và danh sách sinh viên'}
+                {activeView === 'groups' && 'Theo dõi nhóm, thành viên và đề tài đã phân công'}
+                {activeView === 'submissions' && 'Xem và chấm bài nộp của các lớp'}
+                {activeView === 'qa' && 'Xử lý câu hỏi chuyển cấp và điều phối Hỏi đáp toàn hệ thống'}
+                {activeView === 'tasks' && 'Theo dõi tiến độ công việc theo từng nhóm'}
+                {activeView === 'settings' && 'Cấu hình hệ thống'}
               </p>
             </div>
             <div className="flex items-center gap-3">

@@ -50,38 +50,38 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
     {
       id: 'dashboard',
       icon: LayoutDashboard,
-      label: 'Dashboard',
+      label: 'Bảng điều khiển',
       description: 'Thống kê'
     },
     {
       id: 'classes',
       icon: Users,
       label: 'Lớp & Nhóm',
-      description: 'Classes'
+      description: 'Lớp học'
     },
     {
       id: 'students',
       icon: Activity,
       label: 'Sinh viên Online',
-      description: 'Students'
+      description: 'Sinh viên'
     },
     {
       id: 'topics',
       icon: FileText,
       label: 'Quản lý Đề tài',
-      description: 'Topics'
+      description: 'Đề tài'
     },
     {
       id: 'qa',
       icon: MessageSquare,
       label: 'Quản lý Hỏi đáp',
-      description: 'Q&A Tickets'
+      description: 'Phiếu hỏi đáp'
     },
     {
       id: 'submissions',
       icon: Users,
-      label: 'Submission & Chấm điểm',
-      description: 'Submissions'
+      label: 'Bài nộp & Chấm điểm',
+      description: 'Bài nộp'
     }
   ];
 
@@ -95,7 +95,7 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
           </div>
           <div>
             <div className="font-bold text-lg">SWP Hub</div>
-            <div className="text-xs text-gray-400">Lecturer Portal</div>
+            <div className="text-xs text-gray-400">Cổng Giảng viên</div>
           </div>
         </div>
       </div>
@@ -190,7 +190,7 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition mb-2"
           >
             <UserCircle className="w-4 h-4" />
-            My Profile
+            Hồ sơ của tôi
           </button>
         )}
         <button

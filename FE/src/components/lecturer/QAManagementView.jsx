@@ -60,7 +60,7 @@ export function QAManagementView({ initialStatusFilter = 'ALL' }) {
       loadQuestions();
     } catch (error) {
       console.error('Failed to submit answer:', error);
-      alert('Lỗi khi gửi câu trả lời: ' + (error.message || 'Unknown error'));
+      alert('Lỗi khi gửi câu trả lời: ' + (error.message || 'Lỗi không xác định'));
     } finally {
       setSubmitting(false);
     }
@@ -72,7 +72,7 @@ export function QAManagementView({ initialStatusFilter = 'ALL' }) {
       await questionService.escalateQuestion(questionId);
       loadQuestions();
     } catch (error) {
-      alert('Lỗi khi chuyển cấp câu hỏi: ' + (error.message || 'Unknown error'));
+      alert('Lỗi khi chuyển cấp câu hỏi: ' + (error.message || 'Lỗi không xác định'));
     } finally {
       setEscalatingId(null);
     }
@@ -92,7 +92,7 @@ export function QAManagementView({ initialStatusFilter = 'ALL' }) {
       setAnswer(aiText);
       setSelectedQuestion(selected || null);
     } catch (error) {
-      alert('Không thể tạo bản nháp AI: ' + (error?.message || 'Unknown error'));
+      alert('Không thể tạo bản nháp AI: ' + (error?.message || 'Lỗi không xác định'));
     } finally {
       setAiLoadingId(null);
     }

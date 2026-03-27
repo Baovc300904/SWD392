@@ -106,7 +106,7 @@ function Countdown({ seconds, onExpire }) {
 
 /* ── Step indicator ── */
 function StepIndicator({ current }) {
-  const steps = ['Email', 'Verify', 'Done'];
+  const steps = ['Email', 'Xác thực', 'Hoàn tất'];
   return (
     <div className="flex items-center gap-0 mb-8">
       {steps.map((label, i) => {
@@ -181,19 +181,19 @@ export function ForgotPasswordPage({ onNavigate }) {
   const handleRequestReset = async (e) => {
     e.preventDefault(); setError(''); setLoading(true);
     try { await authService.forgotPassword(email); setStep(2); setOtpExpired(false); }
-    catch (err) { setError(err.message || 'Failed to send reset code.'); }
+    catch (err) { setError(err.message || 'Không thể gửi mã đặt lại.'); }
     finally { setLoading(false); }
   };
 
   const handleResetPassword = async (e) => {
     e.preventDefault(); setError('');
     const cleanOtp = otp.replace(/ /g, '');
-    if (cleanOtp.length < 6) return setError('Please enter all 6 digits');
-    if (newPassword !== confirmPassword) return setError('Passwords do not match!');
-    if (newPassword.length < 6) return setError('Password must be at least 6 characters');
+    if (cleanOtp.length < 6) return setError('Vui lòng nhập đủ 6 chữ số');
+    if (newPassword !== confirmPassword) return setError('Mật khẩu xác nhận không khớp!');
+    if (newPassword.length < 6) return setError('Mật khẩu phải có ít nhất 6 ký tự');
     setLoading(true);
     try { await authService.resetPassword({ email, otp: cleanOtp, newPassword }); setStep(3); setTimeout(() => onNavigate('login', { replace: true }), 3000); }
-    catch (err) { setError(err.message || 'Failed to reset password.'); }
+    catch (err) { setError(err.message || 'Không thể đặt lại mật khẩu.'); }
     finally { setLoading(false); }
   };
 
@@ -204,7 +204,7 @@ export function ForgotPasswordPage({ onNavigate }) {
       await authService.forgotPassword(email);
       setOtpExpired(false); setOtp(''); setResendCooldown(60);
       const cd = setInterval(() => setResendCooldown(c => { if (c <= 1) { clearInterval(cd); return 0; } return c - 1; }), 1000);
-    } catch (err) { setError(err.message || 'Failed to resend code'); }
+    } catch (err) { setError(err.message || 'Không thể gửi lại mã'); }
     finally { setLoading(false); }
   };
 
@@ -243,22 +243,22 @@ export function ForgotPasswordPage({ onNavigate }) {
               <Lock className="w-8 h-8" style={{ color: '#F27125' }} />
             </div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4 auth-fade-in-delay-1"
-              style={{ color: '#F27125' }}>Account Recovery</p>
+              style={{ color: '#F27125' }}>Khôi phục tài khoản</p>
             <h2 className="text-[2.6rem] font-extrabold leading-[1.15] tracking-tight mb-4 auth-fade-in-delay-1">
-              Forgot your<br />
-              <span className="gradient-text">password?</span>
+              Quên<br />
+              <span className="gradient-text">mật khẩu?</span>
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed max-w-xs auth-fade-in-delay-2">
-              No worries. Enter your email and we'll send a secure one-time code to reset your password.
+              Đừng lo. Nhập email để nhận mã một lần an toàn dùng đặt lại mật khẩu.
             </p>
           </div>
 
           {/* Security tips */}
           <div className="space-y-2.5 mb-8">
             {[
-              { icon: '🔐', text: 'Use a unique password for each service' },
-              { icon: '📧', text: 'Check your spam folder if code is missing' },
-              { icon: '⏱️', text: 'OTP codes expire after 10 minutes' },
+              { icon: '🔐', text: 'Sử dụng mật khẩu riêng cho từng dịch vụ' },
+              { icon: '📧', text: 'Kiểm tra thư rác nếu chưa thấy mã' },
+              { icon: '⏱️', text: 'Mã OTP hết hạn sau 10 phút' },
             ].map((t, i) => (
               <div key={i} className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl auth-fade-in"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', animationDelay: `${200 + i * 100}ms` }}>
@@ -272,7 +272,7 @@ export function ForgotPasswordPage({ onNavigate }) {
           <div className="p-4 rounded-2xl"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="text-xs text-gray-600">
-              Need help?{' '}
+              Cần hỗ trợ?{' '}
               <a href="mailto:support@swphub.fpt.edu.vn"
                 className="transition-colors duration-200"
                 style={{ color: '#F27125' }}
@@ -294,7 +294,7 @@ export function ForgotPasswordPage({ onNavigate }) {
             onClick={() => step === 2 ? setStep(1) : onNavigate('login')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-200 mb-8 transition-colors duration-200 text-sm group">
             <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" />
-            {step === 2 ? 'Back to email' : 'Back to Sign In'}
+            {step === 2 ? 'Quay lại email' : 'Quay lại Đăng nhập'}
           </button>
 
           <StepIndicator current={step} />
@@ -303,8 +303,8 @@ export function ForgotPasswordPage({ onNavigate }) {
           {step === 1 && (
             <div className="auth-fade-in">
               <div className="mb-7">
-                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Reset Password</h1>
-                <p className="text-gray-600 text-sm">Enter your email and we'll send a verification code.</p>
+                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Đặt lại mật khẩu</h1>
+                <p className="text-gray-600 text-sm">Nhập email để chúng tôi gửi mã xác thực.</p>
               </div>
 
               {error && (
@@ -315,20 +315,20 @@ export function ForgotPasswordPage({ onNavigate }) {
               )}
 
               <form onSubmit={handleRequestReset} className="space-y-5">
-                <AuthInput icon={Mail} label="Email Address" type="email"
+                <AuthInput icon={Mail} label="Địa chỉ email" type="email"
                   value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="your.email@gmail.com" required />
-                <OrangeBtn loading={loading} label="Send Reset Code →" loadingLabel="Sending..." />
+                <OrangeBtn loading={loading} label="Gửi mã đặt lại →" loadingLabel="Đang gửi..." />
               </form>
 
               <p className="text-center text-sm text-gray-700 mt-6">
-                Remember your password?{' '}
+                Đã nhớ mật khẩu?{' '}
                 <button onClick={() => onNavigate('login')}
                   className="font-semibold transition-colors duration-200"
                   style={{ color: '#F27125' }}
                   onMouseEnter={e => e.currentTarget.style.color = '#f59e0b'}
                   onMouseLeave={e => e.currentTarget.style.color = '#F27125'}>
-                  Sign In
+                  Đăng nhập
                 </button>
               </p>
             </div>
@@ -341,11 +341,11 @@ export function ForgotPasswordPage({ onNavigate }) {
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4"
                   style={{ color: '#F27125', background: 'rgba(242,113,37,0.1)', border: '1px solid rgba(242,113,37,0.2)' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#F27125] animate-pulse" />
-                  Verification
+                  Xác thực
                 </span>
-                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Enter your code</h1>
+                <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight">Nhập mã xác thực</h1>
                 <p className="text-gray-600 text-sm">
-                  Code sent to <span className="text-white font-semibold">{email}</span>
+                  Mã đã gửi tới <span className="text-white font-semibold">{email}</span>
                 </p>
               </div>
 
@@ -353,7 +353,7 @@ export function ForgotPasswordPage({ onNavigate }) {
                 <div className="mb-5 px-4 py-3 rounded-xl text-xs flex items-center gap-2.5"
                   style={{ background: 'rgba(242,113,37,0.07)', border: '1px solid rgba(242,113,37,0.15)', color: '#9ca3af' }}>
                   <span className="text-base">💡</span>
-                  <span><strong className="text-[#F27125]">Dev mode:</strong> Check backend console for the OTP</span>
+                  <span><strong className="text-[#F27125]">Chế độ dev:</strong> Kiểm tra console backend để lấy OTP</span>
                 </div>
               )}
 
@@ -370,12 +370,12 @@ export function ForgotPasswordPage({ onNavigate }) {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <label className="text-[11px] font-semibold uppercase tracking-widest text-gray-600">
-                      6-Digit Code
+                      Mã 6 chữ số
                     </label>
                     <span className="text-xs">
                       {otpExpired
-                        ? <span className="text-red-400 font-medium">Expired</span>
-                        : <><span className="text-gray-700">Expires in </span><Countdown seconds={600} onExpire={() => setOtpExpired(true)} /></>}
+                        ? <span className="text-red-400 font-medium">Đã hết hạn</span>
+                        : <><span className="text-gray-700">Hết hạn sau </span><Countdown seconds={600} onExpire={() => setOtpExpired(true)} /></>}
                     </span>
                   </div>
 
@@ -390,19 +390,19 @@ export function ForgotPasswordPage({ onNavigate }) {
                   </div>
 
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-700">{otp.replace(/ /g, '').length}/6 digits</p>
+                    <p className="text-xs text-gray-700">{otp.replace(/ /g, '').length}/6 chữ số</p>
                     <button type="button" onClick={handleResend} disabled={resendCooldown > 0 || loading}
                       className="text-xs font-semibold transition-colors disabled:opacity-40"
                       style={{ color: resendCooldown > 0 ? '#6b7280' : '#F27125' }}>
-                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : '↺ Resend code'}
+                      {resendCooldown > 0 ? `Gửi lại sau ${resendCooldown}s` : '↺ Gửi lại mã'}
                     </button>
                   </div>
                 </div>
 
-                <AuthInput icon={Lock} label="New Password"
+                <AuthInput icon={Lock} label="Mật khẩu mới"
                   type={showPw ? 'text' : 'password'}
                   value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Create new password (min. 6 chars)" required
+                  placeholder="Tạo mật khẩu mới (tối thiểu 6 ký tự)" required
                   rightEl={
                     <button type="button" onClick={() => setShowPw(p => !p)}
                       className="text-gray-600 hover:text-gray-300 transition-colors">
@@ -410,10 +410,10 @@ export function ForgotPasswordPage({ onNavigate }) {
                     </button>
                   } />
 
-                <AuthInput icon={Lock} label="Confirm Password"
+                <AuthInput icon={Lock} label="Xác nhận mật khẩu"
                   type={showCpw ? 'text' : 'password'}
                   value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password" required
+                  placeholder="Nhập lại mật khẩu mới" required
                   rightEl={
                     <button type="button" onClick={() => setShowCpw(p => !p)}
                       className="text-gray-600 hover:text-gray-300 transition-colors">
@@ -422,8 +422,8 @@ export function ForgotPasswordPage({ onNavigate }) {
                   } />
 
                 <OrangeBtn loading={loading}
-                  label={`Reset Password ${otp.replace(/ /g, '').length === 6 ? '→' : ''}`}
-                  loadingLabel="Resetting..." />
+                  label={`Đặt lại mật khẩu ${otp.replace(/ /g, '').length === 6 ? '→' : ''}`}
+                  loadingLabel="Đang đặt lại..." />
               </form>
             </div>
           )}
@@ -438,8 +438,8 @@ export function ForgotPasswordPage({ onNavigate }) {
                   <CheckCircle className="w-12 h-12" style={{ color: '#4ade80' }} />
                 </div>
               </div>
-              <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Password Reset!</h1>
-              <p className="text-gray-600 text-sm mb-6">Your password has been updated. Redirecting to login...</p>
+              <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Đặt lại mật khẩu thành công!</h1>
+              <p className="text-gray-600 text-sm mb-6">Mật khẩu đã được cập nhật. Đang chuyển đến trang đăng nhập...</p>
               <div className="w-full h-1 rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.07)' }}>
                 <div className="h-full rounded-full"
                   style={{ background: 'linear-gradient(90deg,#F27125,#f59e0b)', animation: 'progress 3s linear forwards' }} />
@@ -450,7 +450,7 @@ export function ForgotPasswordPage({ onNavigate }) {
                 style={{ color: '#F27125' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#f59e0b'}
                 onMouseLeave={e => e.currentTarget.style.color = '#F27125'}>
-                Sign In Now →
+                Đăng nhập ngay →
               </button>
             </div>
           )}

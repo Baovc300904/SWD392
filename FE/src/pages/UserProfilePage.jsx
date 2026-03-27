@@ -26,6 +26,13 @@ const toArray = (payload) => {
     return [];
 };
 
+const normalizeId = (value) => {
+    const n = Number(value);
+    return Number.isNaN(n) ? String(value || '') : n;
+};
+
+const sameUser = (a, b) => normalizeId(a) === normalizeId(b);
+
 /* ── Stat card ── */
 function StatCard({ icon: Icon, label, value, color = ORANGE }) {
     return (
@@ -76,7 +83,7 @@ function AvatarSection({ user, onChangeAvatar, changingAvatar }) {
                 disabled={changingAvatar}
                 onClick={onChangeAvatar}
                 className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#F27125] text-white flex items-center justify-center shadow-md hover:bg-[#d96420] disabled:opacity-60"
-                title="Change avatar"
+                title="Đổi ảnh đại diện"
             >
                 {changingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
             </button>
@@ -136,10 +143,10 @@ export function UserProfilePage({ onNavigate, onLogout }) {
             // Lưu vào đúng storage (remember me hay không)
             updateStoredUser(updated);
             setEditing(false);
-            toast.success('Profile updated successfully!');
+            toast.success('Cập nhật hồ sơ thành công!');
         } catch (err) {
             console.error(err);
-            toast.error(err?.message || 'Failed to update profile. Please try again.');
+            toast.error(err?.message || 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');
         } finally {
             setSavingProfile(false);
         }
@@ -149,25 +156,25 @@ export function UserProfilePage({ onNavigate, onLogout }) {
     const handleChangePassword = async (e) => {
         e.preventDefault();
         if (pwData.newPw.length < 8) {
-            toast.error('New password must be at least 8 characters.');
+            toast.error('Mật khẩu mới phải có ít nhất 8 ký tự.');
             return;
         }
         if (pwData.newPw !== pwData.confirm) {
-            toast.error('New passwords do not match.');
+            toast.error('Mật khẩu mới không khớp.');
             return;
         }
         if (!pwData.current) {
-            toast.error('Please enter your current password.');
+            toast.error('Vui lòng nhập mật khẩu hiện tại.');
             return;
         }
         setPwLoading(true);
         try {
             await authService.changePassword(pwData.current, pwData.newPw, pwData.confirm);
-            toast.success('Password changed successfully!');
+            toast.success('Đổi mật khẩu thành công!');
             setPwData({ current: '', newPw: '', confirm: '' });
             setShowPwSection(false);
         } catch (err) {
-            toast.error(err?.message || 'Failed to change password. Please check your current password.');
+            toast.error(err?.message || 'Không thể đổi mật khẩu. Vui lòng kiểm tra mật khẩu hiện tại.');
         } finally {
             setPwLoading(false);
         }
@@ -176,7 +183,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
     const handleSettingChange = (key, value) => {
         const next = userSettingsService.updateSettings({ [key]: value });
         setUserSettings(next);
-        toast.success('Settings updated');
+        toast.success('Đã cập nhật cài đặt');
     };
 
     const updateStoredUser = (partial) => {
@@ -247,8 +254,58 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                     setProfileStats([
                         { icon: Users, label: 'Tổng người dùng', value: users.length },
                         { icon: BookOpen, label: 'Topic đã duyệt', value: topics.filter((item) => String(item.status || '').toUpperCase() === 'APPROVED').length },
-                        { icon: AlertCircle, label: 'Q&A escalated', value: questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length },
-                        { icon: Award, label: 'Submission đã chấm', value: submissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED').length },
+                        { icon: AlertCircle, label: 'Q&A chuyển cấp', value: questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length },
+                        { icon: Award, label: 'Bài nộp đã chấm', value: submissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED').length },
+                    ]);
+                } else if (role === 'student') {
+                    const studentId = me?.userId || me?.id || currentUser?.userId || currentUser?.id;
+                    const [groupsRes, submissionsRes, topicsRes] = await Promise.all([
+                        groupService.getAllGroups(),
+                        submissionService.getAllSubmissions({ limit: 100 }),
+                        topicService.getAllTopics(),
+                    ]);
+
+                    const groups = toArray(groupsRes);
+                    const submissions = toArray(submissionsRes);
+                    const topics = toArray(topicsRes);
+
+                    const myGroups = groups.filter((group) =>
+                        Array.isArray(group.members) && group.members.some((member) => {
+                            const memberId = member.id || member.userId || member.studentId || member.GroupMember?.studentId;
+                            return sameUser(memberId, studentId);
+                        })
+                    );
+
+                    const classCount = new Set(
+                        myGroups
+                            .map((group) => group.classId || group.class?.id)
+                            .filter((value) => value != null)
+                            .map((value) => normalizeId(value))
+                    ).size;
+
+                    const teamSize = myGroups[0]?.members?.length || 0;
+
+                    const mySubmissions = submissions.filter((item) => {
+                        const submitterId = item.submitter?.id || item.submitter?.userId || item.submitterId;
+                        return sameUser(submitterId, studentId);
+                    });
+
+                    const gradedSubmissions = mySubmissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED' && !Number.isNaN(Number(item.grade)));
+                    const averageGrade = gradedSubmissions.length > 0
+                        ? (gradedSubmissions.reduce((sum, item) => sum + Number(item.grade), 0) / gradedSubmissions.length).toFixed(1)
+                        : '--';
+
+                    const completedTopics = topics.filter((item) => {
+                        const proposerId = item.proposer?.id || item.proposer?.userId || item.proposedBy || item.createdBy;
+                        const status = String(item.status || '').toUpperCase();
+                        return sameUser(proposerId, studentId) && (status === 'APPROVED' || status === 'ACTIVE');
+                    }).length;
+
+                    setProfileStats([
+                        { icon: BookOpen, label: 'Môn đã đăng ký', value: classCount },
+                        { icon: Users, label: 'Thành viên nhóm', value: teamSize },
+                        { icon: Star, label: 'Điểm bài tập', value: averageGrade },
+                        { icon: Award, label: 'Đồ án hoàn thành', value: completedTopics },
                     ]);
                 } else {
                     setProfileStats(cfg.stats);
@@ -266,7 +323,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
 
     const handlePickAvatar = () => {
         if (!cloudinaryStorageService.isEnabled()) {
-            toast.error('Cloudinary storage is not configured');
+            toast.error('Cloudinary chưa được cấu hình');
             return;
         }
         avatarInputRef.current?.click();
@@ -281,10 +338,10 @@ export function UserProfilePage({ onNavigate, onLogout }) {
             const uploaded = await cloudinaryStorageService.uploadFile(file, 'avatars');
             await userService.updateUser(currentUser.userId, { avatarURL: uploaded.url });
             updateStoredUser({ avatarURL: uploaded.url, avatarUrl: uploaded.url, avatar_url: uploaded.url });
-            toast.success('Avatar updated successfully');
+            toast.success('Cập nhật ảnh đại diện thành công');
         } catch (err) {
             console.error(err);
-            toast.error(err?.message || 'Failed to update avatar');
+            toast.error(err?.message || 'Không thể cập nhật ảnh đại diện');
         } finally {
             setAvatarUploading(false);
             if (avatarInputRef.current) avatarInputRef.current.value = '';
@@ -295,24 +352,24 @@ export function UserProfilePage({ onNavigate, onLogout }) {
     const roleConfig = {
         student: {
             color: '#3b82f6',
-            label: 'Student',
+            label: 'Sinh viên',
             icon: GraduationCap,
             stats: [
-                { icon: BookOpen, label: 'Courses Enrolled', value: '12' },
-                { icon: Users, label: 'Group Members', value: '5' },
-                { icon: Star, label: 'Assignment Score', value: '8.5' },
-                { icon: Award, label: 'Projects Done', value: '3' },
+                { icon: BookOpen, label: 'Môn đã đăng ký', value: '12' },
+                { icon: Users, label: 'Thành viên nhóm', value: '5' },
+                { icon: Star, label: 'Điểm bài tập', value: '8.5' },
+                { icon: Award, label: 'Đồ án hoàn thành', value: '3' },
             ],
         },
         lecturer: {
             color: '#8b5cf6',
-            label: 'Lecturer',
+            label: 'Giảng viên',
             icon: Briefcase,
             stats: [
-                { icon: BookOpen, label: 'Courses Teaching', value: '4' },
-                { icon: Users, label: 'Total Students', value: '128' },
-                { icon: Star, label: 'Avg. Rating', value: '4.8' },
-                { icon: Award, label: 'Topics Approved', value: '24' },
+                { icon: BookOpen, label: 'Môn phụ trách', value: '4' },
+                { icon: Users, label: 'Tổng sinh viên', value: '128' },
+                { icon: Star, label: 'Đánh giá trung bình', value: '4.8' },
+                { icon: Award, label: 'Đề tài đã duyệt', value: '24' },
             ],
         },
         manager: {
@@ -320,10 +377,10 @@ export function UserProfilePage({ onNavigate, onLogout }) {
             label: 'Manager',
             icon: Shield,
             stats: [
-                { icon: Users, label: 'Total Users', value: '2,400+' },
-                { icon: BookOpen, label: 'Active Topics', value: '76' },
-                { icon: Star, label: 'Uptime', value: '99.9%' },
-                { icon: Award, label: 'Pending Reviews', value: '12' },
+                { icon: Users, label: 'Tổng người dùng', value: '2,400+' },
+                { icon: BookOpen, label: 'Đề tài hoạt động', value: '76' },
+                { icon: Star, label: 'Thời gian ổn định', value: '99.9%' },
+                { icon: Award, label: 'Lượt duyệt chờ xử lý', value: '12' },
             ],
         },
     };
@@ -339,12 +396,12 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                     onClick={() => onNavigate && onNavigate(role === 'manager' ? 'admin' : role === 'lecturer' ? 'lecturer' : 'group')}
                     className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition text-sm group">
                     <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                    Back to Dashboard
+                    Quay lại bảng điều khiển
                 </button>
                 <button
                     onClick={onLogout}
                     className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition">
-                    Log out
+                    Đăng xuất
                 </button>
             </div>
 
@@ -378,12 +435,12 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                 </div>
 
                                 <div className="mt-5 space-y-0.5">
-                                    <InfoRow icon={IdCard} label={role === 'lecturer' ? 'Lecturer Code' : 'Student Code'} value={profileUser?.studentCode} />
-                                    <InfoRow icon={Mail} label="Email" value={profileUser?.email} />
-                                    <InfoRow icon={Calendar} label="Member Since" value={
+                                        <InfoRow icon={IdCard} label={role === 'lecturer' ? 'Mã giảng viên' : 'Mã sinh viên'} value={profileUser?.studentCode} />
+                                        <InfoRow icon={Mail} label="Email" value={profileUser?.email} />
+                                        <InfoRow icon={Calendar} label="Tham gia từ" value={
                                         profileUser?.createdAt
-                                            ? new Date(profileUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-                                            : 'N/A'
+                                            ? new Date(profileUser.createdAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long' })
+                                            : 'Không có'
                                     } />
                                 </div>
                             </div>
@@ -393,11 +450,11 @@ export function UserProfilePage({ onNavigate, onLogout }) {
 
                         {/* Quick actions */}
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">Quick Actions</p>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">Thao tác nhanh</p>
                             <div className="space-y-1">
                                 {[
-                                    { label: 'Change Password', icon: Lock, action: () => setShowPwSection(s => !s) },
-                                    ...(role === 'manager' ? [{ label: 'User Management', icon: Users, action: () => onNavigate('admin') }] : []),
+                                    { label: 'Đổi mật khẩu', icon: Lock, action: () => setShowPwSection(s => !s) },
+                                    ...(role === 'manager' ? [{ label: 'Quản lý người dùng', icon: Users, action: () => onNavigate('admin') }] : []),
                                 ].map((item, i) => (
                                     <button key={i} onClick={item.action}
                                         className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 transition group">
@@ -426,14 +483,14 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50">
                                 <div>
-                                    <h3 className="font-bold text-gray-900">Profile Information</h3>
-                                    <p className="text-xs text-gray-500 mt-0.5">Update your personal details</p>
+                                    <h3 className="font-bold text-gray-900">Thông tin hồ sơ</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">Cập nhật thông tin cá nhân</p>
                                 </div>
                                 {!editing ? (
                                     <button onClick={() => setEditing(true)}
                                         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition"
                                         style={{ background: ORANGE }}>
-                                        <Edit3 className="w-3.5 h-3.5" />Edit
+                                        <Edit3 className="w-3.5 h-3.5" />Chỉnh sửa
                                     </button>
                                 ) : (
                                     <div className="flex items-center gap-2">
@@ -445,8 +502,8 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-50"
                                             style={{ background: ORANGE }}>
                                             {savingProfile
-                                                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</>
-                                                : <><Save className="w-3.5 h-3.5" />Save</>
+                                                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Đang lưu...</>
+                                                : <><Save className="w-3.5 h-3.5" />Lưu</>
                                             }
                                         </button>
                                     </div>
@@ -458,7 +515,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                     {/* Full Name */}
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                                            Full Name
+                                            Họ và tên
                                         </label>
                                         {editing ? (
                                             <input type="text" value={formData.fullName}
@@ -472,7 +529,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                     {/* Email */}
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                                            Email Address
+                                            Địa chỉ email
                                         </label>
                                         {editing ? (
                                             <input type="email" value={formData.email}
@@ -486,7 +543,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                     {/* Phone */}
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                                            Phone Number
+                                            Số điện thoại
                                         </label>
                                         {editing ? (
                                             <input type="tel" value={formData.phone} placeholder="+84 xxx xxx xxx"
@@ -500,10 +557,10 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                     {/* Address */}
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                                            Location
+                                            Địa điểm
                                         </label>
                                         {editing ? (
-                                            <input type="text" value={formData.address} placeholder="Ho Chi Minh City, Vietnam"
+                                            <input type="text" value={formData.address} placeholder="Thành phố Hồ Chí Minh, Việt Nam"
                                                 onChange={e => setFormData(f => ({ ...f, address: e.target.value }))}
                                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F27125] text-sm" />
                                         ) : (
@@ -514,14 +571,14 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                     {/* Bio */}
                                     <div className="sm:col-span-2">
                                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                                            Bio
+                                            Giới thiệu
                                         </label>
                                         {editing ? (
-                                            <textarea value={formData.bio} rows={3} placeholder="Tell us a bit about yourself..."
+                                            <textarea value={formData.bio} rows={3} placeholder="Giới thiệu ngắn về bạn..."
                                                 onChange={e => setFormData(f => ({ ...f, bio: e.target.value }))}
                                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F27125] text-sm resize-none" />
                                         ) : (
-                                            <p className="text-sm text-gray-600 py-2.5 leading-relaxed">{formData.bio || 'No bio added yet.'}</p>
+                                            <p className="text-sm text-gray-600 py-2.5 leading-relaxed">{formData.bio || 'Chưa có giới thiệu.'}</p>
                                         )}
                                     </div>
                                 </div>
@@ -533,8 +590,8 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                                 <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50">
                                     <div>
-                                        <h3 className="font-bold text-gray-900">Change Password</h3>
-                                        <p className="text-xs text-gray-500 mt-0.5">Use a strong, unique password</p>
+                                        <h3 className="font-bold text-gray-900">Đổi mật khẩu</h3>
+                                        <p className="text-xs text-gray-500 mt-0.5">Sử dụng mật khẩu mạnh và duy nhất</p>
                                     </div>
                                     <button onClick={() => setShowPwSection(false)}
                                         className="p-1.5 hover:bg-gray-100 rounded-lg transition text-gray-400">
@@ -543,9 +600,9 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                 </div>
                                 <form onSubmit={handleChangePassword} className="px-6 py-5 space-y-4">
                                     {[
-                                        { key: 'current', label: 'Current Password', placeholder: 'Your current password' },
-                                        { key: 'newPw', label: 'New Password', placeholder: 'Min. 8 characters' },
-                                        { key: 'confirm', label: 'Confirm New Password', placeholder: 'Re-enter new password' },
+                                        { key: 'current', label: 'Mật khẩu hiện tại', placeholder: 'Nhập mật khẩu hiện tại' },
+                                        { key: 'newPw', label: 'Mật khẩu mới', placeholder: 'Tối thiểu 8 ký tự' },
+                                        { key: 'confirm', label: 'Xác nhận mật khẩu mới', placeholder: 'Nhập lại mật khẩu mới' },
                                     ].map(({ key, label, placeholder }) => (
                                         <div key={key}>
                                             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{label}</label>
@@ -567,15 +624,15 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                     ))}
                                     {/* Password match hint */}
                                     {pwData.newPw && pwData.confirm && pwData.newPw !== pwData.confirm && (
-                                        <p className="text-xs text-red-500 -mt-2">Passwords do not match.</p>
+                                        <p className="text-xs text-red-500 -mt-2">Mật khẩu không khớp.</p>
                                     )}
                                     <div className="flex justify-end pt-2">
                                         <button type="submit" disabled={pwLoading}
                                             className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
                                             style={{ background: ORANGE }}>
                                             {pwLoading
-                                                ? <><Loader2 className="w-4 h-4 animate-spin" />Updating...</>
-                                                : <><CheckCircle className="w-4 h-4" />Update Password</>
+                                                ? <><Loader2 className="w-4 h-4 animate-spin" />Đang cập nhật...</>
+                                                : <><CheckCircle className="w-4 h-4" />Cập nhật mật khẩu</>
                                             }
                                         </button>
                                     </div>
@@ -583,18 +640,18 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                             </div>
                         )}
 
-                        {/* User Settings */}
+                        {/* Cài đặt người dùng */}
                         {role === 'manager' && (
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                             <div className="px-6 py-5 border-b border-gray-50">
-                                <h3 className="font-bold text-gray-900">User Settings</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">Configure AI assistant and upload behavior</p>
+                                <h3 className="font-bold text-gray-900">Cài đặt người dùng</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">Cấu hình trợ lý AI và hành vi tải tệp lên</p>
                             </div>
                             <div className="px-6 py-5 space-y-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-semibold text-gray-800">Enable Cloudinary Upload</p>
-                                        <p className="text-xs text-gray-500">Upload images/files directly to Cloudinary if configured</p>
+                                        <p className="text-sm font-semibold text-gray-800">Bật tải lên Cloudinary</p>
+                                        <p className="text-xs text-gray-500">Tải ảnh/tệp trực tiếp lên Cloudinary khi đã cấu hình</p>
                                     </div>
                                     <input
                                         type="checkbox"
@@ -605,8 +662,8 @@ export function UserProfilePage({ onNavigate, onLogout }) {
 
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-semibold text-gray-800">Enable AI Assistant</p>
-                                        <p className="text-xs text-gray-500">Use real AI API when key is available</p>
+                                        <p className="text-sm font-semibold text-gray-800">Bật trợ lý AI</p>
+                                        <p className="text-xs text-gray-500">Sử dụng API AI thật khi có khóa</p>
                                     </div>
                                     <input
                                         type="checkbox"
@@ -616,7 +673,7 @@ export function UserProfilePage({ onNavigate, onLogout }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">AI Model</label>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Mô hình AI</label>
                                     <select
                                         value={userSettings.aiModel}
                                         onChange={(e) => handleSettingChange('aiModel', e.target.value)}

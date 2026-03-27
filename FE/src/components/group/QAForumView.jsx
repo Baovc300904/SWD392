@@ -94,12 +94,8 @@ export function QAForumView({ groupId }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900"># 💬 qa-forum</h1>
-            <p className="text-sm text-gray-600 mt-0.5">Ask questions and share knowledge</p>
+            <p className="text-sm text-gray-600 mt-0.5">Đặt câu hỏi và chia sẻ kiến thức</p>
           </div>
-          <button className="flex items-center gap-2 bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-2 rounded-lg font-medium transition">
-            <Plus className="w-4 h-4" />
-            New Question
-          </button>
         </div>
 
         {/* Search */}
@@ -109,7 +105,7 @@ export function QAForumView({ groupId }) {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search questions..."
+            placeholder="Tìm câu hỏi..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0054a6] focus:border-transparent"
           />
         </div>

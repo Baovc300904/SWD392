@@ -210,12 +210,12 @@ export function UserManagementView({ initialStatusFilter = 'all' }) {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 text-[#F27125] animate-spin mb-4" />
-            <p className="text-gray-500">Loading users...</p>
+            <p className="text-gray-500">Đang tải người dùng...</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-12">
             <AlertTriangle className="w-10 h-10 text-red-400 mb-3" />
-            <div className="text-red-500 mb-2 font-semibold">Error Loading Data</div>
+            <div className="text-red-500 mb-2 font-semibold">Lỗi khi tải dữ liệu</div>
             <p className="text-gray-500">{error}</p>
             <button onClick={fetchUsers}
               className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition">

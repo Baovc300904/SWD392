@@ -331,7 +331,7 @@ export function GroupManagementView() {
                   ))}
                 </select>
                 {approvedTopics.length === 0 && (
-                  <p className="mt-1.5 text-xs text-amber-600">No approved topics available. Please approve a topic first.</p>
+                  <p className="mt-1.5 text-xs text-amber-600">Chưa có đề tài đã duyệt. Vui lòng duyệt đề tài trước.</p>
                 )}
               </div>
 
