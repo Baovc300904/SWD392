@@ -218,7 +218,7 @@ router.put('/:id/confirm', authenticate, authorize('lecturer', 'manager'), confi
  *       401:
  *         description: Unauthorized
  */
-router.route('/:id/members').get(authenticate, getGroupMembers).post(authenticate, authorize('student'), addGroupMember);
+router.route('/:id/members').get(authenticate, getGroupMembers).post(authenticate, authorize('student', 'lecturer', 'manager'), addGroupMember);
 
 /**
  * @swagger

@@ -14,7 +14,7 @@ services:
       - "${MYSQL_EXTERNAL_PORT:-3307}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database-schema.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./database/database-schema.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
       interval: 10s

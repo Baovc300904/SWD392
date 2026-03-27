@@ -268,7 +268,7 @@ export function LoginPage({ onNavigate, onLogin }) {
                 className="relative flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-colors duration-200 z-10"
                 style={{ color: loginRole === 'lecturer' ? '#F27125' : '#6b7280' }}>
                 <Users className="w-3.5 h-3.5" />
-                Lecturer / Admin
+                Lecturer / Manager
               </button>
             </div>
           </div>
@@ -280,7 +280,7 @@ export function LoginPage({ onNavigate, onLogin }) {
             </h1>
             <p className="text-gray-600 text-sm">
               {loginRole === 'lecturer'
-                ? 'Sign in with your lecturer or admin credentials'
+                ? 'Sign in with your lecturer or manager credentials'
                 : 'Sign in to continue to your workspace'}
             </p>
           </div>

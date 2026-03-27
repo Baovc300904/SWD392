@@ -270,7 +270,7 @@ npx sequelize-cli db:migrate
 ## Related Files
 
 - `../config/database.sequelize.js` - Database connection configuration
-- `../../database-schema.sql` - Raw MySQL DDL
+- `../../database/database-schema.sql` - Raw MySQL DDL
 - `../../DATABASE_DOCUMENTATION.md` - Complete usage guide
 
 ## Best Practices

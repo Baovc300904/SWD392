@@ -4,11 +4,29 @@
  */
 
 const { Op } = require('sequelize');
-const { Question, QuestionDraft, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models'); const MSG = require('../constants/messages');
+const { Question, QuestionDraft, User, StudentGroup, Answer, Class, GroupMember, Topic } = require('../models');
+const MSG = require('../constants/messages');
+const {
+    isPrivilegedRole,
+    buildStudentVisibilityScope,
+    canStudentViewQuestion
+} = require('../utils/qa-visibility');
 
 const getRequesterId = (req) => req.user?.userId || req.user?.id;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
 const questionService = require("../services/question.service");
+
+const withVisibilityMeta = (question) => {
+    const isPublic = Boolean(question?.isPublic);
+    return {
+        ...question,
+        visibility: {
+            value: isPublic ? 'PUBLIC' : 'PRIVATE',
+            label: isPublic ? 'Public' : 'Private',
+            badgeTone: isPublic ? 'success' : 'muted'
+        }
+    };
+};
 
 /**
  * @desc    Generate AI draft for question
@@ -54,6 +72,7 @@ exports.getAllQuestions = async (req, res) => {
         const { status, groupId, lecturerId } = req.query;
         const requesterId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
+        let studentScope = null;
 
         const where = {};
         const classWhere = {};
@@ -64,39 +83,27 @@ exports.getAllQuestions = async (req, res) => {
             classWhere.lecturerId = requesterId;
         }
 
-        if (requesterRole === 'student' && groupId) {
-            const membership = await GroupMember.findOne({
-                where: { groupId, studentId: requesterId }
-            });
-            if (!membership) {
-                return res.status(403).json({
-                    success: false,
-                    message: MSG.AUTHORIZATION.FORBIDDEN,
-                    detail: 'You can only view questions from your own groups'
-                });
-            }
-        }
-
-        if (requesterRole === 'student' && !groupId) {
+        if (requesterRole === 'student') {
             const memberships = await GroupMember.findAll({
                 where: { studentId: requesterId },
-                attributes: ['groupId']
+                attributes: ['groupId'],
+                include: [{
+                    model: StudentGroup,
+                    as: 'group',
+                    attributes: ['id', 'topicId']
+                }]
             });
-            const groupIds = memberships.map((item) => item.groupId);
-            where[Op.or] = [
-                { askedBy: requesterId },
-                { groupId: groupIds.length > 0 ? { [Op.in]: groupIds } : -1 }
-            ];
+            studentScope = buildStudentVisibilityScope(memberships);
         }
 
-        const questions = await Question.findAll({
+        let questions = await Question.findAll({
             where,
             include: [
                 { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
                 {
                     model: StudentGroup,
                     as: 'group',
-                    attributes: ['id', 'groupName', 'classId'],
+                    attributes: ['id', 'groupName', 'classId', 'topicId'],
                     required: Object.keys(classWhere).length > 0,
                     include: [{
                         model: Class,
@@ -115,11 +122,24 @@ exports.getAllQuestions = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        if (requesterRole === 'student') {
+            questions = questions.filter((question) => canStudentViewQuestion({
+                questionIsPublic: Boolean(question.isPublic),
+                askingGroupId: question.groupId,
+                askingTopicId: question.group?.topicId,
+                studentScope
+            }));
+        }
+
+        if (!isPrivilegedRole(requesterRole) && requesterRole !== 'student') {
+            questions = [];
+        }
+
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
             count: questions.length,
-            data: questions
+            data: questions.map((question) => withVisibilityMeta(question.toJSON()))
         });
     } catch (error) {
         res.status(500).json({
@@ -144,7 +164,7 @@ exports.getQuestionById = async (req, res) => {
         const question = await Question.findByPk(req.params.id, {
             include: [
                 { model: User, as: 'asker', attributes: ['id', 'fullName', 'email', 'avatarURL'] },
-                { model: StudentGroup, as: 'group', attributes: ['id', 'groupName'] },
+                { model: StudentGroup, as: 'group', attributes: ['id', 'groupName', 'topicId'] },
                 {
                     model: QuestionDraft,
                     as: 'drafts',
@@ -175,15 +195,29 @@ exports.getQuestionById = async (req, res) => {
         }
 
         if (requesterRole === 'student') {
-            const isOwner = Number(question.askedBy) === Number(requesterId);
-            const membership = await GroupMember.findOne({
-                where: { groupId: question.groupId, studentId: requesterId }
+            const memberships = await GroupMember.findAll({
+                where: { studentId: requesterId },
+                attributes: ['groupId'],
+                include: [{
+                    model: StudentGroup,
+                    as: 'group',
+                    attributes: ['id', 'topicId']
+                }]
             });
-            if (!isOwner && !membership) {
+
+            const studentScope = buildStudentVisibilityScope(memberships);
+            const allowed = canStudentViewQuestion({
+                questionIsPublic: Boolean(question.isPublic),
+                askingGroupId: question.groupId,
+                askingTopicId: question.group?.topicId,
+                studentScope
+            });
+
+            if (!allowed) {
                 return res.status(403).json({
                     success: false,
                     message: MSG.AUTHORIZATION.FORBIDDEN,
-                    detail: 'You can only view questions from your own groups'
+                    detail: 'You cannot view this question'
                 });
             }
         }
@@ -191,7 +225,7 @@ exports.getQuestionById = async (req, res) => {
         res.status(200).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            data: question
+            data: withVisibilityMeta(question.toJSON())
         });
     } catch (error) {
         res.status(500).json({
@@ -211,7 +245,7 @@ exports.getQuestionById = async (req, res) => {
  */
 exports.createQuestion = async (req, res) => {
     try {
-        const { title, content, groupId } = req.body;
+        const { title, content, groupId, isPublic = false } = req.body;
         const askedBy = getRequesterId(req);
 
         const membership = await GroupMember.findOne({
@@ -230,13 +264,14 @@ exports.createQuestion = async (req, res) => {
             content,
             groupId,
             askedBy,
+            isPublic: Boolean(isPublic),
             status: 'WAITING_LECTURER'
         });
 
         res.status(201).json({
             success: true,
             message: MSG.GENERAL.SUCCESS,
-            data: question
+            data: withVisibilityMeta(question.toJSON())
         });
     } catch (error) {
         console.error('[createQuestion] Error:', error.name, error.message, error.parent?.message);

@@ -22,9 +22,26 @@ const Topic = sequelize.define('Topic', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    syllabusUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'syllabus_url'
+    },
     status: {
         type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
         defaultValue: 'PENDING'
+    },
+    semesterId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'semesters',
+            key: 'id'
+        },
+        field: 'semester_id',
+        validate: {
+            notEmpty: { msg: 'Semester is required' }
+        }
     },
     proposedBy: {
         type: DataTypes.INTEGER,
@@ -55,7 +72,8 @@ const Topic = sequelize.define('Topic', {
     indexes: [
         { fields: ['status'] },
         { fields: ['proposed_by'] },
-        { fields: ['approved_by'] }
+        { fields: ['approved_by'] },
+        { fields: ['semester_id'] }
     ]
 });
 

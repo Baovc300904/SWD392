@@ -172,7 +172,7 @@ make test                  # Run tests
 - **Port**: 3306
 - **Image**: mysql:8.0
 - **Volume**: `mysql_data` (persistent)
-- **Auto-init**: Runs `database-schema.sql` on first start
+- **Auto-init**: Runs `database/database-schema.sql` on first start
 - **Health Check**: mysqladmin ping
 
 ### phpMyAdmin (Optional)

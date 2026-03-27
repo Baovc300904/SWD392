@@ -10,7 +10,8 @@ const {
     getClassById,
     createClass,
     updateClass,
-    deleteClass
+    deleteClass,
+    getClassStudentsActivity
 } = require('../controllers/class.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 
@@ -141,6 +142,8 @@ router.route('/').get(authenticate, getAllClasses).post(authenticate, authorize(
  *         description: Unauthorized
  */
 router.route('/:id').get(authenticate, getClassById).put(authenticate, authorize('manager'), updateClass).delete(authenticate, authorize('manager'), deleteClass);
+
+router.get('/:id/students-activity', authenticate, authorize('lecturer', 'manager'), getClassStudentsActivity);
 
 /**
  * @swagger

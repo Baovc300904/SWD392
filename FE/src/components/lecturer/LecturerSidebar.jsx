@@ -4,6 +4,7 @@ import {
   FileText,
   MessageSquare,
   Users,
+  Activity,
   ChevronDown,
   UserCircle,
   LogOut
@@ -57,6 +58,12 @@ export function LecturerSidebar({ activeView, onViewChange, onLogout, currentUse
       icon: Users,
       label: 'Lớp & Nhóm',
       description: 'Classes'
+    },
+    {
+      id: 'students',
+      icon: Activity,
+      label: 'Sinh viên Online',
+      description: 'Students'
     },
     {
       id: 'topics',
