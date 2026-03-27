@@ -4,6 +4,14 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 
+const getCloudinaryFolder = () => String(process.env.CLOUDINARY_FOLDER || 'topics/syllabus').trim();
+
+const getCloudinaryConfig = () => ({
+    cloudName: String(process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim(),
+    apiKey: String(process.env.CLOUDINARY_API_KEY || process.env.VITE_CLOUDINARY_API_KEY || '').trim(),
+    apiSecret: String(process.env.CLOUDINARY_API_SECRET || process.env.VITE_CLOUDINARY_API_SECRET || '').trim()
+});
+
 const sanitizeFileName = (name) => String(name || 'syllabus-file')
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .replace(/_+/g, '_');
@@ -52,9 +60,8 @@ const saveBufferLocally = async (fileBuffer, options = {}) => {
     const fullPath = path.join(uploadDir, fileName);
     await fsp.writeFile(fullPath, fileBuffer);
 
-    const serverPort = process.env.APP_RUNTIME_PORT || process.env.PORT || '3000';
-    const baseUrl = process.env.APP_BASE_URL || `http://localhost:${serverPort}`;
-    const publicUrl = `${baseUrl}/uploads/syllabus/${encodeURIComponent(fileName)}`;
+    // Use relative path instead of hardcoded localhost for better portability
+    const publicUrl = `/uploads/syllabus/${encodeURIComponent(fileName)}`;
 
     return {
         url: publicUrl,
@@ -66,11 +73,10 @@ const saveBufferLocally = async (fileBuffer, options = {}) => {
     };
 };
 
-const hasCloudinaryConfig = () => (
-    Boolean(process.env.CLOUDINARY_CLOUD_NAME)
-    && Boolean(process.env.CLOUDINARY_API_KEY)
-    && Boolean(process.env.CLOUDINARY_API_SECRET)
-);
+const hasCloudinaryConfig = () => {
+    const cfg = getCloudinaryConfig();
+    return Boolean(cfg.cloudName) && Boolean(cfg.apiKey) && Boolean(cfg.apiSecret);
+};
 
 const isCloudinaryStrictMode = () => {
     const explicit = process.env.CLOUDINARY_STRICT;
@@ -83,14 +89,15 @@ const isCloudinaryStrictMode = () => {
 };
 
 const ensureConfigured = () => {
+    const cfg = getCloudinaryConfig();
     if (!hasCloudinaryConfig()) {
         throw new Error('Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env');
     }
 
     cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET
+        cloud_name: cfg.cloudName,
+        api_key: cfg.apiKey,
+        api_secret: cfg.apiSecret
     });
 };
 
@@ -108,25 +115,50 @@ const uploadBuffer = async (fileBuffer, options = {}) => {
 
     try {
         ensureConfigured();
+        const folder = getCloudinaryFolder();
+        const originalName = String(options.original_filename || '').trim();
+        const originalExt = path.extname(originalName).toLowerCase();
+        const rawBaseName = originalExt ? path.basename(originalName, originalExt) : originalName;
+        const safeBaseName = sanitizeFileName(rawBaseName || 'syllabus');
+        const fallbackExt = originalExt || guessExtByMimeType(options.mimetype) || guessExtByBuffer(fileBuffer) || '.bin';
+
+        const uploadOptions = {
+            resource_type: 'raw',
+            folder,
+            use_filename: true,
+            unique_filename: true,
+            ...options
+        };
+
+        if (!uploadOptions.public_id) {
+            uploadOptions.public_id = `${safeBaseName}_${Date.now()}${fallbackExt}`;
+        }
+
+        console.log('[cloudinary.service] Starting Cloudinary upload with options:', uploadOptions);
+        
         return await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    resource_type: 'raw',
-                    folder: 'swd392/syllabus',
-                    use_filename: true,
-                    unique_filename: true,
-                    ...options
-                },
+                uploadOptions,
                 (error, result) => {
-                    if (error) return reject(error);
+                    if (error) {
+                        console.error('[cloudinary.service] Upload stream error:', error);
+                        return reject(error);
+                    }
+                    console.log('[cloudinary.service] Upload successful, URL:', result?.url);
                     return resolve(result);
                 }
             );
+
+            uploadStream.on('error', (err) => {
+                console.error('[cloudinary.service] Stream error:', err);
+                reject(err);
+            });
 
             Readable.from(fileBuffer).pipe(uploadStream);
         });
     } catch (error) {
         if (isCloudinaryStrictMode()) {
+            console.error('[cloudinary.service] STRICT MODE: Throwing error:', error.message);
             throw new Error(`Cloudinary upload failed: ${error.message}`);
         }
         console.warn('[cloudinary.service] cloud upload failed, fallback to local storage:', error.message);
