@@ -35,6 +35,7 @@ User.belongsToMany(StudentGroup, { through: GroupMember, foreignKey: 'studentId'
 // Topic Associations
 Topic.belongsTo(User, { foreignKey: 'proposedBy', as: 'proposer' });
 Topic.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
+Topic.belongsTo(Semester, { foreignKey: 'semesterId', as: 'semester' });
 Topic.hasMany(StudentGroup, { foreignKey: 'topicId', as: 'groups' });
 
 // Class Associations
@@ -44,6 +45,7 @@ Class.hasMany(StudentGroup, { foreignKey: 'classId', as: 'groups' });
 
 // Semester Associations
 Semester.hasMany(Class, { foreignKey: 'semesterId', as: 'classes' });
+Semester.hasMany(Topic, { foreignKey: 'semesterId', as: 'topics' });
 
 // StudentGroup Associations
 StudentGroup.belongsTo(Class, { foreignKey: 'classId', as: 'class' });

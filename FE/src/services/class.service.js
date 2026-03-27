@@ -149,6 +149,21 @@ const classService = {
       console.error(`Failed to remove student from class ${classId}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Get class students with online/activity insight for lecturer/manager
+   * @param {number} classId - The class ID
+   * @returns {Promise<Object>} { class, students }
+   */
+  getClassStudentsActivity: async (classId) => {
+    try {
+      const response = await api.get(`/classes/${classId}/students-activity`);
+      return response?.data || { class: null, students: [] };
+    } catch (error) {
+      console.error(`Failed to fetch student activity for class ${classId}:`, error);
+      throw error;
+    }
   }
 };
 

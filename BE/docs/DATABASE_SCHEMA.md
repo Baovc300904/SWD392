@@ -395,7 +395,8 @@ BE/
 │   │   │
 │   │   └── [old models for backward compatibility]
 │   │
-├── database-schema.sql (SQL reference)
+├── database/
+│   └── database-schema.sql (SQL reference)
 └── DATABASE_SCHEMA.md (this file)
 ```
 

@@ -8,6 +8,20 @@ const { Op } = require('sequelize');
 const MSG = require('../constants/messages');
 
 /**
+ * Auto-update semester status to 'Completed' if endDate < today.
+ * Runs at query time (no cronjob needed).
+ * @param {Array} semesters - Sequelize Semester instances
+ */
+const autoUpdateCompletedStatus = async (semesters) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pending = semesters.filter(s =>
+        s.status !== 'Completed' && new Date(s.endDate) < today
+    );
+    await Promise.all(pending.map(s => s.update({ status: 'Completed' })));
+};
+
+/**
  * @desc    Get all semesters
  * @route   GET /api/semesters
  * @access  Public
@@ -32,6 +46,9 @@ const getAllSemesters = async (req, res) => {
             where: whereClause,
             order: [['startDate', 'DESC']]
         });
+
+        // Auto-transition expired semesters to Completed
+        await autoUpdateCompletedStatus(semesters);
 
         res.status(200).json({
             success: true,
@@ -75,6 +92,9 @@ const getSemesterById = async (req, res) => {
                 detail: 'Semester not found'
             });
         }
+
+        // Auto-transition if expired
+        await autoUpdateCompletedStatus([semester]);
 
         res.status(200).json({
             success: true,

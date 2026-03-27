@@ -16,6 +16,7 @@ const {
     registerTopicForGroup
 } = require('../controllers/topic.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { topicSyllabusUpload } = require('../middleware/upload.middleware');
 
 /**
  * @swagger
@@ -80,7 +81,7 @@ const { authenticate, authorize } = require('../middleware/auth.middleware');
  *       401:
  *         description: Unauthorized
  */
-router.route('/').get(authenticate, getAllTopics).post(authenticate, authorize('lecturer'), createTopic);
+router.route('/').get(authenticate, getAllTopics).post(authenticate, authorize('lecturer'), topicSyllabusUpload, createTopic);
 
 /**
  * @swagger
@@ -104,7 +105,7 @@ router.route('/').get(authenticate, getAllTopics).post(authenticate, authorize('
  *       401:
  *         description: Unauthorized
  */
-router.route('/:id').get(authenticate, getTopicById).put(authenticate, authorize('lecturer'), updateTopic).delete(authenticate, authorize('lecturer', 'manager'), deleteTopic);
+router.route('/:id').get(authenticate, getTopicById).put(authenticate, authorize('lecturer'), topicSyllabusUpload, updateTopic).delete(authenticate, authorize('lecturer', 'manager'), deleteTopic);
 
 /**
  * @swagger
@@ -121,21 +122,30 @@ router.route('/:id').get(authenticate, getTopicById).put(authenticate, authorize
  *           schema:
  *             type: object
  *             required:
- *               - topicName
- *               - classId
+ *               - title
+ *               - semesterId
  *             properties:
- *               topicName:
+ *               title:
  *                 type: string
  *                 example: E-Learning Platform
  *               description:
  *                 type: string
  *                 example: Build an interactive e-learning web application
- *               classId:
+ *               semesterId:
  *                 type: integer
- *                 description: Class ID where topic belongs
+ *                 description: Semester ID where topic belongs. If omitted, backend uses active semester.
+ *               syllabusUrl:
+ *                 type: string
+ *                 description: Optional direct URL for syllabus document.
+ *               syllabusFile:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional syllabus file (pdf/doc/docx) uploaded to Cloudinary.
  *     responses:
  *       201:
  *         description: Topic created successfully (status=PENDING)
+ *       409:
+ *         description: Semester topic limit reached (code=SEMESTER_TOPIC_LIMIT)
  *       400:
  *         description: Bad request
  *       401:
@@ -222,6 +232,8 @@ router.route('/:id').get(authenticate, getTopicById).put(authenticate, authorize
  *     responses:
  *       200:
  *         description: Topic approved successfully (status changed to APPROVED)
+ *       409:
+ *         description: Semester topic limit reached (code=SEMESTER_TOPIC_LIMIT)
  *       404:
  *         description: Topic not found
  *       401:

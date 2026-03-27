@@ -7,7 +7,11 @@ const MAX_PORT_RETRY = 10;
 let server;
 
 function startServer(port, attempt = 0) {
+    // Keep runtime port in env so downstream services can build correct public URLs.
+    process.env.APP_RUNTIME_PORT = String(port);
+
     server = app.listen(port, () => {
+        process.env.APP_RUNTIME_PORT = String(port);
         console.log(`🚀 Server is running on port ${port}`);
         console.log(`📝 Environment: ${process.env.NODE_ENV}`);
         console.log(`🔗 URL: http://localhost:${port}`);

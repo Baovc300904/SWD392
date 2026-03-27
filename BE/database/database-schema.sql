@@ -52,10 +52,13 @@ CREATE TABLE topics (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
+    syllabus_url TEXT NULL,
     status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+    semester_id INT,
     proposed_by INT,
     approved_by INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE SET NULL,
     FOREIGN KEY (proposed_by) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -223,6 +226,9 @@ INSERT INTO users (id, student_code, full_name, email, avatar_url, password_hash
 (19, 'SE182694', 'Nguyễn Hải Yến', 'yennhse182694@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student'),
 (20, 'SE182695', 'Lâm Quốc Việt', 'vietlqse182695@fpt.edu.vn', 'https://res.cloudinary.com/dxkjhyrxn/image/upload/v1773721746/avatars/gthuckf7isik8hiybgqx.jpg', '$2b$10$74o/nlJkFNXtlD2MuIpH9.AfJ.pAqRpTj8oGF6gT4phOv9HFqdVYe', 'student');
 
+-- Verify toàn bộ user seed
+UPDATE users SET is_email_verified = TRUE WHERE id > 0;
+
 -- Seed User Settings mặc định
 INSERT INTO user_settings (user_id, enable_cloudinary_upload, enable_ai_assistant)
 SELECT id, TRUE, TRUE FROM users;
@@ -234,30 +240,100 @@ INSERT INTO semesters (id, name, start_date, end_date, status) VALUES
 (3, 'Fall 2025', '2025-09-01', '2025-12-20', 'Completed');
 
 -- Thêm Topics (Đề tài)
-INSERT INTO topics (id, title, description, status, proposed_by, approved_by) VALUES
-(1, 'Hệ thống Quản lý Đồ án SWD392', 'Xây dựng hệ thống quản lý có tích hợp AI Q&A.', 'APPROVED', 2, 1),
-(2, 'Ứng dụng Đặt Đồ Ăn Mobile', 'App Flutter kết nối Firebase.', 'APPROVED', 3, 1),
-(3, 'Nền tảng học Tiếng Anh AI', 'Dùng OpenAI để luyện giao tiếp.', 'PENDING', 2, NULL);
+INSERT INTO topics (id, title, description, status, proposed_by, approved_by, semester_id) VALUES
+
+-- ========================================================
+-- FALL 2025 (semester_id = 3) - Tối đa 8 đề tài về Xe điện
+-- ========================================================
+(1, 'Hệ thống Quản lý Trạm sạc Xe điện', 'App tìm kiếm, đặt chỗ trước và thanh toán tại trạm sạc EV.', 'APPROVED', 2, 1, 3),
+(2, 'Ứng dụng Cứu hộ Xe điện Khẩn cấp', 'Nền tảng kết nối chủ xe đang cạn pin với xe cứu hộ lưu động.', 'APPROVED', 3, 1, 3),
+(3, 'Hệ thống Chia sẻ Xe máy điện (E-Scooter)', 'Dịch vụ cho thuê xe máy điện tự phục vụ trong khuôn viên trường.', 'APPROVED', 2, 1, 3),
+(4, 'App Theo dõi Tuổi thọ Pin Xe điện', 'Tích hợp IoT để đọc chỉ số pin, dự đoán chu kỳ hỏng hóc.', 'PENDING', 4, NULL, 3),
+(5, 'Giải pháp Định tuyến Giao hàng bằng EV', 'Thuật toán tối ưu quãng đường cho đội xe tải điện để tiết kiệm pin.', 'APPROVED', 2, 1, 3),
+(6, 'Sàn TMĐT Linh kiện Xe điện', 'Chợ điện tử chuyên mua bán, trao đổi phụ tùng xe điện cũ/mới.', 'REJECTED', 3, NULL, 3),
+(7, 'App Tính toán Chi phí Vận hành EV', 'Công cụ mô phỏng và so sánh chi phí nuôi xe điện vs xe xăng.', 'PENDING', 2, NULL, 3),
+(8, 'Cộng đồng Đánh giá (Review) Xe điện', 'Mạng xã hội chia sẻ trải nghiệm các dòng xe VinFast, Tesla...', 'APPROVED', 4, 1, 3),
+
+-- ========================================================
+-- SPRING 2026 (semester_id = 1) - Các đề tài đa dạng
+-- ========================================================
+(9, 'Hệ thống Quản lý Đồ án SWD392', 'Xây dựng hệ thống quản lý có tích hợp AI Q&A.', 'APPROVED', 2, 1, 1),
+(10, 'Ứng dụng Đặt Đồ Ăn Mobile', 'App Flutter kết nối Firebase.', 'APPROVED', 3, 1, 1),
+(11, 'Nền tảng học Tiếng Anh AI', 'Dùng OpenAI để luyện giao tiếp.', 'REJECTED', 2, NULL, 1),
+(12, 'Nền tảng Quản lý năng suất SkillSprint', 'Ứng dụng quản lý tiến độ dự án và lộ trình phát triển kỹ năng AI.', 'APPROVED', 3, 1, 1),
+(13, 'Hệ thống Hỏi đáp (Q&A) môn SWP', 'Nền tảng trao đổi và giải đáp thắc mắc môn học, tối ưu bằng MongoDB.', 'PENDING', 4, NULL, 1),
+(14, 'Nền tảng Dinh dưỡng Thể hình', 'Hệ thống theo dõi lịch tập luyện và tính macro chuẩn pro builder.', 'APPROVED', 2, 1, 1);
 
 -- Thêm Classes (Lớp học)
 INSERT INTO classes (id, class_name, semester_id, lecturer_id) VALUES
 (1, 'SE1701', 1, 2),
-(2, 'SE1702', 1, 3);
+(2, 'SE1702', 1, 3),
+(3, 'SE1703', 1, 8),
+(4, 'SE1704', 1, 9);
 
--- Phân bổ Sinh viên vào Lớp
+-- ==============================================================================
+-- PHÂN BỔ SINH VIÊN VÀO LỚP (class_enrollments)
+-- Dựa trên danh sách ID từ 4->7 và 10->20
+-- ==============================================================================
 INSERT INTO class_enrollments (class_id, student_id) VALUES
-(1, 4), (1, 5), -- SV 4, 5 vào lớp SE1701
-(2, 6), (2, 7); -- SV 6, 7 vào lớp SE1702
+-- Lớp SE1701 (class_id = 1): 4 sinh viên
+(1, 4), (1, 5), (1, 6), (1, 7), 
 
--- Thêm Groups (Nhóm)
+-- Lớp SE1702 (class_id = 2): 4 sinh viên
+(2, 10), (2, 11), (2, 12), (2, 13),
+
+-- Lớp SE1703 (class_id = 3): 4 sinh viên
+(3, 14), (3, 15), (3, 16), (3, 17),
+
+-- Lớp SE1704 (class_id = 4): 3 sinh viên
+(4, 18), (4, 19), (4, 20);
+
+-- ==============================================================================
+-- THÊM GROUPS (Nhóm sinh viên)
+-- Dùng lại các topic_id của học kỳ SP26 (từ 9 đến 14) mà ta vừa tạo ở bước trước
+-- ==============================================================================
 INSERT INTO student_groups (id, group_name, class_id, topic_id) VALUES
-(1, 'Nhóm 1 - SWD Team', 1, 1),
-(2, 'Nhóm 2 - Flutter Team', 2, 2);
+(1, 'Nhóm 1 - SWD Team', 1, 9),        -- Lớp SE1701 làm đề tài: Quản lý Đồ án (topic_id 9)
+(2, 'Nhóm 2 - SkillSprint Makers', 1, 12), -- Lớp SE1701 làm đề tài: SkillSprint (topic_id 12)
 
--- Phân bổ Sinh viên vào Nhóm
-INSERT INTO group_members (group_id, student_id) VALUES
-(1, 4), (1, 5), -- SV 4, 5 vào nhóm 1
-(2, 6), (2, 7); -- SV 6, 7 vào nhóm 2
+(3, 'Nhóm 3 - Flutter Apps', 2, 10),     -- Lớp SE1702 làm đề tài: Đặt đồ ăn (topic_id 10)
+(4, 'Nhóm 4 - QA Builders', 2, 13),      -- Lớp SE1702 làm đề tài: Q&A SWP (topic_id 13)
+
+(5, 'Nhóm 5 - Fitness Devs', 3, 14),     -- Lớp SE1703 làm đề tài: Dinh dưỡng (topic_id 14)
+(6, 'Nhóm 6 - AI English', 3, 11),       -- Lớp SE1703 làm đề tài: Tiếng Anh AI (topic_id 11)
+
+(7, 'Nhóm 7 - Code Masters', 4, 9);      -- Lớp SE1704 làm đề tài: Quản lý Đồ án (topic_id 9) - Đề tài này có thể có nhiều nhóm làm
+
+-- Thêm thành viên vào nhóm theo đúng cấu trúc (group_id, student_id, joined_at)
+INSERT INTO group_members (group_id, student_id, joined_at) VALUES
+-- Nhóm 1: Khoa & Bảo VC
+(1, 4, CURRENT_TIMESTAMP), 
+(1, 5, CURRENT_TIMESTAMP),
+
+-- Nhóm 2: Hùng & My
+(2, 6, CURRENT_TIMESTAMP), 
+(2, 7, CURRENT_TIMESTAMP),
+
+-- Nhóm 3: Khánh & Gia Bảo
+(3, 10, CURRENT_TIMESTAMP), 
+(3, 11, CURRENT_TIMESTAMP),
+
+-- Nhóm 4: Long & Quân
+(4, 12, CURRENT_TIMESTAMP), 
+(4, 13, CURRENT_TIMESTAMP),
+
+-- Nhóm 5: Ánh & Nam
+(5, 14, CURRENT_TIMESTAMP), 
+(5, 15, CURRENT_TIMESTAMP),
+
+-- Nhóm 6: Linh & Hân
+(6, 16, CURRENT_TIMESTAMP), 
+(6, 17, CURRENT_TIMESTAMP),
+
+-- Nhóm 7: Thịnh, Yến & Việt (Nhóm 3 người)
+(7, 18, CURRENT_TIMESTAMP), 
+(7, 19, CURRENT_TIMESTAMP), 
+(7, 20, CURRENT_TIMESTAMP);
 
 -- Thêm Câu hỏi (Questions)
 INSERT INTO questions (id, title, content, group_id, asked_by, status, created_at) VALUES

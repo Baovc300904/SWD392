@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Plus, Search, Edit, Trash2, X, Save, Loader2,
-  Calendar, CheckCircle2, Clock, AlertCircle, RefreshCw
+  Calendar, CheckCircle2, Clock, Archive, RefreshCw, Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { semesterService } from '../../services/app.service';
@@ -11,7 +11,7 @@ function StatusBadge({ status }) {
   const map = {
     Active:    { bg: 'bg-green-100',  text: 'text-green-700',  icon: CheckCircle2 },
     Upcoming:  { bg: 'bg-blue-100',   text: 'text-blue-700',   icon: Clock },
-    Completed: { bg: 'bg-gray-100',   text: 'text-gray-600',   icon: AlertCircle },
+    Completed: { bg: 'bg-purple-100', text: 'text-purple-700', icon: Archive },
   };
   const cfg = map[status] || map.Upcoming;
   const Icon = cfg.icon;
@@ -22,6 +22,14 @@ function StatusBadge({ status }) {
     </span>
   );
 }
+
+/** Add exactly 3 months to a YYYY-MM-DD string */
+const addThreeMonths = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + 3);
+  return d.toISOString().slice(0, 10);
+};
 
 const emptyForm = { name: '', startDate: '', endDate: '', status: 'Upcoming' };
 
@@ -77,6 +85,16 @@ export function SemesterManagementView() {
     setForm(emptyForm);
   };
 
+  /** When startDate changes, auto-suggest endDate = startDate + 3 months */
+  const handleStartDateChange = (val) => {
+    setForm(f => ({
+      ...f,
+      startDate: val,
+      // Only auto-fill endDate if it's empty or hasn't been manually set
+      endDate: f.endDate ? f.endDate : addThreeMonths(val),
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.startDate || !form.endDate) {
@@ -126,6 +144,14 @@ export function SemesterManagementView() {
     return matchSearch && matchStatus;
   });
 
+  /* ── counts ── */
+  const counts = {
+    all: semesters.length,
+    Upcoming: semesters.filter(s => s.status === 'Upcoming').length,
+    Active: semesters.filter(s => s.status === 'Active').length,
+    Completed: semesters.filter(s => s.status === 'Completed').length,
+  };
+
   return (
     <div className="flex-1 overflow-auto bg-gray-50 p-8">
       {/* Header */}
@@ -152,27 +178,40 @@ export function SemesterManagementView() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6 flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      {/* Status count tiles */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {[
+          { key: 'all', label: 'All', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+          { key: 'Upcoming', label: 'Upcoming', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+          { key: 'Active', label: 'Active', color: 'bg-green-50 text-green-700 border-green-200' },
+          { key: 'Completed', label: 'Completed', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={`p-3 rounded-xl border-2 text-left transition font-medium text-sm ${
+              statusFilter === tab.key
+                ? 'border-[#F27125] shadow-md bg-white'
+                : `border-gray-100 ${tab.color} hover:border-gray-300`
+            }`}
+          >
+            <div className="text-2xl font-bold text-gray-900">{counts[tab.key]}</div>
+            <div>{tab.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search semesters..."
+            placeholder="Search semesters by name..."
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F27125]/30"
-        >
-          <option value="all">All Status</option>
-          <option value="Upcoming">Upcoming</option>
-          <option value="Active">Active</option>
-          <option value="Completed">Completed</option>
-        </select>
       </div>
 
       {/* Table */}
@@ -193,29 +232,68 @@ export function SemesterManagementView() {
                 <th className="px-6 py-3.5 font-semibold text-gray-600">Semester</th>
                 <th className="px-6 py-3.5 font-semibold text-gray-600">Start Date</th>
                 <th className="px-6 py-3.5 font-semibold text-gray-600">End Date</th>
+                <th className="px-6 py-3.5 font-semibold text-gray-600">Duration</th>
                 <th className="px-6 py-3.5 font-semibold text-gray-600">Status</th>
                 <th className="px-6 py-3.5 font-semibold text-gray-600 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filtered.map(sem => (
-                <tr key={sem.semesterId || sem.id} className="hover:bg-gray-50/60 transition">
-                  <td className="px-6 py-4 font-semibold text-gray-900">{sem.name}</td>
-                  <td className="px-6 py-4 text-gray-600">{sem.startDate?.slice(0,10)}</td>
-                  <td className="px-6 py-4 text-gray-600">{sem.endDate?.slice(0,10)}</td>
-                  <td className="px-6 py-4"><StatusBadge status={sem.status} /></td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEdit(sem)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-[#F27125] transition">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setDeleteTarget(sem)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-500 transition">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(sem => {
+                const isCompleted = sem.status === 'Completed';
+                /* compute duration in weeks */
+                const weeks = sem.startDate && sem.endDate
+                  ? Math.round((new Date(sem.endDate) - new Date(sem.startDate)) / (7 * 86400000))
+                  : null;
+                return (
+                  <tr
+                    key={sem.semesterId || sem.id}
+                    className={`hover:bg-gray-50/60 transition ${isCompleted ? 'opacity-75' : ''}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-gray-900 flex items-center gap-2">
+                        {isCompleted && <Lock className="w-3.5 h-3.5 text-purple-400" />}
+                        {sem.name}
+                      </div>
+                      {isCompleted && (
+                        <div className="text-xs text-purple-500 mt-0.5">Archived – read-only</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">{sem.startDate?.slice(0, 10)}</td>
+                    <td className="px-6 py-4 text-gray-600">{sem.endDate?.slice(0, 10)}</td>
+                    <td className="px-6 py-4 text-gray-400 text-xs">{weeks != null ? `${weeks} weeks` : '—'}</td>
+                    <td className="px-6 py-4"><StatusBadge status={sem.status} /></td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {isCompleted ? (
+                          <span
+                            title="Completed semesters cannot be modified"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-purple-400 bg-purple-50 rounded-lg cursor-not-allowed"
+                          >
+                            <Lock className="w-3 h-3" /> Archived
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => openEdit(sem)}
+                              className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-[#F27125] transition"
+                              title="Edit semester"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget(sem)}
+                              className="p-1.5 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-500 transition"
+                              title="Delete semester"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -254,7 +332,7 @@ export function SemesterManagementView() {
                   <input
                     type="date"
                     value={form.startDate}
-                    onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+                    onChange={e => handleStartDateChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30"
                     required
                   />
@@ -262,16 +340,30 @@ export function SemesterManagementView() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     End Date <span className="text-red-500">*</span>
+                    {form.startDate && form.endDate === addThreeMonths(form.startDate) && (
+                      <span className="ml-1 text-xs text-[#F27125] font-normal">(auto ~3 months)</span>
+                    )}
                   </label>
                   <input
                     type="date"
                     value={form.endDate}
                     onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+                    min={form.startDate || undefined}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30"
                     required
                   />
                 </div>
               </div>
+              {/* 3-month hint */}
+              {form.startDate && !form.endDate && (
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, endDate: addThreeMonths(f.startDate) }))}
+                  className="text-xs text-[#F27125] hover:underline"
+                >
+                  → Set end date to {addThreeMonths(form.startDate)} (3 months)
+                </button>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
                 <select

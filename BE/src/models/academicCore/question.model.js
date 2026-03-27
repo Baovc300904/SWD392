@@ -47,6 +47,11 @@ const Question = sequelize.define('Question', {
         type: DataTypes.ENUM('WAITING_LECTURER', 'ESCALATED_TO_MANAGER', 'RESOLVED'),
         defaultValue: 'WAITING_LECTURER'
     },
+    isPublic: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'is_public'
+    },
     createdAt: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW,
@@ -59,6 +64,7 @@ const Question = sequelize.define('Question', {
         { fields: ['group_id'] },
         { fields: ['asked_by'] },
         { fields: ['status'] },
+        { fields: ['is_public'] },
         { fields: ['created_at'] }
     ]
 });

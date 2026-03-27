@@ -1,5 +1,4 @@
 import api from '../config/api.config';
-import cloudinaryStorageService from './cloudinary-storage.service';
 
 /**
  * Topic Service
@@ -46,22 +45,19 @@ const topicService = {
     createTopic: async (topicData, syllabusFile = null) => {
         try {
             if (syllabusFile) {
-                if (cloudinaryStorageService.isEnabled()) {
-                    const uploaded = await cloudinaryStorageService.uploadFile(syllabusFile, 'topics/syllabus');
-                    const payload = {
-                        ...topicData,
-                        descriptionFile: uploaded.url,
-                    };
+                const formData = new FormData();
+                Object.entries(topicData || {}).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        formData.append(key, value);
+                    }
+                });
+                formData.append('syllabusFile', syllabusFile);
 
-                    const response = await api.post('/topics', payload);
-                    return topicService.extractPayload(response);
-                }
-
-                const payload = {
-                    ...topicData,
-                    descriptionFile: syllabusFile?.name || null,
-                };
-                const response = await api.post('/topics', payload);
+                const response = await api.post('/topics', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
                 return topicService.extractPayload(response);
             }
 
@@ -82,22 +78,19 @@ const topicService = {
     updateTopic: async (id, topicData, syllabusFile = null) => {
         try {
             if (syllabusFile) {
-                if (cloudinaryStorageService.isEnabled()) {
-                    const uploaded = await cloudinaryStorageService.uploadFile(syllabusFile, 'topics/syllabus');
-                    const payload = {
-                        ...topicData,
-                        descriptionFile: uploaded.url,
-                    };
+                const formData = new FormData();
+                Object.entries(topicData || {}).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        formData.append(key, value);
+                    }
+                });
+                formData.append('syllabusFile', syllabusFile);
 
-                    const response = await api.put(`/topics/${id}`, payload);
-                    return topicService.extractPayload(response);
-                }
-
-                const payload = {
-                    ...topicData,
-                    descriptionFile: syllabusFile?.name || null,
-                };
-                const response = await api.put(`/topics/${id}`, payload);
+                const response = await api.put(`/topics/${id}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
                 return topicService.extractPayload(response);
             }
 

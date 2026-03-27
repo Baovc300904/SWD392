@@ -5,6 +5,7 @@ import { TopicManagementView } from './TopicManagementView';
 import { QAManagementView } from './QAManagementView';
 import { GroupSubmissionView } from './GroupSubmissionView';
 import { LecturerClassesView } from './LecturerClassesView';
+import { LecturerStudentActivityView } from './LecturerStudentActivityView';
 import { NotificationBell } from '../ui/NotificationBell';
 import { usePortalNotifications } from '../../hooks/usePortalNotifications';
 
@@ -34,6 +35,8 @@ export function LecturerView({ onLogout, currentUser, onNavigate }) {
         return <LecturerDashboard onAction={handlePortalAction} />;
       case 'classes':
         return <LecturerClassesView />;
+      case 'students':
+        return <LecturerStudentActivityView />;
       case 'topics':
         return <TopicManagementView initialStatusFilter={viewFilters.topics} />;
       case 'qa':
