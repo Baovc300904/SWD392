@@ -96,10 +96,6 @@ export function QAForumView({ groupId }) {
             <h1 className="text-xl font-bold text-gray-900"># 💬 qa-forum</h1>
             <p className="text-sm text-gray-600 mt-0.5">Đặt câu hỏi và chia sẻ kiến thức</p>
           </div>
-          <button className="flex items-center gap-2 bg-[#F27125] hover:bg-[#d96420] text-white px-4 py-2 rounded-lg font-medium transition">
-            <Plus className="w-4 h-4" />
-            Câu hỏi mới
-          </button>
         </div>
 
         {/* Search */}
