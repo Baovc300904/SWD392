@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Send, Sparkles } from 'lucide-react';
-import { useAIChat } from '../../hooks/useAIChat';
 
 export function AIAssistantView() {
-  const { messages, sendMessage, isLoading, isTyping } = useAIChat();
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [input, setInput] = useState('');
 
   const suggestions = [
@@ -20,8 +21,26 @@ export function AIAssistantView() {
 
     const userMessage = input.trim();
     setInput('');
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-user`, role: 'user', content: userMessage },
+    ]);
 
-    await sendMessage(userMessage);
+    setIsLoading(true);
+    setIsTyping(true);
+
+    window.setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-assistant`,
+          role: 'assistant',
+          content: 'AI assistant demo mode: please connect a real chat hook/service to get live responses.',
+        },
+      ]);
+      setIsTyping(false);
+      setIsLoading(false);
+    }, 700);
   };
 
   const handleSuggestionClick = (suggestion) => {
