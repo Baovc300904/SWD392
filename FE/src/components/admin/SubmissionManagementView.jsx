@@ -5,9 +5,20 @@ import { classService, submissionService } from '../../services/app.service';
 
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
   if (Array.isArray(payload?.data)) return payload.data;
   return [];
 };
+
+const getClassId = (item) => item?.id ?? item?.classId ?? item?.class_id ?? '';
+const getClassName = (item) => item?.className ?? item?.class_name ?? item?.name ?? item?.classCode ?? item?.class_code ?? `Lớp #${getClassId(item)}`;
+
+const getSubmissionClassId = (item) =>
+  item?.group?.class?.id
+  ?? item?.group?.class?.classId
+  ?? item?.group?.classId
+  ?? item?.classId
+  ?? '';
 
 export function SubmissionManagementView() {
   const [classes, setClasses] = useState([]);
@@ -26,12 +37,15 @@ export function SubmissionManagementView() {
         submissionService.getAllSubmissions()
       ]);
 
-      const nextClasses = Array.isArray(classList) ? classList : [];
+      const nextClasses = toArray(classList);
       setClasses(nextClasses);
       setSubmissions(toArray(submissionResponse));
 
-      if (!selectedClassId && nextClasses[0]?.id) {
-        setSelectedClassId(String(nextClasses[0].id));
+      if (selectedClassId) {
+        const selectedStillExists = nextClasses.some((item) => String(getClassId(item)) === String(selectedClassId));
+        if (!selectedStillExists) {
+          setSelectedClassId('');
+        }
       }
     } catch (error) {
       console.error('Failed to load admin submissions:', error);
@@ -47,7 +61,7 @@ export function SubmissionManagementView() {
 
   const filteredSubmissions = useMemo(() => {
     if (!selectedClassId) return submissions;
-    return submissions.filter((item) => String(item.group?.class?.id || item.group?.classId || '') === String(selectedClassId));
+    return submissions.filter((item) => String(getSubmissionClassId(item)) === String(selectedClassId));
   }, [submissions, selectedClassId]);
 
   const openGradeModal = (submission) => {
@@ -108,7 +122,7 @@ export function SubmissionManagementView() {
         >
           <option value="">Tất cả lớp</option>
           {classes.map((item) => (
-            <option key={item.id} value={item.id}>{item.className}</option>
+            <option key={getClassId(item)} value={getClassId(item)}>{getClassName(item)}</option>
           ))}
         </select>
       </div>
