@@ -8,6 +8,8 @@ import authService from '../../services/auth.service';
  * List all topics with filtering and approval actions
  */
 export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
+  const MAX_LECTURER_APPROVED_TOPICS = 4;
+  const MAX_LECTURER_TOTAL_TOPICS = 8;
   const currentUser = authService.getCurrentUser();
   const canApproveTopics = currentUser?.role?.toLowerCase() === 'manager';
   const isLecturer = currentUser?.role?.toLowerCase() === 'lecturer';
@@ -28,6 +30,7 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
   const [previewZoom, setPreviewZoom] = useState(1);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const previewContainerRef = useRef(null);
+  const limitWarningShownRef = useRef(false);
 
   const extractSyllabusUrl = (topic) => topic?.syllabus?.url || topic?.syllabusUrl || null;
 
@@ -71,6 +74,38 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
       .replace(/\s+/g, ' ')
       .toLowerCase();
 
+  const normalizeId = (value) => {
+    const n = Number(value);
+    return Number.isNaN(n) ? String(value || '') : n;
+  };
+
+  const currentLecturerId = currentUser?.userId || currentUser?.id;
+
+  const lecturerTopics = isLecturer
+    ? topics.filter((topic) => {
+        const proposerId = topic?.proposer?.id || topic?.proposer?.userId || topic?.createdBy || topic?.lecturerId;
+        return proposerId != null && normalizeId(proposerId) === normalizeId(currentLecturerId);
+      })
+    : topics;
+
+  const lecturerApprovedOrActiveCount = lecturerTopics.filter((topic) => {
+    const status = String(topic?.status || '').toUpperCase();
+    return status === 'APPROVED' || status === 'ACTIVE';
+  }).length;
+
+  const lecturerTotalCount = lecturerTopics.length;
+
+  const getLecturerLimitWarning = () => {
+    if (!isLecturer) return null;
+    if (lecturerTotalCount >= MAX_LECTURER_TOTAL_TOPICS) {
+      return `Đã đủ ${MAX_LECTURER_TOTAL_TOPICS} topics của giảng viên. Bạn không thể tạo thêm.`;
+    }
+    if (lecturerApprovedOrActiveCount >= MAX_LECTURER_APPROVED_TOPICS) {
+      return `Đã đủ ${MAX_LECTURER_APPROVED_TOPICS} topics đang hoạt động của giảng viên. Bạn không thể tạo thêm.`;
+    }
+    return null;
+  };
+
   useEffect(() => {
     loadTopics();
   }, []);
@@ -78,6 +113,15 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
   useEffect(() => {
     setStatusFilter(initialStatusFilter || 'ALL');
   }, [initialStatusFilter]);
+
+  useEffect(() => {
+    if (!isLecturer || loading || limitWarningShownRef.current) return;
+    const warning = getLecturerLimitWarning();
+    if (warning) {
+      limitWarningShownRef.current = true;
+      window.alert(warning);
+    }
+  }, [isLecturer, loading, lecturerApprovedOrActiveCount, lecturerTotalCount]);
 
   const loadTopics = async () => {
     try {
@@ -98,6 +142,13 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
 
   const handleCreateTopic = async (e) => {
     e.preventDefault();
+
+    const limitWarning = getLecturerLimitWarning();
+    if (limitWarning) {
+      window.alert(limitWarning);
+      return;
+    }
+
     if (!formData.title.trim()) {
       alert('Vui lòng nhập tiêu đề đề tài');
       return;
@@ -261,7 +312,14 @@ export function TopicManagementView({ initialStatusFilter = 'ALL' }) {
             <p className="text-sm text-gray-600 mt-1">Quản lý đề tài và theo dõi trạng thái duyệt</p>
           </div>
           <button
-            onClick={() => setShowCreateForm((prev) => !prev)}
+            onClick={() => {
+              const warning = getLecturerLimitWarning();
+              if (warning) {
+                window.alert(warning);
+                return;
+              }
+              setShowCreateForm((prev) => !prev);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-[#F27125] hover:bg-[#d96420] text-white rounded-lg font-medium transition-colors shadow-md"
           >
             <Plus className="w-4 h-4" />
