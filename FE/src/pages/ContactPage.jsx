@@ -42,7 +42,7 @@ export function ContactPage({ onNavigate }) {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 h-14 border-b"
         style={{ background: 'rgba(10,11,15,0.85)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.06)' }}>
         <button onClick={() => onNavigate('landing', { replace: true })} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
-          <ArrowLeft className="w-4 h-4" /> Back to Home
+          <ArrowLeft className="w-4 h-4" /> Quay về trang chủ
         </button>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#F27125,#d96420)' }}>S</div>

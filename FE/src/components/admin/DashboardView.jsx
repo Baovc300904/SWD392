@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Users, FileCheck, Clock, Activity, TrendingUp, CheckCircle } from 'lucide-react';
-import { topicService, groupService, submissionService } from '../../services/app.service';
+import { topicService, groupService, submissionService, semesterService } from '../../services/app.service';
 import questionService from '../../services/question.service';
 import taskService from '../../services/task.service';
 import userService from '../../services/user.service';
@@ -13,16 +13,16 @@ const toArray = (value) => {
 };
 
 const formatAgo = (dateValue) => {
-  if (!dateValue) return 'N/A';
+  if (!dateValue) return 'Không có';
   const now = Date.now();
   const then = new Date(dateValue).getTime();
-  if (Number.isNaN(then)) return 'N/A';
+  if (Number.isNaN(then)) return 'Không có';
   const diffMinutes = Math.max(1, Math.floor((now - then) / 60000));
-  if (diffMinutes < 60) return `${diffMinutes} minute(s) ago`;
+  if (diffMinutes < 60) return `${diffMinutes} phút trước`;
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours} hour(s) ago`;
+  if (diffHours < 24) return `${diffHours} giờ trước`;
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day(s) ago`;
+  return `${diffDays} ngày trước`;
 };
 
 export function DashboardView() {
@@ -33,18 +33,20 @@ export function DashboardView() {
     escalatedQuestions: 0,
     gradedSubmissions: 0
   });
+  const [activeSemesterName, setActiveSemesterName] = useState('Không có');
   const [recentActivities, setRecentActivities] = useState([]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [usersRes, topicsRes, questionsRes, groupsRes, submissionsRes, tasksRes] = await Promise.all([
+      const [usersRes, topicsRes, questionsRes, groupsRes, submissionsRes, tasksRes, activeSemesterRes] = await Promise.all([
         userService.getAllUsers(),
         topicService.getAllTopics(),
         questionService.getAllQuestions(),
         groupService.getAllGroups(),
         submissionService.getAllSubmissions(),
-        taskService.getAllTasks()
+        taskService.getAllTasks(),
+        semesterService.getActiveSemester().catch(() => null)
       ]);
 
       const users = toArray(usersRes);
@@ -53,14 +55,30 @@ export function DashboardView() {
       const groups = toArray(groupsRes);
       const submissions = toArray(submissionsRes);
       const tasks = toArray(tasksRes);
+      const activeSemester = activeSemesterRes?.data?.data || activeSemesterRes?.data || null;
 
-      const approvedTopics = topics.filter((item) => String(item.status || '').toUpperCase() === 'APPROVED').length;
+      const normalizeId = (value) => {
+        const n = Number(value);
+        return Number.isNaN(n) ? String(value || '') : n;
+      };
+
+      const activeSemesterId = activeSemester?.id != null ? normalizeId(activeSemester.id) : null;
+      setActiveSemesterName(activeSemester?.name || activeSemester?.semesterName || activeSemester?.semesterCode || 'Không có');
+
+      const activeTopics = topics.filter((item) => {
+        const status = String(item.status || '').toUpperCase();
+        const isActiveStatus = status === 'ACTIVE' || status === 'APPROVED';
+        if (!isActiveStatus) return false;
+        if (activeSemesterId == null) return false;
+        const topicSemesterId = item.semesterId ?? item.semester?.id;
+        return topicSemesterId != null && normalizeId(topicSemesterId) === activeSemesterId;
+      }).length;
       const escalatedQuestions = questions.filter((item) => String(item.status || '').toUpperCase() === 'ESCALATED_TO_MANAGER').length;
       const gradedSubmissions = submissions.filter((item) => String(item.status || '').toUpperCase() === 'GRADED').length;
 
       setStats({
         totalUsers: users.length,
-        activeTopics: approvedTopics,
+        activeTopics,
         escalatedQuestions,
         gradedSubmissions
       });
@@ -70,9 +88,9 @@ export function DashboardView() {
           topicStatus: String(topic.status || '').toUpperCase(),
           id: `topic_${topic.id}`,
           type: 'submission',
-          user: topic.proposer?.fullName || 'Unknown',
-          email: topic.proposer?.email || 'N/A',
-          action: `Submitted topic: ${topic.title || 'Untitled'}`,
+          user: topic.proposer?.fullName || 'Không xác định',
+          email: topic.proposer?.email || 'Không có',
+          action: `Đã gửi đề tài: ${topic.title || 'Chưa đặt tiêu đề'}`,
           timestampRaw: topic.createdAt,
           status:
             String(topic.status || '').toUpperCase() === 'APPROVED'
@@ -84,36 +102,36 @@ export function DashboardView() {
         ...questions.map((question) => ({
           id: `question_${question.id}`,
           type: 'login',
-          user: question.asker?.fullName || 'Unknown',
-          email: question.asker?.email || 'N/A',
-          action: `Asked Q&A: ${question.title || 'Untitled question'}`,
+          user: question.asker?.fullName || 'Không xác định',
+          email: question.asker?.email || 'Không có',
+          action: `Đã đặt câu hỏi: ${question.title || 'Chưa đặt tiêu đề'}`,
           timestampRaw: question.createdAt,
           status: String(question.status || '').toUpperCase() === 'RESOLVED' ? 'success' : 'pending'
         })),
         ...groups.map((group) => ({
           id: `group_${group.id}`,
           type: 'approval',
-          user: 'System',
-          email: 'N/A',
-          action: `Created group: ${group.groupName || 'Unnamed group'}`,
+          user: 'Hệ thống',
+          email: 'Không có',
+          action: `Đã tạo nhóm: ${group.groupName || 'Nhóm chưa đặt tên'}`,
           timestampRaw: group.createdAt,
           status: 'success'
         })),
         ...submissions.map((submission) => ({
           id: `submission_${submission.id}`,
           type: 'submission_review',
-          user: submission.submitter?.fullName || 'Unknown',
-          email: submission.submitter?.email || 'N/A',
-          action: `Submitted milestone: ${submission.milestoneName || `#${submission.id}`}`,
+          user: submission.submitter?.fullName || 'Không xác định',
+          email: submission.submitter?.email || 'Không có',
+          action: `Đã nộp mốc: ${submission.milestoneName || `#${submission.id}`}`,
           timestampRaw: submission.submittedAt || submission.createdAt,
           status: String(submission.status || '').toUpperCase() === 'GRADED' ? 'success' : 'pending'
         })),
         ...tasks.map((task) => ({
           id: `task_${task.id}`,
           type: 'task',
-          user: task.creator?.fullName || 'Unknown',
-          email: task.creator?.email || 'N/A',
-          action: `Created task: ${task.title || 'Untitled task'}`,
+          user: task.creator?.fullName || 'Không xác định',
+          email: task.creator?.email || 'Không có',
+          action: `Đã tạo công việc: ${task.title || 'Chưa đặt tiêu đề'}`,
           timestampRaw: task.createdAt,
           status: String(task.status || '').toUpperCase() === 'DONE' ? 'success' : 'pending'
         }))
@@ -137,38 +155,38 @@ export function DashboardView() {
 
   const cardItems = useMemo(() => ([
     {
-      label: 'Total Users',
+      label: 'Tổng người dùng',
       value: stats.totalUsers,
-      change: 'From current system data',
+      change: 'Theo dữ liệu hiện tại',
       icon: Users,
       lightBg: 'bg-[#F27125]/10',
       textColor: 'text-[#F27125]'
     },
     {
-      label: 'Active Topics',
+      label: 'Đề tài đang hoạt động',
       value: stats.activeTopics,
-      change: 'Approved topics',
+      change: `Học kỳ hiện tại: ${activeSemesterName}`,
       icon: FileCheck,
       lightBg: 'bg-[#F27125]/10',
       textColor: 'text-[#F27125]'
     },
     {
-      label: 'Escalated Q&A',
+      label: 'Q&A chuyển cấp',
       value: stats.escalatedQuestions,
-      change: 'Need manager attention',
+      change: 'Cần quản lý xử lý',
       icon: Clock,
       lightBg: 'bg-[#F27125]/10',
       textColor: 'text-[#F27125]'
     },
     {
-      label: 'Graded Submissions',
+      label: 'Bài nộp đã chấm',
       value: stats.gradedSubmissions,
-      change: 'Across all classes',
+      change: 'Toàn bộ lớp học',
       icon: Activity,
       lightBg: 'bg-[#F27125]/10',
       textColor: 'text-[#F27125]'
     }
-  ]), [stats]);
+  ]), [stats, activeSemesterName]);
 
   return (
     <>
@@ -194,26 +212,26 @@ export function DashboardView() {
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
-          <p className="text-sm text-gray-500 mt-1 font-medium">Latest events from topics, Q&A, groups, submissions, and tasks</p>
+          <h2 className="text-xl font-bold text-gray-900">Hoạt động gần đây</h2>
+          <p className="text-sm text-gray-500 mt-1 font-medium">Sự kiện mới nhất từ đề tài, Hỏi đáp, nhóm, bài nộp và công việc</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Loại</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Người dùng</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Hành động</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Thời gian</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Trạng thái</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading ? (
-                <tr><td colSpan="6" className="px-6 py-6 text-sm text-gray-500 text-center">Loading...</td></tr>
+                <tr><td colSpan="6" className="px-6 py-6 text-sm text-gray-500 text-center">Đang tải...</td></tr>
               ) : recentActivities.length === 0 ? (
-                <tr><td colSpan="6" className="px-6 py-6 text-sm text-gray-500 text-center">No recent activities</td></tr>
+                <tr><td colSpan="6" className="px-6 py-6 text-sm text-gray-500 text-center">Không có hoạt động gần đây</td></tr>
               ) : (
                 recentActivities.map((activity) => (
                   <tr key={activity.id} className="hover:bg-gray-50 transition">
@@ -224,7 +242,7 @@ export function DashboardView() {
                         activity.type === 'submission_review' ? 'bg-orange-100 text-orange-700' :
                         activity.type === 'task' ? 'bg-sky-100 text-sky-700' : 'bg-green-100 text-green-700'
                       }`}>
-                        {activity.type === 'login' ? 'Q&A' : activity.type === 'submission' ? 'Topic' : activity.type === 'submission_review' ? 'Submission' : activity.type === 'task' ? 'Task' : 'Group'}
+                        {activity.type === 'login' ? 'Hỏi đáp' : activity.type === 'submission' ? 'Đề tài' : activity.type === 'submission_review' ? 'Bài nộp' : activity.type === 'task' ? 'Công việc' : 'Nhóm'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900">{activity.user}</div></td>
@@ -233,11 +251,11 @@ export function DashboardView() {
                     <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm text-gray-600">{activity.timestamp}</div></td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {activity.status === 'success' ? (
-                        <div className="flex items-center gap-1.5 text-green-600"><CheckCircle className="w-4 h-4" /><span className="text-xs font-medium">Success</span></div>
+                        <div className="flex items-center gap-1.5 text-green-600"><CheckCircle className="w-4 h-4" /><span className="text-xs font-medium">Thành công</span></div>
                       ) : activity.status === 'rejected' ? (
-                        <div className="flex items-center gap-1.5 text-red-600"><Clock className="w-4 h-4" /><span className="text-xs font-medium">Rejected</span></div>
+                        <div className="flex items-center gap-1.5 text-red-600"><Clock className="w-4 h-4" /><span className="text-xs font-medium">Từ chối</span></div>
                       ) : (
-                        <div className="flex items-center gap-1.5 text-orange-600"><Clock className="w-4 h-4" /><span className="text-xs font-medium">Pending</span></div>
+                        <div className="flex items-center gap-1.5 text-orange-600"><Clock className="w-4 h-4" /><span className="text-xs font-medium">Chờ xử lý</span></div>
                       )}
                     </td>
                   </tr>

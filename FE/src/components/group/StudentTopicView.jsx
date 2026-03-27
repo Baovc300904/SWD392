@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import topicService from '../../services/topic.service';
 import groupService from '../../services/group.service';
+import { semesterService } from '../../services/app.service';
 
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -21,6 +22,7 @@ const toArray = (payload) => {
 export function StudentTopicView({ groupId }) {
   const [group, setGroup] = useState(null);
   const [topics, setTopics] = useState([]);
+  const [activeSemester, setActiveSemester] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState(null);
 
@@ -34,15 +36,30 @@ export function StudentTopicView({ groupId }) {
 
     try {
       setLoading(true);
-      const [groupData, topicsData] = await Promise.all([
+      const [groupData, activeSemesterRes] = await Promise.all([
         groupService.getGroupById(groupId),
-        topicService.getAllTopics({ status: 'APPROVED' })
+        semesterService.getActiveSemester().catch(() => null)
       ]);
 
+      const currentSemester = activeSemesterRes?.data || null;
+      setActiveSemester(currentSemester);
       setGroup(groupData);
+
+      if (!currentSemester?.id) {
+        setTopics([]);
+        return;
+      }
+
+      const topicFilters = {
+        status: 'APPROVED',
+        semesterId: currentSemester.id
+      };
+
+      const topicsData = await topicService.getAllTopics(topicFilters);
       setTopics(toArray(topicsData));
     } catch (error) {
       console.error('Failed to load topic data:', error);
+      setActiveSemester(null);
       toast.error(error?.message || 'Không thể tải danh sách đề tài');
     } finally {
       setLoading(false);
@@ -88,6 +105,9 @@ export function StudentTopicView({ groupId }) {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Đề tài của nhóm</h2>
           <p className="text-gray-500 text-sm mt-1">Sinh viên chỉ được chọn từ danh sách đề tài đã được duyệt.</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Học kỳ hiện tại: <span className="font-semibold text-gray-700">{activeSemester?.name || 'Chưa xác định'}</span>
+          </p>
         </div>
         <button
           onClick={loadData}
@@ -111,6 +131,9 @@ export function StudentTopicView({ groupId }) {
                 </span>
               </div>
               <p className="text-sm text-gray-700 leading-relaxed">{selectedTopic.description || 'Không có mô tả.'}</p>
+              <p className="text-xs text-gray-600 mt-2">
+                Học kỳ: <span className="font-semibold">{selectedTopic?.semester?.name || activeSemester?.name || 'Chưa xác định'}</span>
+              </p>
               {selectedTopic.descriptionFile && (
                 <a
                   href={selectedTopic.descriptionFile}
@@ -155,7 +178,8 @@ export function StudentTopicView({ groupId }) {
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
                       <h4 className="font-bold text-gray-900 leading-snug">{topic.title}</h4>
-                      <p className="text-xs text-gray-500 mt-1">Đề xuất bởi {topic.proposer?.fullName || 'Lecturer'}</p>
+                      <p className="text-xs text-gray-500 mt-1">Đề xuất bởi {topic.proposer?.fullName || 'Giảng viên'}</p>
+                      <p className="text-xs text-gray-500 mt-1">Học kỳ: {topic.semester?.name || activeSemester?.name || 'Chưa xác định'}</p>
                     </div>
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
                       APPROVED

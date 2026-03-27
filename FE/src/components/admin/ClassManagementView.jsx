@@ -40,7 +40,7 @@ export function ClassManagementView() {
       if (searchTerm.trim()) params.search = searchTerm.trim();
       const res = await classService.getAllClasses(params);
       setClasses(Array.isArray(res?.data) ? res.data : []);
-    } catch { toast.error('Failed to load classes'); }
+    } catch { toast.error('Không thể tải danh sách lớp'); }
     finally { setLoading(false); }
   };
 
@@ -125,7 +125,7 @@ export function ClassManagementView() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Class Management</h1>
-          <p className="text-gray-500 mt-1">Manage classes and student enrollment</p>
+          <p className="text-gray-500 mt-1">Quản lý lớp và danh sách sinh viên</p>
         </div>
         <div className="flex gap-3">
           <button onClick={fetchClasses} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 text-sm transition">
@@ -141,7 +141,7 @@ export function ClassManagementView() {
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6 flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search classes..."
+          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Tìm lớp học..."
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F27125]/30" />
         </div>
         <select value={lecturerFilter} onChange={e => setLecturerFilter(e.target.value)}
@@ -158,7 +158,7 @@ export function ClassManagementView() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <School className="w-12 h-12 mx-auto mb-3 opacity-40" />
-            <p className="font-medium">No classes found</p>
+            <p className="font-medium">Không tìm thấy lớp học</p>
           </div>
         ) : (
           <table className="w-full text-sm">

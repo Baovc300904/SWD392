@@ -88,7 +88,7 @@ const questionService = {
             return questionService.extractPayload(response);
         } catch (error) {
             const detail = error?.response?.data?.detail || error?.response?.data?.error;
-            const message = error?.response?.data?.message || error?.message || 'Unknown error';
+            const message = error?.response?.data?.message || error?.message || 'Lỗi không xác định';
             throw new Error(detail || message);
         }
     },

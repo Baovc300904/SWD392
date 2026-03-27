@@ -22,7 +22,7 @@ import { messageService } from '../../services/message.service';
 
 export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavigate, groupId }) {
   const [showChannels, setShowChannels] = useState(true);
-  const [currentUser, setCurrentUser] = useState({ name: 'Loading...', role: 'user' });
+  const [currentUser, setCurrentUser] = useState({ name: 'Đang tải...', role: 'user' });
   const [showDMs, setShowDMs] = useState(true);
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -272,7 +272,7 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavig
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white rounded transition"
             >
               <UserCircle className="w-4 h-4" />
-              <span>My Profile</span>
+              <span>Hồ sơ của tôi</span>
             </button>
           )}
           <button
@@ -280,7 +280,7 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavig
             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white rounded transition"
           >
             <Settings className="w-4 h-4" />
-            <span>Settings</span>
+            <span>Cài đặt</span>
           </button>
           {onLogout && (
             <button
@@ -288,7 +288,7 @@ export function SlackSidebar({ activeChannel, onChannelChange, onLogout, onNavig
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:bg-red-500/20 hover:text-red-400 rounded transition group"
             >
               <LogOut className="w-4 h-4 group-hover:text-red-400 transition" />
-              <span>Log Out</span>
+              <span>Đăng xuất</span>
             </button>
           )}
         </div>

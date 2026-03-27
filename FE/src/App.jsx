@@ -176,9 +176,9 @@ function ProtectedRoute({ allowedRoles, children }) {
         <div className="flex items-center justify-center h-screen bg-gray-50">
           <div className="text-center p-8 max-w-md">
             <div className="text-6xl mb-4">🚫</div>
-            <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
+            <h2 className="text-2xl font-bold text-red-600 mb-2">Truy cập bị từ chối</h2>
             <p className="text-gray-600 mb-4">
-              Your role cannot access this page.
+              Vai trò của bạn không thể truy cập trang này.
             </p>
             <button
               onClick={() => {
@@ -187,7 +187,7 @@ function ProtectedRoute({ allowedRoles, children }) {
               }}
               className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
             >
-              Logout & Login Again
+              Đăng xuất và đăng nhập lại
             </button>
           </div>
         </div>
@@ -218,12 +218,12 @@ function NotFoundPage({ onNavigate }) {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <div className="text-8xl font-bold text-gray-200 mb-4">404</div>
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Page not found</h1>
-        <p className="text-gray-500 mb-6">The page you are looking for does not exist.</p>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Không tìm thấy trang</h1>
+        <p className="text-gray-600 mb-6">Trang bạn đang tìm không tồn tại.</p>
         <button
           onClick={() => onNavigate('landing')}
           className="px-6 py-3 bg-[#F27125] hover:bg-[#d96420] text-white font-semibold rounded-lg transition">
-          Back to Home
+          Quay về trang chủ
         </button>
       </div>
     </div>

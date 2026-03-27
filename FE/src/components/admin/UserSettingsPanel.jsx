@@ -60,7 +60,7 @@ export default function UserSettingsPanel() {
             ...prev,
             [key]: newValue
           }));
-          toast.success('Settings updated');
+          toast.success('Đã cập nhật cài đặt');
         }
       }
     } catch (error) {
@@ -75,7 +75,7 @@ export default function UserSettingsPanel() {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="w-5 h-5 animate-spin text-blue-600 mr-2" />
-        <span className="text-gray-600">Loading settings...</span>
+        <span className="text-gray-600">Đang tải cài đặt...</span>
       </div>
     );
   }
@@ -84,7 +84,7 @@ export default function UserSettingsPanel() {
     <div className="bg-white rounded-lg shadow border border-gray-200">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800">Upload & AI Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-800">Cài đặt Tải lên & AI</h3>
         <p className="text-sm text-gray-500 mt-1">Configure your file upload and AI assistant preferences</p>
       </div>
 
@@ -153,7 +153,7 @@ export default function UserSettingsPanel() {
       <div className="px-6 py-4 bg-blue-50 border-t border-blue-200 rounded-b-lg flex items-start gap-3">
         <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
         <div className="text-sm text-blue-800">
-          <p className="font-medium">Settings are automatically saved</p>
+          <p className="font-medium">Cài đặt được lưu tự động</p>
           <p className="mt-1 text-blue-700">Your preferences will be remembered across sessions</p>
         </div>
       </div>
